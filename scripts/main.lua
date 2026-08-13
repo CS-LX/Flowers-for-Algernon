@@ -2,11 +2,18 @@
 -- 当前版本：正交相机 + 30 度俯视 + 六个三棱柱体素组成中央六边形
 
 local VoxelRenderer = require "VoxelRenderer"
+local VoxelSandbox = require "VoxelSandbox"
 
 ---@type Scene|nil
 local scene_ = nil
 ---@type Node|nil
 local cameraNode_ = nil
+---@type Camera|nil
+local camera_ = nil
+---@type DebugRenderer|nil
+local debugRenderer_ = nil
+---@type VoxelSandbox|nil
+local sandbox_ = nil
 
 local CONFIG = {
     title = "Hexagon Visual Challenge",
@@ -40,23 +47,46 @@ function Start()
     graphics.windowTitle = CONFIG.title
     CreateScene()
     SetupCamera()
-    CreateHexagonVoxelAssembly()
 
-    print("=== Hexagon Visual Challenge Started ===")
+    sandbox_ = VoxelSandbox.New(
+        scene_,
+        cameraNode_,
+        camera_,
+        debugRenderer_,
+        CONFIG.voxelEdge,
+        CONFIG.voxelHeight
+    )
+    sandbox_:Start()
+
+    SubscribeToEvent("Update", "HandleUpdate")
     print("Scene: 3D voxel scene created")
     print("Camera: orthographic, 30 degree downward view")
     print("Content: six colored triangular-prism voxels created")
 end
 
 function Stop()
+    if sandbox_ then
+        sandbox_:Stop()
+        sandbox_ = nil
+    end
     scene_ = nil
     cameraNode_ = nil
+    camera_ = nil
+    debugRenderer_ = nil
+end
+
+---@param eventType string
+---@param eventData UpdateEventData
+function HandleUpdate(eventType, eventData)
+    if sandbox_ then
+        sandbox_:Refresh()
+    end
 end
 
 function CreateScene()
     scene_ = Scene()
     scene_:CreateComponent("Octree")
-    scene_:CreateComponent("DebugRenderer")
+    debugRenderer_ = scene_:CreateComponent("DebugRenderer")
 
     local lightGroupFile = cache:GetResource("XMLFile", "LightGroup/Daytime.xml")
     local lightGroup = scene_:CreateChild("LightGroup")
@@ -81,6 +111,7 @@ function SetupCamera()
     cameraNode_:LookAt(Vector3(0, 0, 0))
 
     local camera = cameraNode_:CreateComponent("Camera")
+    camera_ = camera
     camera.orthographic = true
     camera.orthoSize = CONFIG.cameraOrthoSize
     camera.nearClip = CONFIG.cameraNearClip
