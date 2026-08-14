@@ -2,7 +2,11 @@
 -- 文档数据、网格拓扑、工具命令、相机和渲染节点分离。
 
 local UI = require("urhox-libs/UI")
-local PackedTriGrid = require "PackedTriGrid"
+local TriPrismGrid = require "TriPrismGrid"
+local EditorContext = require "EditorContext"
+local PendingEdit = require "PendingEdit"
+local VoxelBrush = require "VoxelBrush"
+local Modifier = require "Modifier"
 local VoxelDocument = require "VoxelDocument"
 local VoxelHistory = require "VoxelHistory"
 local VoxelRenderer = require "VoxelRenderer"
@@ -21,9 +25,9 @@ end
 local function CopyCell(cell)
     if not cell then return nil end
     return {
-        i = cell.i,
-        j = cell.j,
-        parity = cell.parity,
+        hexQ = cell.hexQ,
+        hexR = cell.hexR,
+        sector = cell.sector,
         layer = cell.layer,
         rotation = cell.rotation,
         material = cell.material,
@@ -49,12 +53,20 @@ function VoxelSandbox.New(scene, cameraNode, camera, debugRenderer, edgeLength, 
     self.cameraNode = cameraNode
     self.camera = camera
     self.debugRenderer = debugRenderer
-    self.grid = PackedTriGrid.New(edgeLength, voxelHeight)
+    self.grid = TriPrismGrid.New(edgeLength, voxelHeight)
     self.document = VoxelDocument.New(self.grid)
+    self.context = EditorContext.New(self.grid, self.document)
+    self.pendingEdit = PendingEdit.New(self.document)
     self.history = VoxelHistory.New(self.document, function()
         self:RebuildDocumentScene()
         self:UpdateDocumentStatus()
     end)
+    self.brush = VoxelBrush.New(self.grid, self.document, self.pendingEdit)
+    self.modifier = Modifier.New(self.document, self.history, self.context, self.pendingEdit, function()
+        self:UpdateDocumentStatus()
+    end)
+    self.modifier:SetBrush(self.brush)
+    self.modifier:Activate()
     self.edgeLength = edgeLength
     self.voxelHeight = voxelHeight
     self.tool = "place"
@@ -77,7 +89,9 @@ function VoxelSandbox.New(scene, cameraNode, camera, debugRenderer, edgeLength, 
     self.projection = "orthographic"
     self.orthoSize = 10.0
     self.fov = 45.0
-    self.uiRoot = nil
+    self.context.activeLayer = self.activeLayer
+    self.context.activeMaterial = self.activeMaterial
+    self.context.projection = self.projection
     self.toolLabel = nil
     self.layerLabel = nil
     self.projectionLabel = nil
@@ -98,11 +112,15 @@ end
 
 function VoxelSandbox:CreateInitialDocument()
     local initial = {
-        { i = 0, j = 0, parity = 0, layer = 0, rotation = 0, material = 1 },
-        { i = 0, j = 0, parity = 1, layer = 0, rotation = 0, material = 2 },
-        { i = -1, j = 0, parity = 0, layer = 0, rotation = 0, material = 3 },
-        { i = 0, j = -1, parity = 1, layer = 0, rotation = 0, material = 4 },
-        { i = 0, j = 0, parity = 0, layer = 1, rotation = 0, material = 5 },
+        { hexQ = 0, hexR = 0, sector = 0, layer = 0, rotation = 0, material = 1 },
+        { hexQ = 0, hexR = 0, sector = 1, layer = 0, rotation = 0, material = 2 },
+        { hexQ = 0, hexR = 0, sector = 2, layer = 0, rotation = 0, material = 3 },
+        { hexQ = 0, hexR = 0, sector = 3, layer = 0, rotation = 0, material = 4 },
+        { hexQ = 0, hexR = 0, sector = 4, layer = 0, rotation = 0, material = 5 },
+        { hexQ = 0, hexR = 0, sector = 5, layer = 0, rotation = 0, material = 6 },
+        { hexQ = 1, hexR = 0, sector = 3, layer = 0, rotation = 0, material = 2 },
+        { hexQ = 0, hexR = 1, sector = 4, layer = 0, rotation = 0, material = 3 },
+        { hexQ = 0, hexR = 0, sector = 0, layer = 1, rotation = 0, material = 2 },
     }
     for _, cell in ipairs(initial) do
         self.document:Set(cell)
@@ -229,17 +247,29 @@ end
 function VoxelSandbox:SetTool(tool)
     self.tool = tool
     local names = { place = "笔刷", erase = "擦除", select = "选择", box = "框选", fill = "填充", picker = "吸管" }
+    self.context.tool = self.tool
+    self.context.activeLayer = self.activeLayer
+    self.context.activeMaterial = self.activeMaterial
+    self.brush:SetMode(tool == "erase" and "erase" or "place")
+    if self.modifier then
+        self.modifier:SetMode(tool == "erase" and "erase" or "place")
+    end
     self.toolLabel:SetText("工具：" .. (names[tool] or tool))
+    if self.modifier and self.context.isDragging then
+        self.modifier:Abort()
+    end
     self.dragActive = false
 end
 
 function VoxelSandbox:SetLayer(layer)
-    self.activeLayer = Clamp(layer, -16, 16)
+    self.activeLayer = Clamp(layer, 0, 16)
+    self.context.activeLayer = self.activeLayer
     self.layerLabel:SetText("层：" .. tostring(self.activeLayer))
 end
 
 function VoxelSandbox:ToggleProjection()
     self.projection = self.projection == "orthographic" and "perspective" or "orthographic"
+    self.context.projection = self.projection
     self.camera.orthographic = self.projection == "orthographic"
     self.projectionLabel:SetText(self.projection == "orthographic" and "投影：正交" or "投影：透视")
     self:UpdateCamera()
@@ -263,37 +293,19 @@ end
 
 function VoxelSandbox:FindExistingCellOnRay()
     local ray = self:ScreenRay()
-    if math.abs(ray.direction.y) < 0.001 then return nil end
-    local nearestDistance = math.huge
-    local nearestCell = nil
-    self.document:ForEach(function(cell)
-        local vertices = self.grid:GetTriangleVertices(cell)
-        local topY = cell.layer * self.voxelHeight + self.voxelHeight
-        local distance = (topY - ray.origin.y) / ray.direction.y
-        if distance >= 0 then
-            local point = ray.origin + ray.direction * distance
-            if self.grid:ContainsPoint(cell, point) and distance < nearestDistance then
-                nearestDistance = distance
-                nearestCell = cell
-            end
-        end
-        local bottomY = cell.layer * self.voxelHeight
-        distance = (bottomY - ray.origin.y) / ray.direction.y
-        if distance >= 0 then
-            local point = ray.origin + ray.direction * distance
-            if self.grid:ContainsPoint(cell, point) and distance < nearestDistance then
-                nearestDistance = distance
-                nearestCell = cell
-            end
-        end
-    end)
-    return nearestCell
+    return self.grid:Raycast(ray, self.document)
 end
 
 function VoxelSandbox:RefreshHover()
-    self.hoverExisting = self:FindExistingCellOnRay()
+    local hit = self:FindExistingCellOnRay()
+    self.context:UpdateHit(self:ScreenRay(), hit)
+    self.hoverExisting = hit and hit.cell or nil
     if self.tool == "select" or self.tool == "erase" or self.tool == "picker" then
         self.hoverCell = self.hoverExisting
+        return
+    end
+    if hit and hit.placementCell then
+        self.hoverCell = hit.placementCell
         return
     end
     local point = self:ScreenToWorldOnLayer()
@@ -302,6 +314,7 @@ function VoxelSandbox:RefreshHover()
     else
         self.hoverCell = nil
     end
+    self.context.cursorCell = self.hoverCell
 end
 
 function VoxelSandbox:MakeChange(before, after)
@@ -313,7 +326,7 @@ function VoxelSandbox:AddBrushChange(cell)
     local normalized = self.grid:NormalizeCell(cell)
     local key = CellKey(self.grid, normalized)
     if self.dragChangeKeys[key] then return end
-    local existing = self.document:Get(normalized.i, normalized.j, normalized.parity, normalized.layer)
+    local existing = self.document:Get(normalized)
     if self.tool == "place" and not existing then
         normalized.material = self.activeMaterial
         self.dragChanges[#self.dragChanges + 1] = self:MakeChange(nil, normalized)
@@ -345,7 +358,7 @@ function VoxelSandbox:HandleBoxSelection()
     self.selectedCells = {}
     local center = self.hoverCell
     for _, cell in pairs(self.document.cells) do
-        if cell.layer == center.layer and math.abs(cell.i - center.i) <= 2 and math.abs(cell.j - center.j) <= 2 then
+        if cell.layer == center.layer and math.abs(cell.hexQ - center.hexQ) <= 2 and math.abs(cell.hexR - center.hexR) <= 2 then
             self.selectedCells[CellKey(self.grid, cell)] = CopyCell(cell)
         end
     end
@@ -365,7 +378,7 @@ function VoxelSandbox:FloodFill()
         local key = CellKey(self.grid, cell)
         if not visited[key] then
             visited[key] = true
-            if not self.document:Get(cell.i, cell.j, cell.parity, cell.layer) then
+            if not self.document:Get(cell) then
                 cell.material = self.activeMaterial
                 changes[#changes + 1] = self:MakeChange(nil, cell)
                 for face = 3, 5 do
@@ -409,7 +422,7 @@ function VoxelSandbox:ApplySelectionTransform(transform)
     for _, cell in pairs(self.selectedCells) do
         local after = transform(CopyCell(cell))
         local key = CellKey(self.grid, after)
-        if destinations[key] or (self.document:Get(after.i, after.j, after.parity, after.layer) and not self.selectedCells[CellKey(self.grid, after)]) then
+        if destinations[key] or (self.document:Get(after) and not self.selectedCells[CellKey(self.grid, after)]) then
             self.statusLabel:SetText("变换失败：目标位置已被占用")
             return
         end
@@ -430,8 +443,8 @@ end
 
 function VoxelSandbox:MoveSelection(di, dj, dl)
     self:ApplySelectionTransform(function(cell)
-        cell.i = cell.i + di
-        cell.j = cell.j + dj
+        cell.hexQ = cell.hexQ + di
+        cell.hexR = cell.hexR + dj
         cell.layer = cell.layer + dl
         return cell
     end)
@@ -439,32 +452,29 @@ end
 
 function VoxelSandbox:RotateSelection()
     self:ApplySelectionTransform(function(cell)
-        cell.rotation = (cell.rotation + 1) % 3
-        return cell
+        return self.grid:TransformCell(cell, { kind = "rotate", steps = 1 })
     end)
 end
 
 function VoxelSandbox:MirrorSelection()
     self:ApplySelectionTransform(function(cell)
-        cell.i = -cell.i
-        cell.parity = 1 - cell.parity
-        return cell
+        return self.grid:TransformCell(cell, { kind = "mirror", axis = "q" })
     end)
 end
 
 function VoxelSandbox:CopySelection()
     self.clipboard = {}
-    local minI, minJ, minLayer = math.huge, math.huge, math.huge
+    local minQ, minR, minLayer = math.huge, math.huge, math.huge
     for _, cell in pairs(self.selectedCells) do
-        minI = math.min(minI, cell.i)
-        minJ = math.min(minJ, cell.j)
+        minQ = math.min(minQ, cell.hexQ)
+        minR = math.min(minR, cell.hexR)
         minLayer = math.min(minLayer, cell.layer)
     end
-    if minI == math.huge then return end
+    if minQ == math.huge then return end
     for _, cell in pairs(self.selectedCells) do
         local copy = CopyCell(cell)
-        copy.i = copy.i - minI
-        copy.j = copy.j - minJ
+        copy.hexQ = copy.hexQ - minQ
+        copy.hexR = copy.hexR - minR
         copy.layer = copy.layer - minLayer
         self.clipboard[#self.clipboard + 1] = copy
     end
@@ -476,10 +486,10 @@ function VoxelSandbox:PasteAtHover()
     local changes = {}
     for _, source in ipairs(self.clipboard) do
         local cell = CopyCell(source)
-        cell.i = cell.i + self.hoverCell.i
-        cell.j = cell.j + self.hoverCell.j
+        cell.hexQ = cell.hexQ + self.hoverCell.hexQ
+        cell.hexR = cell.hexR + self.hoverCell.hexR
         cell.layer = cell.layer + self.hoverCell.layer
-        if not self.document:Get(cell.i, cell.j, cell.parity, cell.layer) then
+        if not self.document:Get(cell) then
             changes[#changes + 1] = self:MakeChange(nil, cell)
         end
     end
@@ -496,12 +506,19 @@ function VoxelSandbox:HandlePointer()
     if self.tool == "box" and leftPress then self:HandleBoxSelection() return end
     if self.tool == "picker" and leftPress then self:PickMaterial() return end
     if self.tool == "fill" and leftPress then self:FloodFill() return end
-    if self.tool == "erase" and leftPress then self:BeginDrag() end
-    if self.tool == "place" and leftPress then self:BeginDrag() end
-    if (self.tool == "place" or self.tool == "erase") and self.dragActive and leftDown then
-        self:AddBrushChange(self.hoverCell)
+
+    if self.tool == "place" or self.tool == "erase" then
+        if leftPress then
+            self.dragActive = self.modifier:Begin()
+        end
+        if self.dragActive and leftDown then
+            self.modifier:Update(0.016)
+        end
+        if self.dragActive and leftRelease then
+            self.modifier:End(true)
+            self.dragActive = false
+        end
     end
-    if self.dragActive and leftRelease then self:CommitDrag() end
 end
 
 function VoxelSandbox:HandleCameraInput()
@@ -548,13 +565,13 @@ end
 function VoxelSandbox:DrawGrid()
     local y = self.activeLayer * self.voxelHeight + 0.012
     local color = Color(0.20, 0.42, 0.62, 0.48)
-    for j = -10, 10 do
-        for i = -10, 10 do
-            local p0, p1, p2 = self.grid:GetGridLines(i, j, self.activeLayer)
-            p0.y = y; p1.y = y; p2.y = y
-            self.debugRenderer:AddLine(p0, p1, color, false)
-            self.debugRenderer:AddLine(p0, p2, color, false)
-            self.debugRenderer:AddLine(p1, p2, color, false)
+    for r = -4, 4 do
+        for q = -4, 4 do
+            local vertices = self.grid:GetHexVertices(q, r, self.activeLayer * self.voxelHeight + 0.012)
+            for index = 1, 6 do
+                local nextIndex = index % 6 + 1
+                self.debugRenderer:AddLine(vertices[index], vertices[nextIndex], color, false)
+            end
         end
     end
 end
@@ -571,15 +588,19 @@ end
 function VoxelSandbox:DrawDebug()
     self:DrawGrid()
     if self.hoverCell then
-        local occupied = self.document:Get(self.hoverCell.i, self.hoverCell.j, self.hoverCell.parity, self.hoverCell.layer)
+        local occupied = self.document:Get(self.hoverCell)
         local color = occupied and Color(1.0, 0.25, 0.25, 1.0) or Color(0.25, 1.0, 0.55, 1.0)
         self:DrawTriangle(self.hoverCell, color, 0.025)
     end
     for _, cell in pairs(self.selectedCells) do
         self:DrawTriangle(cell, Color(1.0, 0.92, 0.25, 1.0), 0.05)
     end
-    for _, change in ipairs(self.dragChanges) do
-        if change.after then self:DrawTriangle(change.after, Color(0.25, 1.0, 0.55, 0.7), 0.07) end
+    if self.modifier then
+        for _, change in ipairs(self.pendingEdit:GetChanges()) do
+            if change.after then
+                self:DrawTriangle(change.after, Color(0.25, 1.0, 0.55, 0.7), 0.07)
+            end
+        end
     end
 end
 
@@ -621,6 +642,9 @@ function VoxelSandbox:Refresh()
 end
 
 function VoxelSandbox:Stop()
+    if self.modifier then
+        self.modifier:Deactivate()
+    end
     UI.Shutdown()
 end
 

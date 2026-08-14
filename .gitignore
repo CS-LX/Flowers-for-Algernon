@@ -12,11 +12,9 @@ logs/.nfs*
 .tmp/
 _uploads/
 screenshots/
+secret/
 *.crswap
 .DS_Store
-
-# Credentials
-secret/
 
 # OSS util
 .ossutil_checkpoint/

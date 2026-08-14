@@ -9,9 +9,9 @@ local function CopyCell(cell)
         return nil
     end
     return {
-        i = cell.i,
-        j = cell.j,
-        parity = cell.parity,
+        hexQ = cell.hexQ,
+        hexR = cell.hexR,
+        sector = cell.sector,
         layer = cell.layer,
         rotation = cell.rotation,
         material = cell.material,
@@ -23,8 +23,10 @@ local function ApplyChange(document, change, forward)
     local target = forward and change.before or change.after
     if value then
         document:Set(value)
-    elseif target then
-        document:Remove(target.i, target.j, target.parity, target.layer)
+    elseif forward and target then
+        document:Remove(target)
+    elseif not forward and target then
+        document:Set(target)
     end
 end
 

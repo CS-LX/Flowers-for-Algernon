@@ -1,24 +1,23 @@
 -- 三棱柱体素文档与 JSON 持久化。
--- 文档是编辑器真相源，场景节点和合并网格都由文档重建。
+-- 文档是正式数据真相源；渲染节点、预览和历史都依赖它。
 
 local VoxelDocument = {}
 VoxelDocument.__index = VoxelDocument
 
-local FORMAT_VERSION = 1
+local FORMAT_VERSION = 2
 
 local function CopyCell(cell)
+    if not cell then
+        return nil
+    end
     return {
-        i = cell.i,
-        j = cell.j,
-        parity = cell.parity,
+        hexQ = cell.hexQ,
+        hexR = cell.hexR,
+        sector = cell.sector,
         layer = cell.layer,
         rotation = cell.rotation,
         material = cell.material,
     }
-end
-
-local function CellKey(i, j, parity, layer)
-    return tostring(i) .. ":" .. tostring(j) .. ":" .. tostring(parity) .. ":" .. tostring(layer)
 end
 
 function VoxelDocument.New(grid)
@@ -50,31 +49,40 @@ function VoxelDocument.New(grid)
     return self
 end
 
-function VoxelDocument:Key(i, j, parity, layer)
-    return CellKey(i, j, parity, layer)
+function VoxelDocument:Key(cell)
+    return self.grid:CellKey(cell)
 end
 
-function VoxelDocument:Get(i, j, parity, layer)
-    return self.cells[CellKey(i, j, parity, layer)]
+function VoxelDocument:Get(cell)
+    if not cell then
+        return nil
+    end
+    return self.cells[self:Key(cell)]
 end
 
 function VoxelDocument:Set(cell)
-    local copy = CopyCell(cell)
-    copy.parity = copy.parity % 2
-    copy.rotation = copy.rotation % 3
-    self.cells[CellKey(copy.i, copy.j, copy.parity, copy.layer)] = copy
+    local normalized = self.grid:NormalizeCell(cell)
+    if not self.grid:IsValid(normalized) then
+        return nil
+    end
+    local copy = CopyCell(normalized)
+    self.cells[self:Key(copy)] = copy
     self.dirty = true
     return copy
 end
 
-function VoxelDocument:Remove(i, j, parity, layer)
-    local key = CellKey(i, j, parity, layer)
-    local cell = self.cells[key]
-    if cell then
+function VoxelDocument:Remove(cell)
+    if not cell then
+        return nil
+    end
+    local normalized = self.grid:NormalizeCell(cell)
+    local key = self:Key(normalized)
+    local previous = self.cells[key]
+    if previous then
         self.cells[key] = nil
         self.dirty = true
     end
-    return cell
+    return previous
 end
 
 function VoxelDocument:Clear()
@@ -96,6 +104,16 @@ function VoxelDocument:Count()
     return count
 end
 
+function VoxelDocument:ApplyChanges(changes)
+    for _, change in ipairs(changes or {}) do
+        if change.after then
+            self:Set(change.after)
+        elseif change.before then
+            self:Remove(change.before)
+        end
+    end
+end
+
 function VoxelDocument:ToTable()
     local cells = {}
     self:ForEach(function(cell)
@@ -103,9 +121,9 @@ function VoxelDocument:ToTable()
     end)
     table.sort(cells, function(a, b)
         if a.layer ~= b.layer then return a.layer < b.layer end
-        if a.j ~= b.j then return a.j < b.j end
-        if a.i ~= b.i then return a.i < b.i end
-        return a.parity < b.parity
+        if a.hexR ~= b.hexR then return a.hexR < b.hexR end
+        if a.hexQ ~= b.hexQ then return a.hexQ < b.hexQ end
+        return a.sector < b.sector
     end)
 
     return {
@@ -114,7 +132,8 @@ function VoxelDocument:ToTable()
         grid = {
             edgeLength = self.grid.edgeLength,
             voxelHeight = self.grid.voxelHeight,
-            packing = "triangular_tiling_extrusion",
+            packing = "hexagonal_tiling_six_triangular_sectors",
+            coordinate = "axial_hex_qr_sector_layer",
         },
         materials = self.materials,
         cells = cells,
@@ -126,6 +145,9 @@ function VoxelDocument:LoadTable(data)
     if type(data) ~= "table" or type(data.cells) ~= "table" then
         return false, "invalid document"
     end
+    if data.format and data.format ~= "tri-prism-voxel-document" then
+        return false, "unsupported document format"
+    end
 
     self.cells = {}
     if type(data.materials) == "table" then
@@ -136,7 +158,7 @@ function VoxelDocument:LoadTable(data)
     end
 
     for _, cell in ipairs(data.cells) do
-        if cell.i and cell.j and cell.parity and cell.layer then
+        if cell.hexQ ~= nil and cell.hexR ~= nil and cell.sector ~= nil and cell.layer ~= nil then
             self:Set(cell)
         end
     end
