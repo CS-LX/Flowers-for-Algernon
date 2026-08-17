@@ -19,14 +19,18 @@ local function CopyCell(cell)
 end
 
 local function ApplyChange(document, change, forward)
-    local value = forward and change.after or change.before
-    local target = forward and change.before or change.after
-    if value then
-        document:Set(value)
-    elseif forward and target then
-        document:Remove(target)
-    elseif not forward and target then
-        document:Set(target)
+    if forward then
+        if change.after then
+            document:Set(change.after)
+        elseif change.before then
+            document:Remove(change.before)
+        end
+    else
+        if change.before then
+            document:Set(change.before)
+        elseif change.after then
+            document:Remove(change.after)
+        end
     end
 end
 
