@@ -30,9 +30,41 @@ pitch = 30°
 rotation = 固定的关卡设计角度
 ```
 
-编辑器可以提供可旋转、可平移、可切换透视的辅助相机，但这不能取代游戏预览镜头。
+### 编辑预览相机与固定游戏镜头分离
 
-纪念碑谷式错视依赖稳定投影。玩家的主要交互不是自由旋转相机，而是操作建筑中的旋转、滑动、升降、展开等组件，使路径在固定视角下形成新的视觉连接。
+Level Object Tree 的 **Editor Preview Camera** 用于总装检查，类似 Unity Scene View。它可以自由旋转、平移、缩放，并支持正交/透视切换：
+
+```text
+RMB 拖动：绕焦点旋转
+MMB 拖动：沿屏幕平面平移
+滚轮：缩放
+投影按钮：正交 / 透视
+聚焦：对焦当前选中 Part
+重置：恢复固定 30° 正交基准
+```
+
+它的状态只属于 `LevelEditor` 的临时工作区状态：
+
+```text
+editorCamera = {
+    projection,
+    focus,
+    yaw,
+    pitch,
+    distance,
+    orthoSize,
+    fov,
+}
+```
+
+禁止 Editor Preview Camera 改写 `LevelDocument.fixedCamera`。后者仍然是后续 **Game Preview** 与运行时使用的固定 30° 正交镜头：
+
+```text
+Editor Preview Camera：自由观察，只服务编辑
+Game Preview Camera：固定投影，只服务玩法验证
+```
+
+这两个相机可以共享同一个场景中的 Camera 节点，但不能共享或混淆状态数据。
 
 ### 视觉连接与逻辑连接分离
 

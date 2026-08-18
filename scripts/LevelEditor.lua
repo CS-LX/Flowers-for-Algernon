@@ -3,11 +3,17 @@
 -- 局部体素编辑仍交给 VoxelSandbox，关卡数据仍由 LevelDocument 持有。
 
 local PartEditSession = require "PartEditSession"
+local UI = require("urhox-libs/UI")
 local PartRootRenderer = require "PartRootRenderer"
 local LevelEditorUI = require "LevelEditorUI"
 local VoxelSandbox = require "VoxelSandbox"
 
 local LevelEditor = {}
+
+local function Clamp(value, minimum, maximum)
+    return math.max(minimum, math.min(maximum, value))
+end
+
 ---@class LevelEditor
 ---@field scene Scene
 ---@field cameraNode Node
@@ -21,6 +27,7 @@ local LevelEditor = {}
 ---@field mode string
 ---@field partEditor table|nil
 ---@field ui table|nil
+---@field editorCamera table
 LevelEditor.__index = LevelEditor
 
 function LevelEditor.New(scene, cameraNode, camera, debugRenderer, levelDocument, edgeLength, voxelHeight)
@@ -37,6 +44,16 @@ function LevelEditor.New(scene, cameraNode, camera, debugRenderer, levelDocument
     self.mode = "level"
     self.partEditor = nil
     self.ui = nil
+    self.editorCamera = {
+        projection = "orthographic",
+        focus = Vector3(0, 0, 0),
+        yaw = 0.0,
+        pitch = 30.0,
+        distance = 18.0,
+        orthoSize = 12.0,
+        fov = 45.0,
+    }
+    self:ResetEditorCamera()
     return self
 end
 
@@ -48,24 +65,96 @@ function LevelEditor:GetSelectedPart()
     return self.selectedPartId and self.levelDocument:GetPart(self.selectedPartId) or nil
 end
 
-function LevelEditor:SetupLevelCamera()
+function LevelEditor:ResetEditorCamera()
     local settings = self.levelDocument.fixedCamera
-    local pitch = math.rad(settings.pitch)
-    local distance = settings.orthoSize * 1.5
-    local horizontal = math.cos(pitch) * distance
-    local yaw = math.rad(settings.yaw)
-    local target = Vector3(settings.target.x, settings.target.y, settings.target.z)
+    self.editorCamera.projection = "orthographic"
+    self.editorCamera.focus = Vector3(settings.target.x, settings.target.y, settings.target.z)
+    self.editorCamera.yaw = settings.yaw
+    self.editorCamera.pitch = settings.pitch
+    self.editorCamera.distance = settings.orthoSize * 1.5
+    self.editorCamera.orthoSize = settings.orthoSize
+    self.editorCamera.fov = 45.0
+    self:ApplyEditorCamera()
+end
+
+function LevelEditor:ApplyEditorCamera()
+    local state = self.editorCamera
+    local yaw = math.rad(state.yaw)
+    local pitch = math.rad(state.pitch)
+    local horizontal = math.cos(pitch) * state.distance
     local offset = Vector3(
         math.sin(yaw) * horizontal,
-        math.sin(pitch) * distance,
+        math.sin(pitch) * state.distance,
         -math.cos(yaw) * horizontal
     )
-    self.cameraNode.position = target + offset
-    self.cameraNode:LookAt(target)
-    self.camera.orthographic = true
-    self.camera.orthoSize = settings.orthoSize
-    self.camera.nearClip = settings.nearClip
-    self.camera.farClip = settings.farClip
+    self.cameraNode.position = state.focus + offset
+    self.cameraNode:LookAt(state.focus)
+    self.camera.orthographic = state.projection == "orthographic"
+    self.camera.orthoSize = state.orthoSize
+    self.camera.fov = state.fov
+    self.camera.nearClip = self.levelDocument.fixedCamera.nearClip
+    self.camera.farClip = self.levelDocument.fixedCamera.farClip
+end
+
+function LevelEditor:ToggleEditorProjection()
+    local state = self.editorCamera
+    state.projection = state.projection == "orthographic" and "perspective" or "orthographic"
+    self:ApplyEditorCamera()
+    self:RefreshLevelUI("编辑预览投影：" .. (state.projection == "orthographic" and "正交" or "透视"))
+end
+
+function LevelEditor:FocusSelectedPart()
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local root = self.partRenderer:GetRoot(part.id)
+    local minPoint, maxPoint = self.partRenderer:GetLocalBounds(part.id)
+    if not root or not minPoint or not maxPoint then
+        return false
+    end
+    local localCenter = (minPoint + maxPoint) * 0.5
+    self.editorCamera.focus = root.worldTransform * localCenter
+    self:ApplyEditorCamera()
+    self:RefreshLevelUI("编辑预览已聚焦：" .. part.name)
+    return true
+end
+
+function LevelEditor:HandleEditorCameraInput()
+    if self.mode ~= "level" or UI.IsPointerOverUI() then
+        return
+    end
+
+    local state = self.editorCamera
+    local mouseMove = input:GetMouseMove()
+    if input:GetMouseButtonDown(MOUSEB_RIGHT) then
+        state.yaw = state.yaw + mouseMove.x * 0.22
+        state.pitch = Clamp(state.pitch + mouseMove.y * 0.18, 8.0, 82.0)
+    elseif input:GetMouseButtonDown(MOUSEB_MIDDLE) then
+        local worldPerPixel = state.projection == "orthographic"
+            and state.orthoSize / math.max(1, graphics:GetHeight())
+            or state.distance * 0.0015
+        local rotation = self.cameraNode.worldRotation
+        local screenRight = rotation * Vector3.RIGHT
+        local screenUp = rotation * Vector3.UP
+        state.focus = state.focus
+            - screenRight * mouseMove.x * worldPerPixel
+            + screenUp * mouseMove.y * worldPerPixel
+    end
+
+    local wheel = input:GetMouseMoveWheel()
+    if wheel ~= 0 then
+        local zoomFactor = wheel > 0 and 0.90 or (1.0 / 0.90)
+        if state.projection == "orthographic" then
+            state.orthoSize = Clamp(state.orthoSize * zoomFactor, 2.0, 48.0)
+        else
+            state.distance = Clamp(state.distance * zoomFactor, 2.0, 60.0)
+        end
+    end
+    self:ApplyEditorCamera()
+    if self.ui then
+        self.ui:SetCameraState(state)
+    end
 end
 
 function LevelEditor:EnterLevelMode()
@@ -74,7 +163,7 @@ function LevelEditor:EnterLevelMode()
         self.partEditor = nil
     end
     self.mode = "level"
-    self:SetupLevelCamera()
+    self:ApplyEditorCamera()
 
     local built, errorMessage = self.partRenderer:Rebuild(self.levelDocument)
     if not built then
@@ -210,6 +299,7 @@ end
 
 function LevelEditor:Refresh()
     if self.mode == "level" then
+        self:HandleEditorCameraInput()
         self:DrawSelectionGizmo()
     elseif self.partEditor then
         self.partEditor:Refresh()

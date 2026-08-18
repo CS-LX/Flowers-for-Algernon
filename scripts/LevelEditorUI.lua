@@ -58,6 +58,7 @@ function LevelEditorUI:Build()
     self.scaleLabel = UI.Label { text = "", fontSize = 11, fontColor = MUTED }
     self.capabilityLabel = UI.Label { text = "", fontSize = 11, fontColor = MUTED, whiteSpace = "normal" }
     self.modeLabel = UI.Label { text = "", fontSize = 11, fontColor = { 157, 220, 255, 255 }, whiteSpace = "normal" }
+    self.cameraLabel = UI.Label { text = "", fontSize = 10, fontColor = { 173, 214, 255, 255 } }
 
     self.partList = UI.Panel {
         gap = 5,
@@ -130,6 +131,15 @@ function LevelEditorUI:Build()
                     self.capabilityLabel,
                     UI.Label { text = "Behavior Modes", fontSize = 10, fontColor = MUTED },
                     self.modeLabel,
+                    UI.Divider { thickness = 1, color = BORDER, spacing = 1 },
+                    UI.Label { text = "Editor Preview Camera", fontSize = 10, fontColor = MUTED },
+                    self.cameraLabel,
+                    UI.Panel { flexDirection = "row", gap = 4, children = {
+                        UI.Button { text = "投影", flexGrow = 1, height = 28, fontSize = 10, variant = "secondary", onClick = function() editor:ToggleEditorProjection() end },
+                        UI.Button { text = "聚焦", flexGrow = 1, height = 28, fontSize = 10, variant = "secondary", onClick = function() editor:FocusSelectedPart() end },
+                        UI.Button { text = "重置", flexGrow = 1, height = 28, fontSize = 10, variant = "secondary", onClick = function() editor:ResetEditorCamera(); editor:RefreshLevelUI("已恢复固定 30° 正交编辑基准") end },
+                    } },
+                    UI.Label { text = "RMB 旋转 · MMB 平移 · Wheel 缩放", fontSize = 9, fontColor = MUTED },
                     UI.Panel { flexGrow = 1, flexShrink = 1 },
                     self.rotateButton,
                     self.openButton,
@@ -211,8 +221,26 @@ function LevelEditorUI:Refresh()
         tostring(part:CanTransform("scale"))
     ))
     self.modeLabel:SetText(ModeText(part))
+    local editorCamera = self.editor.editorCamera
+    self.cameraLabel:SetText(string.format(
+        "%s  Yaw %.0f°  Pitch %.0f°  Zoom %.1f",
+        editorCamera.projection == "orthographic" and "正交" or "透视",
+        editorCamera.yaw,
+        editorCamera.pitch,
+        editorCamera.projection == "orthographic" and editorCamera.orthoSize or editorCamera.distance
+    ))
     self.openButton:SetDisabled(false)
     self.rotateButton:SetDisabled(not part:HasBehavior("rotator"))
+end
+
+function LevelEditorUI:SetCameraState(camera)
+    self.cameraLabel:SetText(string.format(
+        "%s  Yaw %.0f°  Pitch %.0f°  Zoom %.1f",
+        camera.projection == "orthographic" and "正交" or "透视",
+        camera.yaw,
+        camera.pitch,
+        camera.projection == "orthographic" and camera.orthoSize or camera.distance
+    ))
 end
 
 function LevelEditorUI:SetStatus(text)

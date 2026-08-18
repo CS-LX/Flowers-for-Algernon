@@ -531,6 +531,8 @@ Gameplay Part 初版 scale 保持单位值并禁用缩放编辑；装饰 Part �
 
 ### 阶段四-B：Object Tree 编辑能力（后续）
 
+- **Level Editor Preview Camera**（优先）：自由旋转、平移、缩放、正交/透视切换、聚焦选中 Part、重置到固定 30° 基准；
+- 编辑预览相机状态只保存在 `LevelEditor` 工作区，绝不改写 `LevelDocument.fixedCamera`；
 - 创建、复制、删除 Part；
 - 父子层级与层级拖放；
 - Inspector 编辑平移与 60° 离散旋转；
