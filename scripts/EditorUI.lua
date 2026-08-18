@@ -86,6 +86,16 @@ function EditorUI:Build()
                 paddingHorizontal = 12, flexDirection = "row", alignItems = "center", gap = 18,
                 backgroundColor = { 24, 29, 38, 245 }, borderColor = BORDER_COLOR, borderWidth = 1, borderRadius = 5,
                 children = {
+                    UI.Button {
+                        text = "← 返回关卡",
+                        height = 28,
+                        fontSize = 11,
+                        variant = "secondary",
+                        visible = editor.onBackToLevel ~= nil,
+                        onClick = function()
+                            if editor.onBackToLevel then editor.onBackToLevel() end
+                        end,
+                    },
                     title,
                     UI.Label { text = "文件", fontSize = 11, fontColor = MUTED_COLOR },
                     UI.Label { text = "编辑", fontSize = 11, fontColor = MUTED_COLOR },

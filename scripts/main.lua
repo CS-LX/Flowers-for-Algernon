@@ -2,9 +2,8 @@
 -- 当前版本：正交相机 + 30 度俯视 + 六个三棱柱体素组成中央六边形
 
 local VoxelRenderer = require "VoxelRenderer"
-local VoxelSandbox = require "VoxelSandbox"
 local TriPrismGrid = require "TriPrismGrid"
-local PartEditSession = require "PartEditSession"
+local LevelEditor = require "LevelEditor"
 local StarterLevel = require "StarterLevel"
 
 ---@type Scene|nil
@@ -15,8 +14,8 @@ local cameraNode_ = nil
 local camera_ = nil
 ---@type DebugRenderer|nil
 local debugRenderer_ = nil
----@type VoxelSandbox|nil
-local sandbox_ = nil
+---@type table|nil
+local levelEditor_ = nil
 ---@type table|nil
 local levelDocument_ = nil
 
@@ -59,32 +58,26 @@ function Start()
         error("无法创建或加载初始关卡")
     end
 
-    local editablePart = levelDocument_:GetPart("part_static_base")
-    local session, sessionError = PartEditSession.Open(grid, editablePart)
-    if not session then
-        error("无法打开 Part 编辑会话：" .. tostring(sessionError))
-    end
-
-    sandbox_ = VoxelSandbox.New(
+    levelEditor_ = LevelEditor.New(
         scene_,
         cameraNode_,
         camera_,
         debugRenderer_,
+        levelDocument_,
         CONFIG.voxelEdge,
-        CONFIG.voxelHeight,
-        session
+        CONFIG.voxelHeight
     )
-    sandbox_:Start()
+    levelEditor_:Start()
 
     SubscribeToEvent("Update", "HandleUpdate")
     print("Level: " .. levelDocument_.name .. " (" .. tostring(#levelDocument_:GetParts()) .. " Parts)")
-    print("Part Editor: " .. editablePart.name)
+    print("Level Editor: Object Tree ready")
 end
 
 function Stop()
-    if sandbox_ then
-        sandbox_:Stop()
-        sandbox_ = nil
+    if levelEditor_ then
+        levelEditor_:Stop()
+        levelEditor_ = nil
     end
     levelDocument_ = nil
     scene_ = nil
@@ -96,8 +89,8 @@ end
 ---@param eventType string
 ---@param eventData UpdateEventData
 function HandleUpdate(eventType, eventData)
-    if sandbox_ then
-        sandbox_:Refresh()
+    if levelEditor_ then
+        levelEditor_:Refresh()
     end
 end
 

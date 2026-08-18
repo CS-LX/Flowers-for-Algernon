@@ -631,6 +631,10 @@ function VoxelSandbox:Stop()
     if self.modifier then
         self.modifier:Deactivate()
     end
+    for _, node in pairs(self.voxelNodes) do
+        node:Remove()
+    end
+    self.voxelNodes = {}
     if self.editorUI then
         self.editorUI:Destroy()
         self.editorUI = nil

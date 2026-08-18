@@ -519,14 +519,23 @@ LogicGraph Conditional Edges
 
 Gameplay Part 初版 scale 保持单位值并禁用缩放编辑；装饰 Part 后续可支持均匀缩放。
 
-### 阶段四：Object Tree Editor
+### 阶段四-A：Object Tree 最小可见闭环（已完成）
 
-- Hierarchy 面板；
-- 创建、选择、复制、删除 Part；
-- 父子层级；
-- Part Inspector；
-- 平移与 60° 离散旋转；
-- Open Part / Back to Level 工作流。
+- Hierarchy 面板显示与选择已有 Part；
+- Part Inspector 显示 Transform、能力与行为模式；
+- `Open Part / Back to Level` 工作流；
+- 为每个 Part 创建 `PartRoot` 并将局部体素派生节点挂载到其下；
+- Level View 使用固定 30° 正交镜头；
+- Rotator Part 在 Level View 中可按 60° 更新 `PartRoot`；
+- 用户预览验收 Level View、两 Part 显示、选中轮廓与 Part 模式切换。
+
+### 阶段四-B：Object Tree 编辑能力（后续）
+
+- 创建、复制、删除 Part；
+- 父子层级与层级拖放；
+- Inspector 编辑平移与 60° 离散旋转；
+- 根据 TransformCapabilities 编辑均匀缩放；
+- Part 变换与层级的 Undo / Redo。
 
 可动 Gameplay Part 初版不支持缩放；错视连接 Part 必须保持 `scale = (1, 1, 1)`。
 

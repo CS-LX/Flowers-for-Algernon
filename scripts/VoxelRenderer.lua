@@ -90,7 +90,8 @@ function VoxelRenderer.CreateVoxel(scene, gridPosition, color, options)
     local height = options.height or VoxelRenderer.DEFAULT_HEIGHT
     local nodeName = options.name or "TriangularPrismVoxel"
 
-    local node = scene:CreateChild(nodeName)
+    local parent = options.parent or scene
+    local node = parent:CreateChild(nodeName)
     node.position = gridPosition
     node.rotation = options.rotation or Quaternion()
 
