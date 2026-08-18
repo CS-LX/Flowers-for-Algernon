@@ -3,6 +3,9 @@
 
 local VoxelRenderer = require "VoxelRenderer"
 local VoxelSandbox = require "VoxelSandbox"
+local TriPrismGrid = require "TriPrismGrid"
+local PartEditSession = require "PartEditSession"
+local StarterLevel = require "StarterLevel"
 
 ---@type Scene|nil
 local scene_ = nil
@@ -14,6 +17,8 @@ local camera_ = nil
 local debugRenderer_ = nil
 ---@type VoxelSandbox|nil
 local sandbox_ = nil
+---@type table|nil
+local levelDocument_ = nil
 
 local CONFIG = {
     title = "Hexagon Visual Challenge",
@@ -48,20 +53,32 @@ function Start()
     CreateScene()
     SetupCamera()
 
+    local grid = TriPrismGrid.New(CONFIG.voxelEdge, CONFIG.voxelHeight)
+    levelDocument_ = StarterLevel.LoadOrCreate(grid)
+    if not levelDocument_ then
+        error("无法创建或加载初始关卡")
+    end
+
+    local editablePart = levelDocument_:GetPart("part_static_base")
+    local session, sessionError = PartEditSession.Open(grid, editablePart)
+    if not session then
+        error("无法打开 Part 编辑会话：" .. tostring(sessionError))
+    end
+
     sandbox_ = VoxelSandbox.New(
         scene_,
         cameraNode_,
         camera_,
         debugRenderer_,
         CONFIG.voxelEdge,
-        CONFIG.voxelHeight
+        CONFIG.voxelHeight,
+        session
     )
     sandbox_:Start()
 
     SubscribeToEvent("Update", "HandleUpdate")
-    print("Scene: 3D voxel scene created")
-    print("Camera: orthographic, 30 degree downward view")
-    print("Content: six colored triangular-prism voxels created")
+    print("Level: " .. levelDocument_.name .. " (" .. tostring(#levelDocument_:GetParts()) .. " Parts)")
+    print("Part Editor: " .. editablePart.name)
 end
 
 function Stop()
@@ -69,6 +86,7 @@ function Stop()
         sandbox_:Stop()
         sandbox_ = nil
     end
+    levelDocument_ = nil
     scene_ = nil
     cameraNode_ = nil
     camera_ = nil

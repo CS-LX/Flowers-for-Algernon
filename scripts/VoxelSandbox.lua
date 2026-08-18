@@ -2,6 +2,7 @@
 -- 文档数据、网格拓扑、工具命令、相机和渲染节点分离。
 
 local UI = require("urhox-libs/UI")
+local EditorUI = require "EditorUI"
 local TriPrismGrid = require "TriPrismGrid"
 local EditorContext = require "EditorContext"
 local PendingEdit = require "PendingEdit"
@@ -9,7 +10,7 @@ local VoxelBrush = require "VoxelBrush"
 local Modifier = require "Modifier"
 local Selection = require "Selection"
 local ViewportRenderer = require "ViewportRenderer"
-local VoxelDocument = require "VoxelDocument"
+local PartEditSession = require "PartEditSession"
 local VoxelHistory = require "VoxelHistory"
 local VoxelRenderer = require "VoxelRenderer"
 
@@ -49,14 +50,15 @@ local COLORS = {
     Color(0.62, 0.38, 0.88, 1.0),
 }
 
-function VoxelSandbox.New(scene, cameraNode, camera, debugRenderer, edgeLength, voxelHeight)
+function VoxelSandbox.New(scene, cameraNode, camera, debugRenderer, edgeLength, voxelHeight, session)
     local self = setmetatable({}, VoxelSandbox)
     self.scene = scene
     self.cameraNode = cameraNode
     self.camera = camera
     self.debugRenderer = debugRenderer
     self.grid = TriPrismGrid.New(edgeLength, voxelHeight)
-    self.document = VoxelDocument.New(self.grid)
+    self.session = session or PartEditSession.CreateStarter(self.grid)
+    self.document = self.session.document
     self.context = EditorContext.New(self.grid, self.document)
     self.selection = Selection.New(self.grid, self.document, function()
         self:UpdateSelectionLabel()
@@ -88,6 +90,9 @@ function VoxelSandbox.New(scene, cameraNode, camera, debugRenderer, edgeLength, 
     self.dragActive = false
     self.dragChanges = {}
     self.dragChangeKeys = {}
+    self.boxSelectionActive = false
+    self.boxSelectionStart = nil
+    self.boxSelectionEnd = nil
     self.cameraFocus = Vector3(0, 0, 0)
     self.cameraYaw = 0.0
     self.cameraPitch = 30.0
@@ -111,29 +116,10 @@ function VoxelSandbox:Start()
     input.mouseMode = MM_ABSOLUTE
     input.mouseVisible = true
     self:CreateUI()
-    self:CreateInitialDocument()
+    self:RebuildDocumentScene()
     self:UpdateCamera()
     self:UpdateDocumentStatus()
-    print("Tri-prism voxel editor started with packed triangular tiling")
-end
-
-function VoxelSandbox:CreateInitialDocument()
-    local initial = {
-        { hexQ = 0, hexR = 0, sector = 0, layer = 0, rotation = 0, material = 1 },
-        { hexQ = 0, hexR = 0, sector = 1, layer = 0, rotation = 0, material = 2 },
-        { hexQ = 0, hexR = 0, sector = 2, layer = 0, rotation = 0, material = 3 },
-        { hexQ = 0, hexR = 0, sector = 3, layer = 0, rotation = 0, material = 4 },
-        { hexQ = 0, hexR = 0, sector = 4, layer = 0, rotation = 0, material = 5 },
-        { hexQ = 0, hexR = 0, sector = 5, layer = 0, rotation = 0, material = 6 },
-        { hexQ = 1, hexR = 0, sector = 3, layer = 0, rotation = 0, material = 2 },
-        { hexQ = 0, hexR = 1, sector = 4, layer = 0, rotation = 0, material = 3 },
-        { hexQ = 0, hexR = 0, sector = 0, layer = 1, rotation = 0, material = 2 },
-    }
-    for _, cell in ipairs(initial) do
-        self.document:Set(cell)
-    end
-    self.document.dirty = false
-    self:RebuildDocumentScene()
+    print("Part voxel editor started: " .. self.session:GetDisplayName())
 end
 
 function VoxelSandbox:ColorForMaterial(material)
@@ -162,115 +148,8 @@ function VoxelSandbox:RebuildDocumentScene()
 end
 
 function VoxelSandbox:CreateUI()
-    UI.Init({
-        theme = "dark",
-        fonts = { { name = "sans", path = "Fonts/MiSans-Regular.ttf" } },
-        scale = UI.Scale.DEFAULT,
-    })
-
-    local title = UI.Label { text = "TRI-PRISM VOXEL EDITOR", fontSize = 17, fontWeight = "bold", fontColor = { 240, 245, 255, 255 } }
-    self.toolLabel = UI.Label { text = "工具  笔刷", fontSize = 14, fontWeight = "bold", fontColor = { 226, 232, 240, 255 } }
-    self.layerLabel = UI.Label { text = "层  0", fontSize = 12, fontColor = { 148, 163, 184, 255 } }
-    self.projectionLabel = UI.Label { text = "正交", fontSize = 12, fontColor = { 148, 163, 184, 255 } }
-    self.viewLabel = UI.Label { text = "透视视图  ·  LMB 编辑  ·  RMB 旋转  ·  MMB 平移  ·  Wheel 缩放", fontSize = 11, fontColor = { 100, 116, 139, 255 } }
-    self.statusLabel = UI.Label { text = "", fontSize = 11, fontColor = { 148, 163, 184, 255 } }
-    self.selectionLabel = UI.Label { text = "选择：0 个", fontSize = 12, fontColor = { 255, 220, 150, 255 } }
-
-    local function toolButton(text, tool, variant)
-        return UI.Button { text = text, variant = variant or "secondary", height = 30, fontSize = 12, onClick = function() self:SetTool(tool) end }
-    end
-
-    local root = UI.Panel {
-        width = "100%", height = "100%", pointerEvents = "box-none",
-        children = {
-            UI.Panel {
-                position = "absolute", top = 8, left = 8, right = 8, height = 38,
-                paddingHorizontal = 12, flexDirection = "row", alignItems = "center", gap = 18,
-                backgroundColor = { 24, 29, 38, 245 }, borderColor = { 71, 85, 105, 190 }, borderWidth = 1, borderRadius = 5,
-                children = {
-                    title,
-                    UI.Label { text = "文件", fontSize = 11, fontColor = { 148, 163, 184, 255 } },
-                    UI.Label { text = "编辑", fontSize = 11, fontColor = { 148, 163, 184, 255 } },
-                    UI.Label { text = "视图", fontSize = 11, fontColor = { 148, 163, 184, 255 } },
-                    UI.Label { text = "工具", fontSize = 11, fontColor = { 148, 163, 184, 255 } },
-                    UI.Panel { flexGrow = 1, flexShrink = 1 },
-                    self.toolLabel, self.layerLabel, self.projectionLabel,
-                },
-            },
-            UI.Panel {
-                position = "absolute", top = 52, left = 8, width = 164, padding = 8, gap = 5,
-                backgroundColor = { 24, 29, 38, 242 }, borderColor = { 71, 85, 105, 170 }, borderWidth = 1, borderRadius = 5,
-                children = {
-                    UI.Label { text = "工具箱", fontSize = 11, fontWeight = "bold", fontColor = { 226, 232, 240, 255 } },
-                    UI.Label { text = "编辑", fontSize = 10, fontColor = { 100, 116, 139, 255 } },
-                    UI.Panel { flexDirection = "row", gap = 4, children = { toolButton("笔刷", "place", "primary"), toolButton("擦除", "erase", "danger") } },
-                    UI.Panel { flexDirection = "row", gap = 4, children = { toolButton("选择", "select"), toolButton("框选", "box") } },
-                    UI.Panel { flexDirection = "row", gap = 4, children = { toolButton("填充", "fill"), toolButton("吸管", "picker") } },
-                    UI.Label { text = "图层", fontSize = 10, fontColor = { 100, 116, 139, 255 } },
-                    UI.Panel {
-                        flexDirection = "row", gap = 4,
-                        children = {
-                            UI.Button { text = "−", width = 32, height = 27, fontSize = 14, variant = "secondary", onClick = function() self:SetLayer(self.activeLayer - 1) end },
-                            UI.Button { text = "+", width = 32, height = 27, fontSize = 14, variant = "secondary", onClick = function() self:SetLayer(self.activeLayer + 1) end },
-                            UI.Button { text = "投影", flexGrow = 1, height = 27, fontSize = 10, variant = "secondary", onClick = function() self:ToggleProjection() end },
-                        },
-                    },
-                    UI.Label { text = "文档", fontSize = 10, fontColor = { 100, 116, 139, 255 } },
-                    UI.Panel {
-                        flexDirection = "row", gap = 4,
-                        children = {
-                            UI.Button { text = "撤销", flexGrow = 1, height = 27, fontSize = 10, variant = "secondary", onClick = function() self.history:Undo() end },
-                            UI.Button { text = "重做", flexGrow = 1, height = 27, fontSize = 10, variant = "secondary", onClick = function() self.history:Redo() end },
-                        },
-                    },
-                    UI.Panel {
-                        flexDirection = "row", gap = 4,
-                        children = {
-                            UI.Button { text = "保存", flexGrow = 1, height = 27, fontSize = 10, variant = "success", onClick = function() self:SaveDocument() end },
-                            UI.Button { text = "加载", flexGrow = 1, height = 27, fontSize = 10, variant = "secondary", onClick = function() self:LoadDocument() end },
-                        },
-                    },
-                },
-            },
-            UI.Panel {
-                position = "absolute", top = 52, right = 8, width = 224, padding = 10, gap = 6,
-                backgroundColor = { 24, 29, 38, 242 }, borderColor = { 71, 85, 105, 170 }, borderWidth = 1, borderRadius = 5,
-                children = {
-                    UI.Label { text = "检查器", fontSize = 11, fontWeight = "bold", fontColor = { 226, 232, 240, 255 } },
-                    UI.Label { text = "选择状态", fontSize = 10, fontColor = { 100, 116, 139, 255 } },
-                    self.selectionLabel,
-                    UI.Panel { flexDirection = "row", gap = 4, children = {
-                        UI.Button { text = "复制", flexGrow = 1, height = 28, fontSize = 10, variant = "secondary", onClick = function() self:CopySelection() end },
-                        UI.Button { text = "粘贴", flexGrow = 1, height = 28, fontSize = 10, variant = "primary", onClick = function() self:PasteAtHover() end },
-                        UI.Button { text = "删除选中", flexGrow = 1, height = 28, fontSize = 10, variant = "danger", onClick = function() self:DeleteSelection() end },
-                    } },
-                    UI.Label { text = "变换", fontSize = 10, fontColor = { 100, 116, 139, 255 } },
-                    UI.Panel { flexDirection = "row", gap = 4, children = {
-                        UI.Button { text = "旋转", flexGrow = 1, height = 28, fontSize = 10, variant = "secondary", onClick = function() self:RotateSelection() end },
-                        UI.Button { text = "镜像", flexGrow = 1, height = 28, fontSize = 10, variant = "secondary", onClick = function() self:MirrorSelection() end },
-                    } },
-                    UI.Panel { flexDirection = "row", gap = 4, children = {
-                        UI.Button { text = "←", flexGrow = 1, height = 28, fontSize = 13, variant = "secondary", onClick = function() self:MoveSelection(-1, 0, 0) end },
-                        UI.Button { text = "→", flexGrow = 1, height = 28, fontSize = 13, variant = "secondary", onClick = function() self:MoveSelection(1, 0, 0) end },
-                        UI.Button { text = "↑层", flexGrow = 1, height = 28, fontSize = 10, variant = "secondary", onClick = function() self:MoveSelection(0, 0, 1) end },
-                    } },
-                    UI.Label { text = "视图", fontSize = 10, fontColor = { 100, 116, 139, 255 } },
-                    UI.Panel { flexDirection = "row", gap = 4, children = {
-                        UI.Button { text = "网格", flexGrow = 1, height = 27, fontSize = 10, variant = "secondary", onClick = function() self.viewportRenderer.showGrid = not self.viewportRenderer.showGrid end },
-                        UI.Button { text = "轴向", flexGrow = 1, height = 27, fontSize = 10, variant = "secondary", onClick = function() self.viewportRenderer.showAxes = not self.viewportRenderer.showAxes end },
-                    } },
-                },
-            },
-            UI.Panel {
-                position = "absolute", left = 8, right = 8, bottom = 8, height = 30,
-                paddingHorizontal = 10, flexDirection = "row", alignItems = "center",
-                backgroundColor = { 24, 29, 38, 238 }, borderColor = { 71, 85, 105, 150 }, borderWidth = 1, borderRadius = 5,
-                children = { self.statusLabel, UI.Panel { flexGrow = 1 }, self.viewLabel },
-            },
-        },
-    }
-    self.uiRoot = root
-    UI.SetRoot(root)
+    self.editorUI = EditorUI.New(self)
+    self.editorUI:Build()
 end
 
 function VoxelSandbox:SetTool(tool)
@@ -288,6 +167,10 @@ function VoxelSandbox:SetTool(tool)
         self.modifier:Abort()
     end
     self.dragActive = false
+    self.boxSelectionActive = false
+    self.boxSelectionStart = nil
+    self.boxSelectionEnd = nil
+    self.selection:ClearPreview()
 end
 
 function VoxelSandbox:SetLayer(layer)
@@ -329,7 +212,7 @@ function VoxelSandbox:RefreshHover()
     local hit = self:FindExistingCellOnRay()
     self.context:UpdateHit(self:ScreenRay(), hit)
     self.hoverExisting = hit and hit.cell or nil
-    if self.tool == "select" or self.tool == "erase" or self.tool == "picker" then
+    if self.tool == "select" or self.tool == "box" or self.tool == "erase" or self.tool == "picker" then
         self.hoverCell = self.hoverExisting
         self.context.cursorCell = self.hoverCell
         self.selection:SetHighlightedCell(self.hoverExisting)
@@ -385,11 +268,44 @@ function VoxelSandbox:BeginDrag()
     self:AddBrushChange(self.hoverCell)
 end
 
-function VoxelSandbox:HandleBoxSelection()
-    if not self.hoverCell then return end
-    local candidates, bounds = self.selection:Box(self.hoverCell, self.hoverCell)
+function VoxelSandbox:BeginBoxSelection()
+    if not self.hoverExisting then
+        return false
+    end
+    self.boxSelectionActive = true
+    self.boxSelectionStart = CopyCell(self.hoverExisting)
+    self.boxSelectionEnd = CopyCell(self.hoverExisting)
+    local candidates, bounds = self.selection:Box(self.boxSelectionStart, self.boxSelectionEnd)
     self.selection:Preview(candidates, bounds)
+    return true
+end
+
+function VoxelSandbox:UpdateBoxSelection()
+    if not self.boxSelectionActive or not self.hoverExisting then
+        return
+    end
+    self.boxSelectionEnd = CopyCell(self.hoverExisting)
+    local candidates, bounds = self.selection:Box(self.boxSelectionStart, self.boxSelectionEnd)
+    self.selection:Preview(candidates, bounds)
+end
+
+function VoxelSandbox:CommitBoxSelection()
+    if not self.boxSelectionActive then
+        return false
+    end
+    local candidates = self.selection:Box(self.boxSelectionStart, self.boxSelectionEnd)
     self.selection:Merge(candidates, "replace")
+    self.boxSelectionActive = false
+    self.boxSelectionStart = nil
+    self.boxSelectionEnd = nil
+    return true
+end
+
+function VoxelSandbox:CancelBoxSelection()
+    self.boxSelectionActive = false
+    self.boxSelectionStart = nil
+    self.boxSelectionEnd = nil
+    self.selection:ClearPreview()
 end
 
 function VoxelSandbox:FloodFill()
@@ -418,9 +334,42 @@ function VoxelSandbox:FloodFill()
     self.history:Execute(changes, "Fill")
 end
 
-function VoxelSandbox:SelectHover()
-    local candidates = self.selection:Single(self.hoverExisting)
+function VoxelSandbox:ApplySelection(candidates, label)
     self.selection:Merge(candidates, "replace")
+    self.statusLabel:SetText((label or "选择") .. "：" .. tostring(self.selection:Count()) .. " 个体素")
+end
+
+function VoxelSandbox:SelectHover()
+    self:ApplySelection(self.selection:Single(self.hoverExisting), "单选")
+end
+
+function VoxelSandbox:SelectConnected()
+    self:ApplySelection(self.selection:Connected(self.hoverExisting, false), "连通选择")
+end
+
+function VoxelSandbox:SelectSameMaterial()
+    self:ApplySelection(self.selection:SameMaterial(self.hoverExisting, false), "同材质选择")
+end
+
+function VoxelSandbox:SelectLayer()
+    self:ApplySelection(self.selection:Layer(self.activeLayer), "当前层选择")
+end
+
+function VoxelSandbox:SelectSurface()
+    self:ApplySelection(self.selection:Surface(), "表面选择")
+end
+
+function VoxelSandbox:SelectAll()
+    local candidates = {}
+    self.document:ForEach(function(cell)
+        candidates[#candidates + 1] = CopyCell(cell)
+    end)
+    self:ApplySelection(candidates, "全选")
+end
+
+function VoxelSandbox:ClearSelection()
+    self.selection:Clear()
+    self.statusLabel:SetText("已清空选择")
 end
 
 function VoxelSandbox:PickMaterial()
@@ -532,12 +481,26 @@ function VoxelSandbox:HandlePointer()
         self.modifier:End(true)
         self.dragActive = false
     end
+    if self.boxSelectionActive and (not leftDown or pointerOverUI) then
+        if pointerOverUI then
+            self:CancelBoxSelection()
+        else
+            self:CommitBoxSelection()
+        end
+    end
     if pointerOverUI then
         return
     end
 
     if self.tool == "select" and leftPress then self:SelectHover() return end
-    if self.tool == "box" and leftPress then self:HandleBoxSelection() return end
+    if self.tool == "box" then
+        if leftPress and not self.boxSelectionActive then
+            self:BeginBoxSelection()
+        elseif self.boxSelectionActive and leftDown then
+            self:UpdateBoxSelection()
+        end
+        return
+    end
     if self.tool == "picker" and leftPress then self:PickMaterial() return end
     if self.tool == "fill" and leftPress then self:FloodFill() return end
 
@@ -605,9 +568,30 @@ function VoxelSandbox:DrawDebug()
     )
 end
 
+function VoxelSandbox:Undo()
+    self.history:Undo()
+end
+
+function VoxelSandbox:Redo()
+    self.history:Redo()
+end
+
+function VoxelSandbox:ToggleGrid()
+    self.viewportRenderer.showGrid = not self.viewportRenderer.showGrid
+end
+
+function VoxelSandbox:ToggleAxes()
+    self.viewportRenderer.showAxes = not self.viewportRenderer.showAxes
+end
+
 function VoxelSandbox:UpdateDocumentStatus()
     local dirty = self.document.dirty and "*" or ""
-    self.statusLabel:SetText("体素：" .. tostring(self.document:Count()) .. "  " .. dirty .. "JSON文档　左键编辑　右键旋转　中键平移　滚轮缩放")
+    self.statusLabel:SetText(
+        "Part：" .. self.session.name
+            .. "  体素：" .. tostring(self.document:Count())
+            .. "  " .. dirty
+            .. "局部 JSON　左键编辑　右键旋转　中键平移　滚轮缩放"
+    )
 end
 
 function VoxelSandbox:UpdateSelectionLabel()
@@ -615,18 +599,21 @@ function VoxelSandbox:UpdateSelectionLabel()
 end
 
 function VoxelSandbox:SaveDocument()
-    local ok, message = self.document:Save()
-    self.statusLabel:SetText(ok and "已保存 tri_voxel_sandbox.json" or ("保存失败：" .. tostring(message)))
+    local ok, message = self.session:Save()
+    self.statusLabel:SetText(
+        ok and ("已保存 Part：" .. self.session.name)
+            or ("保存失败：" .. tostring(message))
+    )
 end
 
 function VoxelSandbox:LoadDocument()
-    local ok, message = self.document:Load()
+    local ok, message = self.session:Load()
     if ok then
         self.history:Clear()
         self.selection:Clear()
         self:RebuildDocumentScene()
         self:UpdateSelectionLabel()
-        self.statusLabel:SetText("已加载 tri_voxel_sandbox.json")
+        self.statusLabel:SetText("已加载 Part：" .. self.session.name)
     else
         self.statusLabel:SetText("加载失败：" .. tostring(message))
     end
@@ -644,7 +631,12 @@ function VoxelSandbox:Stop()
     if self.modifier then
         self.modifier:Deactivate()
     end
-    UI.Shutdown()
+    if self.editorUI then
+        self.editorUI:Destroy()
+        self.editorUI = nil
+    else
+        UI.Shutdown()
+    end
 end
 
 return VoxelSandbox

@@ -129,6 +129,21 @@ function ViewportRenderer:DrawSelected(selectionCells)
     end
 end
 
+function ViewportRenderer:DrawSelectionPreview(selectionCells)
+    local color = Color(0.40, 0.90, 1.0, 1.0)
+    for _, cell in pairs(selectionCells or {}) do
+        self:DrawCellOutline(cell, color, false, 1.1)
+    end
+end
+
+function ViewportRenderer:DrawSelectionGesture(firstCell, secondCell)
+    local color = Color(0.72, 0.94, 1.0, 1.0)
+    self:DrawCellOutline(firstCell, color, false, 1.2)
+    if secondCell and (not firstCell or self.grid:CellKey(firstCell) ~= self.grid:CellKey(secondCell)) then
+        self:DrawCellOutline(secondCell, color, false, 1.2)
+    end
+end
+
 function ViewportRenderer:DrawHover(cell, occupied)
     if not cell then
         return
@@ -173,6 +188,9 @@ function ViewportRenderer:Draw(context, activeLayer, pendingChanges)
     self:DrawHitFace(context.hit)
     self:DrawHover(context.cursorCell, context.cursorCell and self.document:Get(context.cursorCell) ~= nil)
     self:DrawSelected(self.selection:GetCells())
+    self:DrawSelectionPreview(self.selection:GetPreviewCells())
+    local firstCell, secondCell = self.selection:GetPreviewBounds()
+    self:DrawSelectionGesture(firstCell, secondCell)
     self:DrawPreview(pendingChanges)
 end
 

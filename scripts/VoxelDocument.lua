@@ -1,5 +1,5 @@
--- 三棱柱体素文档与 JSON 持久化。
--- 文档是正式数据真相源；渲染节点、预览和历史都依赖它。
+-- Part 局部三棱柱体素文档与 JSON 持久化。
+-- 文档是一个 Part 的正式数据真相源；渲染节点、预览和历史都依赖它。
 
 local VoxelDocument = {}
 VoxelDocument.__index = VoxelDocument
@@ -20,11 +20,11 @@ local function CopyCell(cell)
     }
 end
 
-function VoxelDocument.New(grid)
+function VoxelDocument.New(grid, path)
     local self = setmetatable({}, VoxelDocument)
     self.grid = grid
     self.version = FORMAT_VERSION
-    self.path = "tri_voxel_sandbox.json"
+    self.path = path or "parts/default-part.json"
     self.cells = {}
     self.materials = {
         { r = 242, g = 75, b = 85, a = 255 },
@@ -172,7 +172,7 @@ function VoxelDocument:Save(path)
     if not file:IsOpen() then
         return false, "cannot open save file"
     end
-    file:WriteString(cjson.encode(self:ToTable()))
+    file:WriteLine(cjson.encode(self:ToTable()))
     file:Close()
     self.path = path
     self.dirty = false

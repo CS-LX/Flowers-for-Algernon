@@ -74,6 +74,19 @@ function Selection:ClearPendingTransform()
     self:Notify()
 end
 
+function Selection:GetPreviewCells()
+    local result = {}
+    for key, cell in pairs(self.previewCells) do
+        result[key] = CopyCell(cell)
+    end
+    return result
+end
+
+function Selection:GetPreviewBounds()
+    return CopyCell(self.previewBounds and self.previewBounds.first),
+        CopyCell(self.previewBounds and self.previewBounds.second)
+end
+
 function Selection:SetCells(cells)
     self.cells = self.cells or {}
     for key in pairs(self.cells) do

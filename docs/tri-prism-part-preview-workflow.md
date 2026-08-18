@@ -73,33 +73,54 @@ RotatorTower.state == 2
 
 ### Part 定义
 
-每个 `Part` 是一个具有局部坐标系、局部体素源数据、Transform 和可选行为的关卡物件，概念上类似 Unity 的 `GameObject / Prefab Instance`。
+每个 `Part` 是一个具有局部坐标系、局部体素源数据、Transform 和可组合能力的关卡物件，概念上类似 Unity 的 `GameObject / Prefab Instance`。
+
+Part 不再通过 `static / rotator / slider` 等互斥类型描述，而是由四部分组成：
+
+```text
+Part
+├── localVoxelPath
+├── Transform
+├── transformCapabilities
+└── behaviorModes + behaviors
+```
 
 ```lua
 {
     id = "part_rotator_tower",
     name = "旋转塔",
-    type = "part",
-
-    localVoxelDocument = {
-        -- 该 Part 局部坐标系内的三棱柱体素
-    },
+    localVoxelPath = "parts/rotator-tower.json",
 
     transform = {
         position = { x = 0, y = 0, z = 0 },
-        rotationSteps = 0,
+        rotation = {
+            yawSteps = 0,
+            pitchSteps = 0,
+            rollSteps = 0,
+        },
         scale = { x = 1, y = 1, z = 1 },
     },
 
-    behavior = {
-        type = "rotator",
-        axis = "Y",
-        allowedSteps = { 0, 1, 2, 3, 4, 5 },
-        state = 0,
-        duration = 0.45,
+    transformCapabilities = {
+        move = true,
+        rotate = true,
+        scale = false,
+    },
+
+    behaviorModes = { "rotator", "triggerable" },
+    behaviors = {
+        rotator = {
+            axis = "Y",
+            stepDegrees = 60,
+            allowedSteps = { 0, 1, 2, 3, 4, 5 },
+            state = 0,
+            duration = 0.45,
+        },
     },
 }
 ```
+
+`static` 不再是 Part 类型，而是没有行为模式的普通 Part。`rotator`、`slider`、`elevator` 和 `triggerable` 都是可以组合的行为模式。
 
 ## 双层编辑工作流
 
@@ -216,7 +237,16 @@ h = 1 / sqrt(3)m
 h = a * tan(30°)
 ```
 
-任意非均匀缩放会破坏：
+`scale` 是每个 Part Transform 的正式字段，但是否可以编辑由 `transformCapabilities.scale` 决定。
+
+Gameplay Part 初版默认保持：
+
+```text
+scale = (1, 1, 1)
+transformCapabilities.scale = false
+```
+
+装饰性 Part 可以支持均匀缩放；初版禁止非均匀缩放。原因是任意缩放会破坏：
 
 ```text
 - 六边形密铺
@@ -226,22 +256,7 @@ h = a * tan(30°)
 - 导航与视觉一致性
 ```
 
-因此按 Part 类型限制缩放：
-
-| Part 类型 | 平移 | 六向旋转 | 缩放 |
-|---|---|---|---|
-| Static / Decorative | 支持 | 支持 | 可支持任意缩放 |
-| Gameplay Static | 支持 | 支持 | 默认 1,1,1；需显式确认 |
-| Gameplay Moving | 支持 | 支持 | 初版禁用 |
-| Illusion Connector | 支持 | 支持 | 必须 1,1,1 |
-
-初版的可动玩法 Part 只支持：
-
-```text
-位移 + 60° 离散旋转
-```
-
-不支持缩放。
+因此不删除缩放属性，而是将它从“所有 Part 都能自由缩放”改为“由能力控制的 Transform 属性”。
 
 ## Preview 模块
 
@@ -287,11 +302,15 @@ PreviewRoot
 - LevelDocument
 - PartDefinition
 - Part localVoxelDocument
-- Static / Rotator Part 类型
+- Transform：position / rotation / scale
+- transformCapabilities：move / rotate / scale
+- behaviorModes + behaviors
+- Static 不再作为互斥 Part 类型
+- Rotator 作为可组合行为模式
 - Part 与体素集合的所有权
 ```
 
-目标：明确哪些局部体素属于哪个 Part，而不更改现有三棱柱拓扑。
+目标：明确哪些局部体素属于哪个 Part，并让 Part 的变换、编辑能力与运行时行为解耦，不更改现有三棱柱拓扑。
 
 ### 阶段 B：Object Tree Editor
 
@@ -300,8 +319,12 @@ PreviewRoot
 - 创建 / 选择 / 删除 Part
 - Open Part / Back to Level
 - Part Inspector
+- Transform：平移、旋转、缩放能力与当前值
+- behaviorModes 组合配置
 - 平移与 60° 离散旋转
 ```
+
+初版 Inspector 不允许 Gameplay Part 修改非单位缩放；能力关闭时对应 Transform 控件必须禁用。
 
 ### 阶段 C：初版 Preview
 

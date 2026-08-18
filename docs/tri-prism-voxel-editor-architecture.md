@@ -189,25 +189,39 @@ PartRoot / BakedMesh = 派生显示结果
 
 ### 3. `PartDefinition`
 
-定义一个可移动、可复用的关卡物件：
+定义一个可移动、可复用的关卡物件。Part 不通过互斥类型表达行为，而是由 Transform、Transform 能力和可组合行为模式组成：
 
 ```text
 - id / name
 - parentId
 - localVoxelDocument 引用
-- Transform
-- behavior
+- Transform：position / rotation / scale
+- transformCapabilities：move / rotate / scale
+- behaviorModes[]
+- behaviors{}
 - bake metadata
 ```
 
-初版行为类型：
+概念示例：
 
-```text
-Static
-Rotator
+```lua
+{
+    id = "part_rotator_tower",
+    localVoxelPath = "parts/rotator-tower.json",
+    transform = {
+        position = { x = 0, y = 0, z = 0 },
+        rotation = { yawSteps = 0, pitchSteps = 0, rollSteps = 0 },
+        scale = { x = 1, y = 1, z = 1 },
+    },
+    transformCapabilities = { move = true, rotate = true, scale = false },
+    behaviorModes = { "rotator", "triggerable" },
+    behaviors = {
+        rotator = { axis = "Y", stepDegrees = 60, state = 0 },
+    },
+}
 ```
 
-可动玩法 Part 初版只允许平移与绕 Y 轴的 60° 离散旋转，不支持缩放。
+`static` 不是 Part 类型，而是没有行为模式的普通 Part。`rotator`、`slider`、`elevator` 和 `triggerable` 是可组合行为。Gameplay Part 的 scale 字段保留，但初版由能力规则锁定为 `(1, 1, 1)`；装饰 Part 将来可以支持均匀缩放。
 
 ### 4. `TriPrismGrid`
 
@@ -494,10 +508,16 @@ LogicGraph Conditional Edges
 ### 阶段三：LevelDocument 与 Part 数据模型
 
 - `LevelDocument` JSON；
-- `PartDefinition`：id、名称、parentId、局部体素引用、Transform、行为参数；
-- Static 与 Rotator Part 类型；
+- `PartDefinition`：id、名称、parentId、局部体素引用；
+- 统一 Transform：position、rotation、scale；
+- Transform 能力：move、rotate、scale；
+- 可组合 `behaviorModes` 与 `behaviors`；
+- Static 不再作为互斥 Part 类型；
+- Rotator 作为第一种可组合行为；
 - Part 所有权与局部体素资源路径；
 - 固定 30° 正交游戏镜头配置。
+
+Gameplay Part 初版 scale 保持单位值并禁用缩放编辑；装饰 Part 后续可支持均匀缩放。
 
 ### 阶段四：Object Tree Editor
 
