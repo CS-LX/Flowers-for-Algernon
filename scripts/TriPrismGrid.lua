@@ -288,9 +288,14 @@ function TriPrismGrid:ContainsPoint(cell, worldPosition)
     return PointInTriangle(worldPosition, vertices)
 end
 
+function TriPrismGrid:WorldToHexFloat(worldPosition)
+    local hexQ = (2.0 / 3.0) * worldPosition.x / self.edgeLength
+    local hexR = -worldPosition.z / (SQRT3 * self.edgeLength) - hexQ * 0.5
+    return hexQ, hexR
+end
+
 function TriPrismGrid:WorldToHex(worldPosition)
-    local q = (2.0 / 3.0) * worldPosition.x / self.edgeLength
-    local r = -worldPosition.z / (SQRT3 * self.edgeLength) - q * 0.5
+    local q, r = self:WorldToHexFloat(worldPosition)
     local cubeX = q
     local cubeZ = r
     local cubeY = -cubeX - cubeZ

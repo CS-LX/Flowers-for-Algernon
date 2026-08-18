@@ -14,6 +14,10 @@ local function Clamp(value, minimum, maximum)
     return math.max(minimum, math.min(maximum, value))
 end
 
+local function SnapToStep(value, step)
+    return math.floor(value / step + 0.5) * step
+end
+
 ---@class LevelEditor
 ---@field scene Scene
 ---@field cameraNode Node
@@ -27,6 +31,7 @@ end
 ---@field mode string
 ---@field partEditor table|nil
 ---@field ui table|nil
+---@field transformGrid table
 ---@field editorCamera table
 LevelEditor.__index = LevelEditor
 
@@ -44,6 +49,12 @@ function LevelEditor.New(scene, cameraNode, camera, debugRenderer, levelDocument
     self.mode = "level"
     self.partEditor = nil
     self.ui = nil
+    self.transformGrid = {
+        snapStep = 0.5,
+        hexQ = 0,
+        hexR = 0,
+        layer = 0,
+    }
     self.editorCamera = {
         projection = "orthographic",
         focus = Vector3(0, 0, 0),
@@ -173,6 +184,10 @@ function LevelEditor:EnterLevelMode()
         local parts = self.levelDocument:GetParts()
         self.selectedPartId = parts[1] and parts[1].id or nil
     end
+    local selectedPart = self:GetSelectedPart()
+    if selectedPart then
+        self:SyncTransformGrid(selectedPart)
+    end
 
     self.ui = LevelEditorUI.New(self)
     self.ui:Build()
@@ -180,11 +195,121 @@ function LevelEditor:EnterLevelMode()
     print("Level Editor: entered level mode")
 end
 
+function LevelEditor:SyncTransformGrid(part)
+    local position = part.transform.position
+    local grid = self.partRenderer.grid
+    local rawQ, rawR = grid:WorldToHexFloat(position)
+    self.transformGrid.hexQ = SnapToStep(rawQ, self.transformGrid.snapStep)
+    self.transformGrid.hexR = SnapToStep(rawR, self.transformGrid.snapStep)
+    self.transformGrid.layer = SnapToStep(
+        position.y / self.voxelHeight,
+        self.transformGrid.snapStep
+    )
+end
+
+function LevelEditor:GetSnappedWorldPosition(hexQ, hexR, layer)
+    return self.partRenderer.grid:GetHexCenter(
+        hexQ,
+        hexR,
+        layer * self.voxelHeight
+    )
+end
+
+function LevelEditor:SetSelectedGridCoordinate(axis, value)
+    local part = self:GetSelectedPart()
+    if not part or not part:CanTransform("move") then
+        return false
+    end
+    local numeric = tonumber(value)
+    if not numeric then
+        self:RefreshLevelUI("网格坐标必须是数字")
+        return false
+    end
+    numeric = SnapToStep(numeric, self.transformGrid.snapStep)
+    if axis == "hexQ" or axis == "hexR" then
+        self.transformGrid[axis] = numeric
+    elseif axis == "layer" then
+        self.transformGrid.layer = numeric
+    else
+        return false
+    end
+
+    local position = self:GetSnappedWorldPosition(
+        self.transformGrid.hexQ,
+        self.transformGrid.hexR,
+        self.transformGrid.layer
+    )
+    if not part:SetPosition(position) then
+        return false
+    end
+    self.levelDocument.dirty = true
+    local root = self.partRenderer:GetRoot(part.id)
+    if root then
+        self.partRenderer:ApplyTransform(root, part)
+    end
+    self:RefreshLevelUI(string.format(
+        "%s 已吸附到 Q %.1f / R %.1f / Layer %.1f",
+        part.name,
+        self.transformGrid.hexQ,
+        self.transformGrid.hexR,
+        self.transformGrid.layer
+    ))
+    return true
+end
+
+function LevelEditor:SnapSelectedPartToGrid()
+    local part = self:GetSelectedPart()
+    if not part or not part:CanTransform("move") then
+        return false
+    end
+    self:SyncTransformGrid(part)
+    local position = self:GetSnappedWorldPosition(
+        self.transformGrid.hexQ,
+        self.transformGrid.hexR,
+        self.transformGrid.layer
+    )
+    if not part:SetPosition(position) then
+        return false
+    end
+    self.levelDocument.dirty = true
+    local root = self.partRenderer:GetRoot(part.id)
+    if root then
+        self.partRenderer:ApplyTransform(root, part)
+    end
+    self:RefreshLevelUI("已吸附当前 Part 到三棱柱网格")
+    return true
+end
+
+function LevelEditor:SetSelectedYawSteps(value)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local steps = tonumber(value)
+    if not steps or not part:SetYawSteps(steps) then
+        self:RefreshLevelUI("Yaw 必须是允许的 0..5 离散状态")
+        return false
+    end
+    self.levelDocument.dirty = true
+    local root = self.partRenderer:GetRoot(part.id)
+    if root then
+        self.partRenderer:ApplyTransform(root, part)
+    end
+    self:RefreshLevelUI(string.format(
+        "%s Yaw：%d（%d°）",
+        part.name,
+        part.transform.rotation.yawSteps,
+        part.transform.rotation.yawSteps * 60
+    ))
+    return true
+end
+
 function LevelEditor:SelectPart(partId)
     if not self.levelDocument:GetPart(partId) then
         return false
     end
     self.selectedPartId = partId
+    self:SyncTransformGrid(self:GetSelectedPart())
     self:RefreshLevelUI("已选择 Part：" .. self:GetSelectedPart().name)
     return true
 end
@@ -241,16 +366,25 @@ function LevelEditor:BackToLevel()
     return true
 end
 
-function LevelEditor:RotateSelectedPart()
-    local part = self:GetSelectedPart()
-    if not part or not part:HasBehavior("rotator") then
+function LevelEditor:SaveLevel()
+    local saved, errorMessage = self.levelDocument:Save()
+    if not saved then
+        self:RefreshLevelUI("关卡保存失败：" .. tostring(errorMessage))
         return false
     end
-    local nextStep = (part.transform.rotation.yawSteps + 1) % 6
+    self:RefreshLevelUI("已保存关卡：" .. self.levelDocument.name)
+    return true
+end
+
+function LevelEditor:RotateSelectedPart(deltaSteps)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    deltaSteps = deltaSteps or 1
+    local nextStep = part.transform.rotation.yawSteps + deltaSteps
     if not part:SetYawSteps(nextStep) then
-        if self.ui then
-            self.ui:SetStatus("当前 Rotator 状态不允许旋转到 " .. tostring(nextStep))
-        end
+        self:RefreshLevelUI("当前 Part 不允许使用该 Yaw 状态")
         return false
     end
     self.levelDocument.dirty = true
@@ -258,7 +392,12 @@ function LevelEditor:RotateSelectedPart()
     if root then
         self.partRenderer:ApplyTransform(root, part)
     end
-    self:RefreshLevelUI("旋转塔状态：" .. tostring(part.transform.rotation.yawSteps) .. "（" .. tostring(part.transform.rotation.yawSteps * 60) .. "°）")
+    self:RefreshLevelUI(string.format(
+        "%s Yaw：%d（%d°）",
+        part.name,
+        part.transform.rotation.yawSteps,
+        part.transform.rotation.yawSteps * 60
+    ))
     return true
 end
 

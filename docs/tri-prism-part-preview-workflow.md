@@ -290,6 +290,41 @@ transformCapabilities.scale = false
 
 因此不删除缩放属性，而是将它从“所有 Part 都能自由缩放”改为“由能力控制的 Transform 属性”。
 
+### Part 总装位置与网格吸附
+
+Part 的局部体素可以随 `PartRoot` 平移，但参与三棱柱密铺、错视连接或玩法导航的 Part，不能使用任意 `X/Y/Z = 1m` 的笛卡尔步进。这样会产生半高、半前进或接缝错位。
+
+关卡总装的合法吸附位置由 `TriPrismGrid` 的轴坐标派生：
+
+```text
+Grid Position = (hexQ, hexR, layer)
+
+底层 `PartDefinition.transform.position` 始终是任意浮点世界坐标；`Q/R/Layer` 的吸附刻度属于 Editor 工作区策略，不属于数据存储约束。当前 Editor 默认：
+
+```text
+snapStep = 0.5
+Q / R / Layer 均可使用 0.5 的倍数
+Layer 允许负数
+```
+
+完整格点时的基础位移关系仍为：
+
+```text
+ΔQ = (1.5a, 0, -sqrt(3)/2 * a)
+ΔR = (0, 0, -sqrt(3) * a)
+ΔLayer = (0, h, 0)
+```
+
+因此 Transform Inspector 的编辑模型是：
+
+```text
+可编辑：Q / R / Layer / Yaw Step
+只读：派生 World Position
+Yaw Step：0..5，对应 0°..300°
+```
+
+Inspector 提供 `Snap Current to Tri-Prism Grid`，用于修正历史数据或手工导入造成的非对齐位置。`PartDefinition.transform.position` 仍保存最终世界坐标，保证 Preview 与运行时无需重复解算；但它必须由网格吸附服务生成，而不是由自由笛卡尔按钮累积。
+
 ## Preview 模块
 
 Preview 不是编辑器相机的另一种显示方式，而是游戏规则验证环境。

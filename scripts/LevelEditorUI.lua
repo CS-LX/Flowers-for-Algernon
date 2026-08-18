@@ -53,9 +53,37 @@ function LevelEditorUI:Build()
         fontWeight = "bold",
         fontColor = TEXT,
     }
-    self.positionLabel = UI.Label { text = "", fontSize = 11, fontColor = MUTED }
-    self.rotationLabel = UI.Label { text = "", fontSize = 11, fontColor = MUTED }
-    self.scaleLabel = UI.Label { text = "", fontSize = 11, fontColor = MUTED }
+    self.positionLabel = UI.Label { text = "", fontSize = 10, fontColor = MUTED, whiteSpace = "normal" }
+    self.rotationLabel = UI.Label { text = "", fontSize = 10, fontColor = MUTED }
+    self.scaleLabel = UI.Label { text = "", fontSize = 10, fontColor = MUTED }
+    self.gridQField = UI.TextField {
+        value = "0",
+        placeholder = "Q",
+        height = 28,
+        fontSize = 11,
+        onSubmit = function(_, value) editor:SetSelectedGridCoordinate("hexQ", value) end,
+    }
+    self.gridRField = UI.TextField {
+        value = "0",
+        placeholder = "R",
+        height = 28,
+        fontSize = 11,
+        onSubmit = function(_, value) editor:SetSelectedGridCoordinate("hexR", value) end,
+    }
+    self.layerField = UI.TextField {
+        value = "0",
+        placeholder = "Layer",
+        height = 28,
+        fontSize = 11,
+        onSubmit = function(_, value) editor:SetSelectedGridCoordinate("layer", value) end,
+    }
+    self.yawField = UI.TextField {
+        value = "0",
+        placeholder = "Yaw 0..5",
+        height = 28,
+        fontSize = 11,
+        onSubmit = function(_, value) editor:SetSelectedYawSteps(value) end,
+    }
     self.capabilityLabel = UI.Label { text = "", fontSize = 11, fontColor = MUTED, whiteSpace = "normal" }
     self.modeLabel = UI.Label { text = "", fontSize = 11, fontColor = { 157, 220, 255, 255 }, whiteSpace = "normal" }
     self.cameraLabel = UI.Label { text = "", fontSize = 10, fontColor = { 173, 214, 255, 255 } }
@@ -76,14 +104,13 @@ function LevelEditorUI:Build()
             editor:OpenSelectedPart()
         end,
     }
-    self.rotateButton = UI.Button {
-        text = "旋转 +60°",
+    self.saveButton = UI.Button {
+        text = "保存关卡",
         height = 30,
         fontSize = 11,
-        variant = "secondary",
-        disabled = true,
+        variant = "success",
         onClick = function()
-            editor:RotateSelectedPart()
+            editor:SaveLevel()
         end,
     }
 
@@ -124,7 +151,25 @@ function LevelEditorUI:Build()
                     self.selectionLabel,
                     UI.Divider { thickness = 1, color = BORDER, spacing = 1 },
                     UI.Label { text = "Transform", fontSize = 10, fontColor = MUTED },
+                    UI.Label { text = "Grid Position  (0.5 step, hex snap)", fontSize = 9, fontColor = { 157, 220, 255, 255 } },
+                    UI.Panel { flexDirection = "row", gap = 5, children = {
+                        UI.Panel { flexGrow = 1, flexShrink = 1, gap = 2, children = { UI.Label { text = "Q", fontSize = 9, fontColor = MUTED }, self.gridQField } },
+                        UI.Panel { flexGrow = 1, flexShrink = 1, gap = 2, children = { UI.Label { text = "R", fontSize = 9, fontColor = MUTED }, self.gridRField } },
+                        UI.Panel { flexGrow = 1, flexShrink = 1, gap = 2, children = { UI.Label { text = "Layer", fontSize = 9, fontColor = MUTED }, self.layerField } },
+                    } },
                     self.positionLabel,
+                    UI.Button {
+                        text = "Snap Current to Tri-Prism Grid",
+                        height = 26,
+                        fontSize = 10,
+                        variant = "secondary",
+                        onClick = function() editor:SnapSelectedPartToGrid() end,
+                    },
+                    UI.Label { text = "Rotation  (6-way snap)", fontSize = 9, fontColor = { 157, 220, 255, 255 } },
+                    UI.Panel { flexDirection = "row", gap = 5, alignItems = "flex-end", children = {
+                        UI.Panel { width = 78, gap = 2, children = { UI.Label { text = "Yaw Step", fontSize = 9, fontColor = MUTED }, self.yawField } },
+                        UI.Label { text = "0..5  =  0°..300°", flexGrow = 1, flexShrink = 1, fontSize = 9, fontColor = MUTED, whiteSpace = "normal" },
+                    } },
                     self.rotationLabel,
                     self.scaleLabel,
                     UI.Label { text = "Transform Capabilities", fontSize = 10, fontColor = MUTED },
@@ -141,7 +186,7 @@ function LevelEditorUI:Build()
                     } },
                     UI.Label { text = "RMB 旋转 · MMB 平移 · Wheel 缩放", fontSize = 9, fontColor = MUTED },
                     UI.Panel { flexGrow = 1, flexShrink = 1 },
-                    self.rotateButton,
+                    self.saveButton,
                     self.openButton,
                 },
             },
@@ -184,20 +229,29 @@ function LevelEditorUI:Refresh()
     local part = self.editor:GetSelectedPart()
     if not part then
         self.selectionLabel:SetText("未选择 Part")
-        self.positionLabel:SetText("Position：—")
+        self.positionLabel:SetText("World Position：—")
         self.rotationLabel:SetText("Rotation：—")
         self.scaleLabel:SetText("Scale：—")
+        self.gridQField:SetValue("")
+        self.gridRField:SetValue("")
+        self.layerField:SetValue("")
+        self.yawField:SetValue("")
         self.capabilityLabel:SetText("—")
         self.modeLabel:SetText("—")
         self.openButton:SetDisabled(true)
-        self.rotateButton:SetDisabled(true)
+        self.saveButton:SetDisabled(true)
         return
     end
 
     local transform = part.transform
+    local grid = self.editor.transformGrid
+    self.gridQField:SetValue(tostring(grid.hexQ))
+    self.gridRField:SetValue(tostring(grid.hexR))
+    self.layerField:SetValue(tostring(grid.layer))
+    self.yawField:SetValue(tostring(transform.rotation.yawSteps))
     self.selectionLabel:SetText(part.name .. "  [" .. part.id .. "]")
     self.positionLabel:SetText(string.format(
-        "Position：X %.2f  Y %.2f  Z %.2f",
+        "World Position  X %.3f  Y %.3f  Z %.3f",
         transform.position.x, transform.position.y, transform.position.z
     ))
     self.rotationLabel:SetText(string.format(
@@ -230,7 +284,7 @@ function LevelEditorUI:Refresh()
         editorCamera.projection == "orthographic" and editorCamera.orthoSize or editorCamera.distance
     ))
     self.openButton:SetDisabled(false)
-    self.rotateButton:SetDisabled(not part:HasBehavior("rotator"))
+    self.saveButton:SetDisabled(false)
 end
 
 function LevelEditorUI:SetCameraState(camera)

@@ -183,6 +183,14 @@ function PartDefinition:CanTransform(operation)
     return self.transformCapabilities[operation] == true
 end
 
+function PartDefinition:SetPosition(position)
+    if not self:CanTransform("move") then
+        return false
+    end
+    self.transform.position = CopyVector(position)
+    return true
+end
+
 function PartDefinition:SetYawSteps(steps)
     if not self:CanTransform("rotate") then
         return false
