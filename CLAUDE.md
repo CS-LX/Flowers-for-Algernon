@@ -26,6 +26,11 @@
 - 渲染问题在证据闭合前不得连续切换 DebugRenderer、CustomGeometry、UI Overlay 等实现；每次方案替换必须先说明渲染层、深度策略、提交顺序和回退边界，并等待用户确认。
 - 发现误回退后，首先恢复无关的已验收功能，再处理目标问题；不得把事故扩大为整体回退。
 
+## 编辑器 Gizmo 规范
+
+- 编辑器 Gizmo 需求必须先区分目标对象：Level Object Tree 的 Gizmo 操作 PartRoot；Part Voxel Editor 的 Gizmo 操作局部 Selection。后者必须通过 PendingTransform/History 更新 VoxelDocument，禁止只移动显示 Node。
+- Part Editor 轴拖拽的第一版采用 Unity/Blender 的 XYZ 颜色约定：X 红、Y 绿、Z 蓝；使用轴约束拖拽平面和网格吸附，不得把一次性按钮移动误当成完整 Gizmo 交互。
+
 ## Git 提交与推送
 
 - 远程仓库使用不含凭据的标准 HTTPS URL，禁止把 token 写入 remote URL、Git 配置、提交内容或日志。
