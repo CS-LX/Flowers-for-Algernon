@@ -11,13 +11,63 @@ local PANEL_LIGHT = { 32, 41, 56, 248 }
 local BORDER = { 92, 112, 140, 180 }
 local TEXT = { 231, 238, 248, 255 }
 local MUTED = { 145, 160, 184, 255 }
-local SELECTED = { 41, 101, 169, 255 }
+local COMPONENT_HEADER = { 29, 36, 50, 255 }
+local COMPONENT_ACCENT = { 78, 132, 194, 255 }
 
 local function ModeText(part)
     if #part.behaviorModes == 0 then
         return "无运行时行为"
     end
     return table.concat(part.behaviorModes, " + ")
+end
+
+local function InspectorComponentHeader(icon, title)
+    return UI.Panel {
+        height = 29,
+        paddingHorizontal = 8,
+        flexDirection = "row",
+        alignItems = "center",
+        gap = 7,
+        backgroundColor = COMPONENT_HEADER,
+        borderTopWidth = 1,
+        borderBottomWidth = 1,
+        borderTopColor = BORDER,
+        borderBottomColor = BORDER,
+        children = {
+            UI.Label { text = "▾", width = 10, fontSize = 10, fontColor = MUTED },
+            UI.Label { text = icon, width = 16, fontSize = 12, fontColor = COMPONENT_ACCENT },
+            UI.Label { text = title, flexGrow = 1, fontSize = 11, fontWeight = "bold", fontColor = TEXT },
+            UI.Label { text = "?  ⋮", fontSize = 10, fontColor = MUTED },
+        },
+    }
+end
+
+local function InspectorFieldRow(label, content)
+    return UI.Panel {
+        minHeight = 28,
+        flexDirection = "row",
+        alignItems = "center",
+        gap = 6,
+        children = {
+            UI.Label { text = label, width = 62, flexShrink = 0, fontSize = 10, fontColor = MUTED },
+            UI.Panel {
+                flexGrow = 1,
+                flexShrink = 1,
+                minWidth = 0,
+                children = { content },
+            },
+        },
+    }
+end
+
+local function IsPointerInsideWidget(widget)
+    local scale = UI.GetScale()
+    local mouse = input:GetMousePosition()
+    local x = mouse.x / scale
+    local y = mouse.y / scale
+    local layout = widget:GetAbsoluteLayoutForHitTest()
+    return x >= layout.x and x <= layout.x + layout.w
+        and y >= layout.y and y <= layout.y + layout.h
 end
 
 function LevelEditorUI.New(editor)
@@ -96,7 +146,7 @@ function LevelEditorUI:Build()
         flexShrink = 1,
         showLines = true,
         defaultExpandAll = false,
-        selectedBgColor = SELECTED,
+        selectedBgColor = COMPONENT_ACCENT,
         onSelect = function(_, _, node)
             if node and node.id then
                 editor:SelectPart(node.id)
@@ -242,64 +292,107 @@ function LevelEditorUI:Build()
                     UI.Label { text = "当前为最小总装闭环：选择、查看、打开 Part。", fontSize = 10, fontColor = MUTED, whiteSpace = "normal" },
                 },
             },
-            UI.Panel {
-                position = "absolute", top = 56, right = 8, width = 254, bottom = 44,
-                padding = 11, gap = 8,
-                backgroundColor = PANEL, borderColor = BORDER, borderWidth = 1, borderRadius = 6,
+            UI.ScrollView {
+                id = "inspectorScroll",
+                position = "absolute", top = 56, right = 8, width = 300, bottom = 44,
+                padding = 0,
+                gap = 0,
+                flexBasis = 0,
+                scrollY = true,
+                scrollX = false,
+                showScrollbar = true,
+                scrollbarInteractive = true,
+                bounces = false,
+                backgroundColor = PANEL, borderColor = BORDER, borderWidth = 1, borderRadius = 3,
                 children = {
-                    UI.Label { text = "PART INSPECTOR", fontSize = 11, fontWeight = "bold", fontColor = TEXT },
-                    self.selectionLabel,
-                    UI.Divider { thickness = 1, color = BORDER, spacing = 1 },
-                    UI.Label { text = "Identity", fontSize = 10, fontColor = MUTED },
-                    self.nameField,
-                    UI.Label { text = "Parent", fontSize = 10, fontColor = MUTED },
-                    self.parentDropdown,
-                    UI.Label { text = "Transform", fontSize = 10, fontColor = MUTED },
-                    UI.Label { text = "Grid Position  (0.5 step, hex snap)", fontSize = 9, fontColor = { 157, 220, 255, 255 } },
-                    UI.Panel { flexDirection = "row", gap = 5, children = {
-                        UI.Panel { flexGrow = 1, flexShrink = 1, gap = 2, children = { UI.Label { text = "Q", fontSize = 9, fontColor = MUTED }, self.gridQField } },
-                        UI.Panel { flexGrow = 1, flexShrink = 1, gap = 2, children = { UI.Label { text = "R", fontSize = 9, fontColor = MUTED }, self.gridRField } },
-                        UI.Panel { flexGrow = 1, flexShrink = 1, gap = 2, children = { UI.Label { text = "Layer", fontSize = 9, fontColor = MUTED }, self.layerField } },
-                    } },
-                    self.positionLabel,
-                    UI.Button {
-                        text = "Snap Current to Tri-Prism Grid",
-                        height = 26,
-                        fontSize = 10,
-                        variant = "secondary",
-                        onClick = function() editor:SnapSelectedPartToGrid() end,
+                    UI.Panel {
+                        padding = 8,
+                        gap = 5,
+                        borderBottomWidth = 1,
+                        borderBottomColor = BORDER,
+                        children = {
+                            UI.Panel { flexDirection = "row", alignItems = "center", gap = 7, children = {
+                                UI.Label { text = "◇", width = 24, fontSize = 20, fontColor = MUTED },
+                                UI.Checkbox { checked = true, size = 15, height = 24, onChange = function() end },
+                                self.nameField,
+                            } },
+                            InspectorFieldRow("Parent", self.parentDropdown),
+                        },
                     },
-                    UI.Label { text = "Rotation  (6-way snap)", fontSize = 9, fontColor = { 157, 220, 255, 255 } },
-                    UI.Panel { flexDirection = "row", gap = 5, alignItems = "flex-end", children = {
-                        UI.Panel { width = 78, gap = 2, children = { UI.Label { text = "Yaw Step", fontSize = 9, fontColor = MUTED }, self.yawField } },
-                        UI.Label { text = "0..5  =  0°..300°", flexGrow = 1, flexShrink = 1, fontSize = 9, fontColor = MUTED, whiteSpace = "normal" },
-                    } },
-                    UI.Panel { flexDirection = "row", gap = 5, alignItems = "flex-end", children = {
-                        UI.Panel { width = 78, gap = 2, children = { UI.Label { text = "Scale", fontSize = 9, fontColor = MUTED }, self.scaleField } },
-                    } },
-                    self.rotationLabel,
-                    self.scaleLabel,
-                    UI.Label { text = "Behavior Configuration", fontSize = 10, fontColor = MUTED },
-                    UI.Panel { flexDirection = "row", gap = 8, children = { self.rotatorToggle, self.triggerableToggle } },
-                    UI.Panel { flexDirection = "row", gap = 5, alignItems = "flex-end", children = {
-                        UI.Panel { width = 88, gap = 2, children = { UI.Label { text = "Rotator Duration", fontSize = 9, fontColor = MUTED }, self.rotatorDurationField } },
-                        UI.Panel { flexGrow = 1, flexShrink = 1, gap = 2, children = { UI.Label { text = "Trigger ID", fontSize = 9, fontColor = MUTED }, self.triggerIdField } },
-                    } },
-                    self.capabilityLabel,
-                    UI.Label { text = "Behavior Modes", fontSize = 10, fontColor = MUTED },
-                    self.modeLabel,
-                    UI.Divider { thickness = 1, color = BORDER, spacing = 1 },
-                    UI.Label { text = "Editor Preview Camera", fontSize = 10, fontColor = MUTED },
-                    self.cameraLabel,
-                    UI.Panel { flexDirection = "row", gap = 4, children = {
-                        UI.Button { text = "投影", flexGrow = 1, height = 28, fontSize = 10, variant = "secondary", onClick = function() editor:ToggleEditorProjection() end },
-                        UI.Button { text = "聚焦", flexGrow = 1, height = 28, fontSize = 10, variant = "secondary", onClick = function() editor:FocusSelectedPart() end },
-                        UI.Button { text = "重置", flexGrow = 1, height = 28, fontSize = 10, variant = "secondary", onClick = function() editor:ResetEditorCamera(); editor:RefreshLevelUI("已恢复固定 30° 正交编辑基准") end },
-                    } },
-                    UI.Label { text = "RMB 旋转 · MMB 平移 · Wheel 缩放", fontSize = 9, fontColor = MUTED },
-                    UI.Panel { flexGrow = 1, flexShrink = 1 },
-                    self.saveButton,
-                    self.openButton,
+                    InspectorComponentHeader("◈", "Transform"),
+                    UI.Panel {
+                        padding = 8,
+                        gap = 4,
+                        borderBottomWidth = 1,
+                        borderBottomColor = BORDER,
+                        children = {
+                            UI.Panel { flexDirection = "row", alignItems = "center", gap = 6, children = {
+                                UI.Label { text = "Position", width = 62, fontSize = 10, fontColor = MUTED },
+                                UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, flexDirection = "row", gap = 3, children = {
+                                    UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.gridQField } },
+                                    UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.gridRField } },
+                                    UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.layerField } },
+                                } },
+                            } },
+                            UI.Panel { flexDirection = "row", alignItems = "center", gap = 6, children = {
+                                UI.Label { text = "Rotation", width = 62, fontSize = 10, fontColor = MUTED },
+                                UI.Panel { width = 80, flexShrink = 0, children = { self.yawField } },
+                                UI.Label { text = "六向 0..5", fontSize = 9, fontColor = MUTED },
+                            } },
+                            UI.Panel { flexDirection = "row", alignItems = "center", gap = 6, children = {
+                                UI.Label { text = "Scale", width = 62, fontSize = 10, fontColor = MUTED },
+                                UI.Panel { width = 80, flexShrink = 0, children = { self.scaleField } },
+                                self.scaleLabel,
+                            } },
+                            self.positionLabel,
+                            self.rotationLabel,
+                            UI.Button {
+                                text = "Snap to Tri-Prism Grid",
+                                height = 25,
+                                fontSize = 10,
+                                variant = "secondary",
+                                onClick = function() editor:SnapSelectedPartToGrid() end,
+                            },
+                        },
+                    },
+                    InspectorComponentHeader("⚙", "Part Behavior"),
+                    UI.Panel {
+                        padding = 8,
+                        gap = 4,
+                        borderBottomWidth = 1,
+                        borderBottomColor = BORDER,
+                        children = {
+                            UI.Panel { flexDirection = "row", gap = 10, children = { self.rotatorToggle, self.triggerableToggle } },
+                            InspectorFieldRow("Duration", self.rotatorDurationField),
+                            InspectorFieldRow("Trigger ID", self.triggerIdField),
+                            self.modeLabel,
+                            self.capabilityLabel,
+                        },
+                    },
+                    InspectorComponentHeader("◉", "Editor Preview Camera"),
+                    UI.Panel {
+                        padding = 8,
+                        gap = 5,
+                        borderBottomWidth = 1,
+                        borderBottomColor = BORDER,
+                        children = {
+                            self.cameraLabel,
+                            UI.Panel { flexDirection = "row", gap = 4, children = {
+                                UI.Button { text = "投影", flexGrow = 1, height = 26, fontSize = 10, variant = "secondary", onClick = function() editor:ToggleEditorProjection() end },
+                                UI.Button { text = "聚焦", flexGrow = 1, height = 26, fontSize = 10, variant = "secondary", onClick = function() editor:FocusSelectedPart() end },
+                                UI.Button { text = "重置", flexGrow = 1, height = 26, fontSize = 10, variant = "secondary", onClick = function() editor:ResetEditorCamera(); editor:RefreshLevelUI("已恢复固定 30° 正交编辑基准") end },
+                            } },
+                            UI.Label { text = "RMB 旋转 · MMB 平移 · Wheel 缩放", fontSize = 9, fontColor = MUTED },
+                        },
+                    },
+                    UI.Panel {
+                        padding = 10,
+                        gap = 6,
+                        children = {
+                            self.openButton,
+                            self.saveButton,
+                        },
+                    },
                 },
             },
             UI.Panel {
@@ -315,6 +408,14 @@ function LevelEditorUI:Build()
         },
     }
     UI.SetRoot(self.root, true)
+    self.inspectorScroll = self.root:FindById("inspectorScroll")
+    self.inspectorScroll.OnWheel = function(_, dx, dy)
+        if not IsPointerInsideWidget(self.inspectorScroll) then
+            return false
+        end
+        self.inspectorScroll:ScrollBy(-dx * 40, -dy * 40)
+        return true
+    end
     self:Refresh()
 end
 
