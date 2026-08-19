@@ -1,27 +1,34 @@
 {
   "$schema": "../schemas/project.schema.json",
-  "project_id": "p_682c",
+  "project_id": "m_mi13",
   "author": {
     "id": "771520039"
   },
   "entry": "main.lua",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "taptap_publish": {
-    "title": "<game title, required>",
-    "description": "<game description>",
-    "category": "<game category: rpg, casual, action, strategy, simulation, trivia, arcade, adventure, card, sports, racing, puzzle, educational, music, word, board>",
+    "title": "Hexagon Visual Challenge",
+    "description": "六边形体素关卡编辑与创作工具",
+    "category": "simulation",
     "screen_orientation": "landscape",
     "collection_type": "sce",
     "trial_note": "<developer's note>",
     "app_platforms": "1,2",
-    "developer_id": 248818
+    "developer_id": 248818,
+    "app_id": 911154,
+    "miniapp_id": "tapmcqg7gjq7wcycxw"
   },
   "assets": {
-    "icon": "",
+    "icon": "./game_material/ICON_2026-08-19T06-17-47_01.png",
     "screenshots": [],
-    "promotional_image": ""
+    "promotional_image": "",
+    "icon_url": "https://tapcode-sce.spark.xd.com/assets/game_material/Hexagon Visual Challenge/ICON_2026-08-19T06-17-47_01.png"
   },
   "metadata": {
-    "updated_at": "2026-08-13T06:22:07.708Z"
+    "updated_at": "2026-08-19T06:18:32.439Z"
+  },
+  "test_qrcode": {
+    "url": "https://tapcode-sce.spark.xd.com/qrcode/m_mi13_1787120312296.png",
+    "generated_at": "2026-08-19T06:18:32.439Z"
   }
 }
