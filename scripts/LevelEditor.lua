@@ -189,6 +189,7 @@ function LevelEditor:EnterLevelMode()
         self.partEditor:Stop()
         self.partEditor = nil
     end
+    self.overlayRenderer:EnterLevelMode()
     self.mode = "level"
     self:ApplyEditorCamera()
     self.overlayRenderer:SyncCamera()
@@ -509,6 +510,7 @@ function LevelEditor:OpenSelectedPart()
         self.ui = nil
     end
     self.partRenderer:Clear()
+    self.overlayRenderer:EnterVoxelMode()
     self.mode = "part"
     self.partEditor = VoxelSandbox.New(
         self.scene,
@@ -517,7 +519,8 @@ function LevelEditor:OpenSelectedPart()
         self.debugRenderer,
         self.edgeLength,
         self.voxelHeight,
-        session
+        session,
+        self.overlayRenderer
     )
     self.partEditor.onBackToLevel = function()
         self:BackToLevel()
@@ -579,7 +582,7 @@ function LevelEditor:Refresh()
         local minPoint, maxPoint = self.partRenderer:GetLocalBounds(self.selectedPartId)
         self.overlayRenderer:DrawSelection(root, minPoint, maxPoint)
     elseif self.partEditor then
-        self.overlayRenderer:Clear()
+        self.overlayRenderer:SyncCamera()
         self.partEditor:Refresh()
     end
 end

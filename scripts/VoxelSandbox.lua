@@ -50,12 +50,13 @@ local COLORS = {
     Color(0.62, 0.38, 0.88, 1.0),
 }
 
-function VoxelSandbox.New(scene, cameraNode, camera, debugRenderer, edgeLength, voxelHeight, session)
+function VoxelSandbox.New(scene, cameraNode, camera, debugRenderer, edgeLength, voxelHeight, session, overlayRenderer)
     local self = setmetatable({}, VoxelSandbox)
     self.scene = scene
     self.cameraNode = cameraNode
     self.camera = camera
     self.debugRenderer = debugRenderer
+    self.overlayRenderer = overlayRenderer
     self.grid = TriPrismGrid.New(edgeLength, voxelHeight)
     self.session = session or PartEditSession.CreateStarter(self.grid)
     self.document = self.session.document
@@ -560,12 +561,60 @@ function VoxelSandbox:UpdateCamera()
     self.camera.fov = self.fov
 end
 
+function VoxelSandbox:GetSelectionBounds()
+    local cells = self.selection:GetCells()
+    local minPoint = Vector3(math.huge, math.huge, math.huge)
+    local maxPoint = Vector3(-math.huge, -math.huge, -math.huge)
+    local hasCells = false
+    for _, cell in pairs(cells) do
+        hasCells = true
+        local center = self.grid:GetCellCenter(cell)
+        local radius = self.edgeLength / math.sqrt(3.0)
+        minPoint = Vector3(
+            math.min(minPoint.x, center.x - radius),
+            math.min(minPoint.y, center.y - self.voxelHeight * 0.5),
+            math.min(minPoint.z, center.z - self.edgeLength * 0.5)
+        )
+        maxPoint = Vector3(
+            math.max(maxPoint.x, center.x + radius),
+            math.max(maxPoint.y, center.y + self.voxelHeight * 0.5),
+            math.max(maxPoint.z, center.z + self.edgeLength * 0.5)
+        )
+    end
+    if not hasCells then
+        return nil, nil, nil
+    end
+    return minPoint, maxPoint, (minPoint + maxPoint) * 0.5
+end
+
 function VoxelSandbox:DrawDebug()
-    self.viewportRenderer:Draw(
+    if not self.overlayRenderer then
+        return
+    end
+    self.overlayRenderer:DrawVoxelGizmos(
+        self.grid,
+        self.document,
+        self.selection,
         self.context,
         self.activeLayer,
-        self.pendingEdit:GetChanges()
+        self.pendingEdit:GetChanges(),
+        {
+            showGrid = self.viewportRenderer.showGrid,
+            showAxes = self.viewportRenderer.showAxes,
+            showHitFace = self.viewportRenderer.showHitFace,
+            gridRadius = self.viewportRenderer.gridRadius,
+        }
     )
+    if not self.viewportRenderer.showAxes then
+        self.overlayRenderer:ClearTransformGizmo()
+        return
+    end
+    local minPoint, maxPoint, center = self:GetSelectionBounds()
+    if minPoint and maxPoint and center then
+        self.overlayRenderer:DrawVoxelSelection(minPoint, maxPoint, center)
+    else
+        self.overlayRenderer:ClearTransformGizmo()
+    end
 end
 
 function VoxelSandbox:Undo()
@@ -630,6 +679,10 @@ end
 function VoxelSandbox:Stop()
     if self.modifier then
         self.modifier:Deactivate()
+    end
+    if self.overlayRenderer then
+        self.overlayRenderer:ClearVoxelGizmos()
+        self.overlayRenderer:ClearTransformGizmo()
     end
     for _, node in pairs(self.voxelNodes) do
         node:Remove()

@@ -30,6 +30,46 @@ local function AddLine(geometry, a, b)
     geometry:DefineVertex(b)
 end
 
+local function AddLoop(geometry, vertices)
+    for index = 1, #vertices do
+        local nextIndex = index % #vertices + 1
+        AddLine(geometry, vertices[index], vertices[nextIndex])
+    end
+end
+
+local function ScaleFace(vertices, center, scale)
+    local result = {}
+    for index, vertex in ipairs(vertices) do
+        result[index] = center + (vertex - center) * scale
+    end
+    return result
+end
+
+local function AddFaceOutline(geometry, face)
+    AddLoop(geometry, face.vertices)
+end
+
+local function BuildBoundsCorners(minPoint, maxPoint)
+    return {
+        Vector3(minPoint.x, minPoint.y, minPoint.z),
+        Vector3(maxPoint.x, minPoint.y, minPoint.z),
+        Vector3(maxPoint.x, minPoint.y, maxPoint.z),
+        Vector3(minPoint.x, minPoint.y, maxPoint.z),
+        Vector3(minPoint.x, maxPoint.y, minPoint.z),
+        Vector3(maxPoint.x, maxPoint.y, minPoint.z),
+        Vector3(maxPoint.x, maxPoint.y, maxPoint.z),
+        Vector3(minPoint.x, maxPoint.y, maxPoint.z),
+    }
+end
+
+local function BuildBoundsEdges()
+    return {
+        { 1, 2 }, { 2, 3 }, { 3, 4 }, { 4, 1 },
+        { 5, 6 }, { 6, 7 }, { 7, 8 }, { 8, 5 },
+        { 1, 5 }, { 2, 6 }, { 3, 7 }, { 4, 8 },
+    }
+end
+
 local function BuildOverlayRenderPath(mainViewport)
     local path = mainViewport:GetRenderPath():Clone()
     for index = 0, path:GetNumCommands() - 1 do
@@ -56,7 +96,9 @@ function OverlayRenderer.New(mainViewport, mainCameraNode, mainCamera)
     self.mainCameraNode = mainCameraNode
     self.mainCamera = mainCamera
     self.gizmoNode = self.scene:CreateChild("LevelEditorOverlayGizmos")
+    self.voxelNode = self.scene:CreateChild("LevelEditorVoxelGizmos")
     self.gizmoGeometry = nil
+    self.voxelGeometry = nil
     self.materials = nil
     self.enabled = true
 
@@ -91,52 +133,214 @@ function OverlayRenderer:EnsureGizmoGeometry()
         red = CreateMaterial("LevelEditorOverlayRed", Color(1.0, 0.20, 0.16, 1.0)),
         green = CreateMaterial("LevelEditorOverlayGreen", Color(0.25, 0.92, 0.35, 1.0)),
         blue = CreateMaterial("LevelEditorOverlayBlue", Color(0.18, 0.48, 1.0, 1.0)),
+        grid = CreateMaterial("VoxelOverlayGrid", Color(0.30, 0.38, 0.50, 1.0)),
+        gridInner = CreateMaterial("VoxelOverlayGridInner", Color(0.20, 0.27, 0.37, 1.0)),
+        hover = CreateMaterial("VoxelOverlayHover", Color(0.12, 0.88, 0.96, 1.0)),
+        occupied = CreateMaterial("VoxelOverlayOccupied", Color(1.0, 0.30, 0.22, 1.0)),
+        selection = CreateMaterial("VoxelOverlaySelection", Color(1.0, 0.68, 0.12, 1.0)),
+        selectionPreview = CreateMaterial("VoxelOverlaySelectionPreview", Color(0.30, 0.92, 0.86, 1.0)),
+        gesture = CreateMaterial("VoxelOverlayGesture", Color(0.72, 0.62, 1.0, 1.0)),
+        pendingAdd = CreateMaterial("VoxelOverlayPendingAdd", Color(0.25, 1.0, 0.46, 1.0)),
+        pendingRemove = CreateMaterial("VoxelOverlayPendingRemove", Color(1.0, 0.24, 0.20, 1.0)),
     }
+end
+
+function OverlayRenderer:EnsureVoxelGeometry()
+    if self.voxelGeometry then
+        return
+    end
+    self:EnsureGizmoGeometry()
+    self.voxelGeometry = self.voxelNode:CreateComponent("CustomGeometry")
+end
+
+function OverlayRenderer:ClearTransformGizmo()
+    self.gizmoNode.enabled = false
+end
+
+function OverlayRenderer:ClearVoxelGizmos()
+    self.voxelNode.enabled = false
 end
 
 function OverlayRenderer:Clear()
     self.enabled = false
-    self.gizmoNode.enabled = false
+    self:ClearTransformGizmo()
+    self:ClearVoxelGizmos()
 end
 
-function OverlayRenderer:DrawSelection(root, minPoint, maxPoint)
-    if not root or not minPoint or not maxPoint then
-        self:Clear()
+function OverlayRenderer:EnterLevelMode()
+    self:ClearVoxelGizmos()
+    self:ClearTransformGizmo()
+end
+
+function OverlayRenderer:EnterVoxelMode()
+    self:ClearVoxelGizmos()
+    self:ClearTransformGizmo()
+end
+
+function OverlayRenderer:BeginVoxelLines(index, material)
+    self.voxelGeometry:BeginGeometry(index, LINE_LIST)
+    self.voxelMaterials = self.voxelMaterials or {}
+    self.voxelMaterials[index] = material
+end
+
+function OverlayRenderer:CommitVoxelLines(index)
+    self.voxelGeometry:Commit()
+    self.voxelGeometry:SetMaterial(index, self.voxelMaterials[index])
+end
+
+function OverlayRenderer:AddCellOutline(cell)
+    for _, face in ipairs(self.voxelGrid:GetCellFaces(cell)) do
+        AddFaceOutline(self.voxelGeometry, face)
+    end
+end
+
+function OverlayRenderer:DrawVoxelGrid(grid, activeLayer, radius)
+    local y = activeLayer * grid.voxelHeight + 0.035
+    self:BeginVoxelLines(0, self.materials.grid)
+    for hexR = -radius, radius do
+        for hexQ = -radius, radius do
+            AddLoop(self.voxelGeometry, grid:GetHexVertices(hexQ, hexR, y))
+        end
+    end
+    self:CommitVoxelLines(0)
+
+    self:BeginVoxelLines(1, self.materials.gridInner)
+    for hexR = -radius, radius do
+        for hexQ = -radius, radius do
+            for sector = 0, 5 do
+                local cell = {
+                    hexQ = hexQ,
+                    hexR = hexR,
+                    sector = sector,
+                    layer = activeLayer,
+                }
+                local triangle = grid:GetTriangleVertices(cell, 0.035)
+                AddLine(self.voxelGeometry, triangle[1], triangle[2])
+                AddLine(self.voxelGeometry, triangle[1], triangle[3])
+            end
+        end
+    end
+    self:CommitVoxelLines(1)
+end
+
+function OverlayRenderer:DrawVoxelCellOutline(cell, material, index)
+    self:BeginVoxelLines(index, material)
+    self:AddCellOutline(cell)
+    self:CommitVoxelLines(index)
+end
+
+function OverlayRenderer:DrawVoxelHover(grid, cell, occupied)
+    if not cell then
+        return
+    end
+    self:DrawVoxelCellOutline(
+        cell,
+        occupied and self.materials.occupied or self.materials.hover,
+        2
+    )
+end
+
+function OverlayRenderer:DrawVoxelSelectionCells(grid, cells)
+    self:BeginVoxelLines(3, self.materials.selection)
+    for _, cell in pairs(cells or {}) do
+        self:AddCellOutline(cell)
+    end
+    self:CommitVoxelLines(3)
+end
+
+function OverlayRenderer:DrawVoxelPreviewCells(cells)
+    self:BeginVoxelLines(4, self.materials.selectionPreview)
+    for _, cell in pairs(cells or {}) do
+        self:AddCellOutline(cell)
+    end
+    self:CommitVoxelLines(4)
+end
+
+function OverlayRenderer:DrawVoxelSelectionGesture(firstCell, secondCell, grid)
+    self:BeginVoxelLines(5, self.materials.gesture)
+    if firstCell then
+        self:AddCellOutline(firstCell)
+    end
+    if secondCell and (not firstCell or grid:CellKey(firstCell) ~= grid:CellKey(secondCell)) then
+        self:AddCellOutline(secondCell)
+    end
+    self:CommitVoxelLines(5)
+end
+
+function OverlayRenderer:DrawVoxelPending(changes)
+    self:BeginVoxelLines(6, self.materials.pendingAdd)
+    for _, change in ipairs(changes or {}) do
+        if change.after then
+            self:AddCellOutline(change.after)
+        end
+    end
+    self:CommitVoxelLines(6)
+    self:BeginVoxelLines(7, self.materials.pendingRemove)
+    for _, change in ipairs(changes or {}) do
+        if change.before and not change.after then
+            self:AddCellOutline(change.before)
+        end
+    end
+    self:CommitVoxelLines(7)
+end
+
+function OverlayRenderer:DrawVoxelHitFace(grid, hit)
+    if not hit or not hit.cell or not hit.face then
+        return
+    end
+    self:BeginVoxelLines(8, self.materials.hover)
+    for _, face in ipairs(grid:GetCellFaces(hit.cell)) do
+        if face.index == hit.face then
+            AddFaceOutline(self.voxelGeometry, face)
+            break
+        end
+    end
+    self:CommitVoxelLines(8)
+end
+
+function OverlayRenderer:DrawVoxelGizmos(grid, document, selection, context, activeLayer, pendingChanges, options)
+    options = options or {}
+    self:EnsureVoxelGeometry()
+    self.voxelGrid = grid
+    self.voxelNode.enabled = true
+    self.voxelGeometry:Clear()
+    self.voxelGeometry:SetNumGeometries(9)
+    if options.showGrid then
+        self:DrawVoxelGrid(grid, activeLayer, options.gridRadius or 5)
+    end
+    if options.showHitFace then
+        self:DrawVoxelHitFace(grid, context.hit)
+    end
+    local hoverCell = context.cursorCell
+    if hoverCell then
+        self:DrawVoxelHover(grid, hoverCell, document:Get(hoverCell) ~= nil)
+    end
+    self:DrawVoxelSelectionCells(grid, selection:GetCells())
+    self:DrawVoxelPreviewCells(selection:GetPreviewCells())
+    local firstCell, secondCell = selection:GetPreviewBounds()
+    self:DrawVoxelSelectionGesture(firstCell, secondCell, grid)
+    self:DrawVoxelPending(pendingChanges)
+end
+
+function OverlayRenderer:DrawWorldSelection(corners, center, rotation)
+    if not corners or not center or not rotation then
+        self:ClearTransformGizmo()
         return
     end
     self:EnsureGizmoGeometry()
     self.enabled = true
     self.gizmoNode.enabled = true
 
-    local corners = {
-        Vector3(minPoint.x, minPoint.y, minPoint.z),
-        Vector3(maxPoint.x, minPoint.y, minPoint.z),
-        Vector3(maxPoint.x, minPoint.y, maxPoint.z),
-        Vector3(minPoint.x, minPoint.y, maxPoint.z),
-        Vector3(minPoint.x, maxPoint.y, minPoint.z),
-        Vector3(maxPoint.x, maxPoint.y, minPoint.z),
-        Vector3(maxPoint.x, maxPoint.y, maxPoint.z),
-        Vector3(minPoint.x, maxPoint.y, maxPoint.z),
-    }
-    local world = {}
-    for index, corner in ipairs(corners) do
-        world[index] = root.worldTransform * corner
-    end
-    local edges = {
-        { 1, 2 }, { 2, 3 }, { 3, 4 }, { 4, 1 },
-        { 5, 6 }, { 6, 7 }, { 7, 8 }, { 8, 5 },
-        { 1, 5 }, { 2, 6 }, { 3, 7 }, { 4, 8 },
-    }
-    local center = root.worldTransform * ((minPoint + maxPoint) * 0.5)
-    local right = root.worldRotation * Vector3.RIGHT
-    local up = root.worldRotation * Vector3.UP
-    local forward = root.worldRotation * Vector3.FORWARD
+    local edges = BuildBoundsEdges()
+    local right = rotation * Vector3.RIGHT
+    local up = rotation * Vector3.UP
+    local forward = rotation * Vector3.FORWARD
 
     self.gizmoGeometry:Clear()
     self.gizmoGeometry:SetNumGeometries(4)
     self.gizmoGeometry:BeginGeometry(0, LINE_LIST)
     for _, edge in ipairs(edges) do
-        AddLine(self.gizmoGeometry, world[edge[1]], world[edge[2]])
+        AddLine(self.gizmoGeometry, corners[edge[1]], corners[edge[2]])
     end
     self.gizmoGeometry:Commit()
     self.gizmoGeometry:SetMaterial(0, self.materials.orange)
@@ -157,6 +361,29 @@ function OverlayRenderer:DrawSelection(root, minPoint, maxPoint)
     self.gizmoGeometry:SetMaterial(3, self.materials.blue)
 end
 
+function OverlayRenderer:DrawVoxelSelection(minPoint, maxPoint, center)
+    if not minPoint or not maxPoint or not center then
+        self:ClearTransformGizmo()
+        return
+    end
+    local corners = BuildBoundsCorners(minPoint, maxPoint)
+    self:DrawWorldSelection(corners, center, Quaternion(0.0, Vector3.UP))
+end
+
+function OverlayRenderer:DrawSelection(root, minPoint, maxPoint)
+    if not root or not minPoint or not maxPoint then
+        self:Clear()
+        return
+    end
+    local corners = BuildBoundsCorners(minPoint, maxPoint)
+    local world = {}
+    for index, corner in ipairs(corners) do
+        world[index] = root.worldTransform * corner
+    end
+    local center = root.worldTransform * ((minPoint + maxPoint) * 0.5)
+    self:DrawWorldSelection(world, center, root.worldRotation)
+end
+
 function OverlayRenderer:Stop()
     renderer:SetNumViewports(1)
     if self.scene then
@@ -165,7 +392,9 @@ function OverlayRenderer:Stop()
     end
     self.viewport = nil
     self.gizmoGeometry = nil
+    self.voxelGeometry = nil
     self.materials = nil
+    self.voxelMaterials = nil
 end
 
 return OverlayRenderer
