@@ -475,6 +475,88 @@ function LevelEditor:SetSelectedYawSteps(value)
     return true
 end
 
+function LevelEditor:SetSelectedPartName(name)
+    local part = self:GetSelectedPart()
+    if not part or not part:SetName(name) then
+        self:RefreshLevelUI("Part 名称不能为空")
+        return false
+    end
+    self.levelDocument.dirty = true
+    self:RefreshLevelUI("已更新 Part 名称")
+    return true
+end
+
+function LevelEditor:SetSelectedParent(parentId)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local parent = parentId and self.levelDocument:GetPart(parentId) or nil
+    local changed, errorMessage = self.levelDocument:SetParent(part.id, parent and parent.id or nil)
+    if not changed then
+        self:RefreshLevelUI("设置父级失败：" .. tostring(errorMessage))
+        return false
+    end
+    local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+    if not rebuilt then
+        self:RefreshLevelUI(tostring(rebuildError))
+        return false
+    end
+    self:RefreshLevelUI(parent and ("已将 " .. part.name .. " 移入 " .. parent.name) or "已将 Part 移到 LevelRoot")
+    return true
+end
+
+function LevelEditor:SetSelectedScale(value)
+    local part = self:GetSelectedPart()
+    if not part or not part:SetScale(value) then
+        self:RefreshLevelUI("当前 Part 不允许使用该均匀缩放值")
+        return false
+    end
+    self.levelDocument.dirty = true
+    local root = self.partRenderer:GetRoot(part.id)
+    if root then
+        self.partRenderer:ApplyTransform(root, part)
+    end
+    self:RefreshLevelUI(string.format("%s Scale：%.2f", part.name, part.transform.scale.x))
+    return true
+end
+
+function LevelEditor:SetSelectedBehaviorMode(mode, enabled)
+    local part = self:GetSelectedPart()
+    if not part or not part:SetBehaviorMode(mode, enabled) then
+        return false
+    end
+    self.levelDocument.dirty = true
+    local root = self.partRenderer:GetRoot(part.id)
+    if root then
+        self.partRenderer:ApplyTransform(root, part)
+    end
+    self:RefreshLevelUI("已更新 " .. part.name .. " 行为模式")
+    return true
+end
+
+function LevelEditor:SetSelectedRotatorDuration(value)
+    local part = self:GetSelectedPart()
+    if not part or not part:SetRotatorDuration(value) then
+        self:RefreshLevelUI("Rotator 时长必须是非负数字")
+        return false
+    end
+    self.levelDocument.dirty = true
+    self:RefreshLevelUI("已更新 Rotator 时长")
+    return true
+end
+
+function LevelEditor:SetSelectedTriggerId(value)
+    local part = self:GetSelectedPart()
+    if not part or not part:SetTriggerId(value) then
+        self:RefreshLevelUI("当前 Part 未启用 Triggerable")
+        return false
+    end
+    self.levelDocument.dirty = true
+    self:RefreshLevelUI("已更新 Trigger ID")
+    return true
+end
+
 function LevelEditor:SelectPart(partId)
     if not self.levelDocument:GetPart(partId) then
         return false

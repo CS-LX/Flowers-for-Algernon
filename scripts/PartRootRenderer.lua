@@ -48,7 +48,9 @@ function PartRootRenderer:BuildPart(part)
         return false, errorMessage
     end
 
-    local root = self.scene:CreateChild("PartRoot_" .. part.id)
+    local parentRoot = part.parentId and self.partRoots[part.parentId]
+    local parentNode = parentRoot and parentRoot.node or self.scene
+    local root = parentNode:CreateChild("PartRoot_" .. part.id)
     root:SetVar("partId", Variant(part.id))
     self:ApplyTransform(root, part)
 

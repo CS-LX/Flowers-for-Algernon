@@ -207,6 +207,100 @@ function PartDefinition:SetYawSteps(steps)
     return true
 end
 
+function PartDefinition:SetTransformCapability(operation, enabled)
+    if operation ~= "move" and operation ~= "rotate" and operation ~= "scale" then
+        return false
+    end
+    if operation == "scale" and self:HasBehavior(PartDefinition.MODE_ROTATOR) and enabled then
+        return false
+    end
+    self.transformCapabilities[operation] = enabled == true
+    self:Normalize()
+    return true
+end
+
+function PartDefinition:SetParentId(parentId)
+    self.parentId = parentId
+end
+
+function PartDefinition:SetName(name)
+    if type(name) ~= "string" or name == "" then
+        return false
+    end
+    self.name = name
+    return true
+end
+
+function PartDefinition:SetScale(scale)
+    if not self:CanTransform("scale") then
+        return false
+    end
+    local value = tonumber(scale)
+    if not value or value <= 0 then
+        return false
+    end
+    self.transform.scale = { x = value, y = value, z = value }
+    return true
+end
+
+function PartDefinition:SetBehaviorMode(mode, enabled)
+    if type(mode) ~= "string" or mode == "" then
+        return false
+    end
+    local hasMode = self:HasBehavior(mode)
+    if enabled and not hasMode then
+        self.behaviorModes[#self.behaviorModes + 1] = mode
+    elseif not enabled and hasMode then
+        for index, current in ipairs(self.behaviorModes) do
+            if current == mode then
+                table.remove(self.behaviorModes, index)
+                break
+            end
+        end
+        self.behaviors[mode] = nil
+    end
+    if mode == PartDefinition.MODE_ROTATOR and enabled then
+        self.behaviors.rotator = self.behaviors.rotator or {
+            axis = "Y",
+            stepDegrees = 60,
+            allowedSteps = { 0, 1, 2, 3, 4, 5 },
+            state = self.transform.rotation.yawSteps,
+            duration = 0.45,
+        }
+    elseif mode == PartDefinition.MODE_TRIGGERABLE and enabled then
+        self.behaviors.triggerable = self.behaviors.triggerable or { triggerId = "" }
+    end
+    self:Normalize()
+    return true
+end
+
+function PartDefinition:SetRotatorState(state)
+    if not self:HasBehavior(PartDefinition.MODE_ROTATOR) then
+        return false
+    end
+    return self:SetYawSteps(state)
+end
+
+function PartDefinition:SetRotatorDuration(duration)
+    if not self:HasBehavior(PartDefinition.MODE_ROTATOR) then
+        return false
+    end
+    local value = tonumber(duration)
+    if not value or value < 0 then
+        return false
+    end
+    self.behaviors.rotator.duration = value
+    return true
+end
+
+function PartDefinition:SetTriggerId(triggerId)
+    if not self:HasBehavior(PartDefinition.MODE_TRIGGERABLE) then
+        return false
+    end
+    self.behaviors.triggerable.triggerId = tostring(triggerId or "")
+    return true
+end
+
 function PartDefinition:ToTable()
     local behaviors = CopyTable(self.behaviors) or {}
     if self:HasBehavior(PartDefinition.MODE_ROTATOR) then

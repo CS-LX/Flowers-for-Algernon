@@ -24,7 +24,7 @@ function LevelEditorUI.New(editor)
     local self = setmetatable({}, LevelEditorUI)
     self.editor = editor
     self.root = nil
-    self.partButtons = {}
+    self.partButtons = nil
     return self
 end
 
@@ -88,10 +88,72 @@ function LevelEditorUI:Build()
     self.modeLabel = UI.Label { text = "", fontSize = 11, fontColor = { 157, 220, 255, 255 }, whiteSpace = "normal" }
     self.cameraLabel = UI.Label { text = "", fontSize = 10, fontColor = { 173, 214, 255, 255 } }
 
-    self.partList = UI.Panel {
-        gap = 5,
+    self.tree = UI.Tree {
+        nodes = {},
+        size = "sm",
+        height = "100%",
         flexGrow = 1,
         flexShrink = 1,
+        showLines = true,
+        defaultExpandAll = false,
+        selectedBgColor = SELECTED,
+        onSelect = function(_, _, node)
+            if node and node.id then
+                editor:SelectPart(node.id)
+            end
+        end,
+    }
+    self.nameField = UI.TextField {
+        value = "",
+        placeholder = "Part 名称",
+        height = 28,
+        fontSize = 11,
+        onSubmit = function(_, value) editor:SetSelectedPartName(value) end,
+    }
+    self.parentDropdown = UI.Dropdown {
+        options = {},
+        value = "__root__",
+        placeholder = "父级",
+        height = 28,
+        fontSize = 11,
+        onChange = function(_, value) editor:SetSelectedParent(value == "__root__" and nil or value) end,
+    }
+    self.scaleField = UI.TextField {
+        value = "1.0",
+        placeholder = "Scale",
+        height = 28,
+        fontSize = 11,
+        onSubmit = function(_, value) editor:SetSelectedScale(value) end,
+    }
+    self.rotatorToggle = UI.Checkbox {
+        checked = false,
+        label = "Rotator",
+        size = 16,
+        height = 24,
+        fontSize = 10,
+        onChange = function(_, checked) editor:SetSelectedBehaviorMode("rotator", checked) end,
+    }
+    self.triggerableToggle = UI.Checkbox {
+        checked = false,
+        label = "Triggerable",
+        size = 16,
+        height = 24,
+        fontSize = 10,
+        onChange = function(_, checked) editor:SetSelectedBehaviorMode("triggerable", checked) end,
+    }
+    self.rotatorDurationField = UI.TextField {
+        value = "0.45",
+        placeholder = "Duration",
+        height = 28,
+        fontSize = 11,
+        onSubmit = function(_, value) editor:SetSelectedRotatorDuration(value) end,
+    }
+    self.triggerIdField = UI.TextField {
+        value = "",
+        placeholder = "Trigger ID",
+        height = 28,
+        fontSize = 11,
+        onSubmit = function(_, value) editor:SetSelectedTriggerId(value) end,
     }
     self.createButton = UI.Button {
         text = "+ 新建 Part",
@@ -170,7 +232,7 @@ function LevelEditorUI:Build()
                 children = {
                     UI.Label { text = "OBJECT TREE", fontSize = 11, fontWeight = "bold", fontColor = TEXT },
                     UI.Label { text = "LevelRoot", fontSize = 12, fontWeight = "bold", fontColor = { 180, 201, 226, 255 } },
-                    self.partList,
+                    self.tree,
                     self.createButton,
                     UI.Panel { flexDirection = "row", gap = 4, children = {
                         self.duplicateButton,
@@ -188,6 +250,10 @@ function LevelEditorUI:Build()
                     UI.Label { text = "PART INSPECTOR", fontSize = 11, fontWeight = "bold", fontColor = TEXT },
                     self.selectionLabel,
                     UI.Divider { thickness = 1, color = BORDER, spacing = 1 },
+                    UI.Label { text = "Identity", fontSize = 10, fontColor = MUTED },
+                    self.nameField,
+                    UI.Label { text = "Parent", fontSize = 10, fontColor = MUTED },
+                    self.parentDropdown,
                     UI.Label { text = "Transform", fontSize = 10, fontColor = MUTED },
                     UI.Label { text = "Grid Position  (0.5 step, hex snap)", fontSize = 9, fontColor = { 157, 220, 255, 255 } },
                     UI.Panel { flexDirection = "row", gap = 5, children = {
@@ -208,9 +274,17 @@ function LevelEditorUI:Build()
                         UI.Panel { width = 78, gap = 2, children = { UI.Label { text = "Yaw Step", fontSize = 9, fontColor = MUTED }, self.yawField } },
                         UI.Label { text = "0..5  =  0°..300°", flexGrow = 1, flexShrink = 1, fontSize = 9, fontColor = MUTED, whiteSpace = "normal" },
                     } },
+                    UI.Panel { flexDirection = "row", gap = 5, alignItems = "flex-end", children = {
+                        UI.Panel { width = 78, gap = 2, children = { UI.Label { text = "Scale", fontSize = 9, fontColor = MUTED }, self.scaleField } },
+                    } },
                     self.rotationLabel,
                     self.scaleLabel,
-                    UI.Label { text = "Transform Capabilities", fontSize = 10, fontColor = MUTED },
+                    UI.Label { text = "Behavior Configuration", fontSize = 10, fontColor = MUTED },
+                    UI.Panel { flexDirection = "row", gap = 8, children = { self.rotatorToggle, self.triggerableToggle } },
+                    UI.Panel { flexDirection = "row", gap = 5, alignItems = "flex-end", children = {
+                        UI.Panel { width = 88, gap = 2, children = { UI.Label { text = "Rotator Duration", fontSize = 9, fontColor = MUTED }, self.rotatorDurationField } },
+                        UI.Panel { flexGrow = 1, flexShrink = 1, gap = 2, children = { UI.Label { text = "Trigger ID", fontSize = 9, fontColor = MUTED }, self.triggerIdField } },
+                    } },
                     self.capabilityLabel,
                     UI.Label { text = "Behavior Modes", fontSize = 10, fontColor = MUTED },
                     self.modeLabel,
@@ -245,24 +319,8 @@ function LevelEditorUI:Build()
 end
 
 function LevelEditorUI:Refresh()
-    self.partList:ClearChildren()
-    self.partButtons = {}
-    local selectedId = self.editor.selectedPartId
-    for _, part in ipairs(self.editor.levelDocument:GetParts()) do
-        local button = UI.Button {
-            text = "▸ " .. part.name,
-            height = 31,
-            fontSize = 12,
-            variant = "secondary",
-            backgroundColor = part.id == selectedId and SELECTED or PANEL_LIGHT,
-            transition = "backgroundColor 0.18s easeOut",
-            onClick = function()
-                self.editor:SelectPart(part.id)
-            end,
-        }
-        self.partButtons[part.id] = button
-        self.partList:AddChild(button)
-    end
+    self.tree:SetNodes(self.editor.levelDocument:GetTreeNodes())
+    self.tree:ExpandAll()
 
     local part = self.editor:GetSelectedPart()
     if not part then
@@ -270,12 +328,20 @@ function LevelEditorUI:Refresh()
         self.positionLabel:SetText("World Position：—")
         self.rotationLabel:SetText("Rotation：—")
         self.scaleLabel:SetText("Scale：—")
+        self.nameField:SetValue("")
+        self.parentDropdown:SetOptions({ { value = "__root__", label = "LevelRoot" } })
+        self.parentDropdown:SetValue("__root__")
         self.gridQField:SetValue("")
         self.gridRField:SetValue("")
         self.layerField:SetValue("")
         self.yawField:SetValue("")
+        self.scaleField:SetValue("")
         self.capabilityLabel:SetText("—")
         self.modeLabel:SetText("—")
+        self.rotatorToggle:SetChecked(false)
+        self.triggerableToggle:SetChecked(false)
+        self.rotatorDurationField:SetValue("")
+        self.triggerIdField:SetValue("")
         self.openButton:SetDisabled(true)
         self.saveButton:SetDisabled(true)
         self.duplicateButton:SetDisabled(true)
@@ -283,12 +349,23 @@ function LevelEditorUI:Refresh()
         return
     end
 
+    local parentOptions = { { value = "__root__", label = "LevelRoot" } }
+    for _, candidate in ipairs(self.editor.levelDocument:GetParts()) do
+        if candidate.id ~= part.id and not self.editor.levelDocument:IsDescendant(candidate.id, part.id) then
+            parentOptions[#parentOptions + 1] = { value = candidate.id, label = candidate.name }
+        end
+    end
+    self.parentDropdown:SetOptions(parentOptions)
+    self.parentDropdown:SetValue(part.parentId or "__root__")
+    self.nameField:SetValue(part.name)
+
     local transform = part.transform
     local grid = self.editor.transformGrid
     self.gridQField:SetValue(tostring(grid.hexQ))
     self.gridRField:SetValue(tostring(grid.hexR))
     self.layerField:SetValue(tostring(grid.layer))
     self.yawField:SetValue(tostring(transform.rotation.yawSteps))
+    self.scaleField:SetValue(string.format("%.2f", transform.scale.x))
     self.selectionLabel:SetText(part.name .. "  [" .. part.id .. "]")
     self.positionLabel:SetText(string.format(
         "World Position  X %.3f  Y %.3f  Z %.3f",
@@ -315,6 +392,10 @@ function LevelEditorUI:Refresh()
         tostring(part:CanTransform("scale"))
     ))
     self.modeLabel:SetText(ModeText(part))
+    self.rotatorToggle:SetChecked(part:HasBehavior("rotator"))
+    self.triggerableToggle:SetChecked(part:HasBehavior("triggerable"))
+    self.rotatorDurationField:SetValue(part.behaviors.rotator and tostring(part.behaviors.rotator.duration) or "")
+    self.triggerIdField:SetValue(part.behaviors.triggerable and part.behaviors.triggerable.triggerId or "")
     local editorCamera = self.editor.editorCamera
     self.cameraLabel:SetText(string.format(
         "%s  Yaw %.0f°  Pitch %.0f°  Zoom %.1f",

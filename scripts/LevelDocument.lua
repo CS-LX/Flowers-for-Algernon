@@ -31,6 +31,22 @@ local function CopyCamera(camera)
     }
 end
 
+local function IsDescendant(parts, candidateId, ancestorId)
+    local current = parts[candidateId]
+    local visited = {}
+    while current and current.parentId do
+        if visited[current.id] then
+            return true
+        end
+        visited[current.id] = true
+        if current.parentId == ancestorId then
+            return true
+        end
+        current = parts[current.parentId]
+    end
+    return false
+end
+
 function LevelDocument.New(path)
     local self = setmetatable({}, LevelDocument)
     self.path = path or "levels/default-level.json"
@@ -68,6 +84,64 @@ function LevelDocument:GetParts()
         end
     end
     return result
+end
+
+function LevelDocument:SetParent(childId, parentId)
+    local child = self.parts[childId]
+    if not child then
+        return false, "child Part does not exist: " .. tostring(childId)
+    end
+    if parentId == childId then
+        return false, "a Part cannot parent itself"
+    end
+    if parentId ~= nil and not self.parts[parentId] then
+        return false, "parent Part does not exist: " .. tostring(parentId)
+    end
+    if parentId and IsDescendant(self.parts, parentId, childId) then
+        return false, "cannot create a parent cycle"
+    end
+    child:SetParentId(parentId)
+    self.dirty = true
+    return true
+end
+
+function LevelDocument:IsDescendant(candidateId, ancestorId)
+    return IsDescendant(self.parts, candidateId, ancestorId)
+end
+
+function LevelDocument:GetChildren(parentId)
+    local result = {}
+    for _, part in ipairs(self:GetParts()) do
+        if part.parentId == parentId then
+            result[#result + 1] = part
+        end
+    end
+    return result
+end
+
+function LevelDocument:GetTreeNodes()
+    local function Build(parentId, visiting)
+        local nodes = {}
+        for _, part in ipairs(self:GetChildren(parentId)) do
+            if not visiting[part.id] then
+                local nextVisiting = {}
+                for id, value in pairs(visiting) do
+                    nextVisiting[id] = value
+                end
+                nextVisiting[part.id] = true
+                nodes[#nodes + 1] = {
+                    key = part.id,
+                    id = part.id,
+                    label = part.name,
+                    secondary = #part.behaviorModes > 0 and table.concat(part.behaviorModes, " + ") or nil,
+                    children = Build(part.id, nextVisiting),
+                    data = part,
+                }
+            end
+        end
+        return nodes
+    end
+    return Build(nil, {})
 end
 
 function LevelDocument:RemovePart(id)
