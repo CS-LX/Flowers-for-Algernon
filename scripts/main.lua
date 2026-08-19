@@ -14,6 +14,8 @@ local cameraNode_ = nil
 local camera_ = nil
 ---@type DebugRenderer|nil
 local debugRenderer_ = nil
+---@type Viewport|nil
+local viewport_ = nil
 ---@type table|nil
 local levelEditor_ = nil
 ---@type table|nil
@@ -63,6 +65,7 @@ function Start()
         cameraNode_,
         camera_,
         debugRenderer_,
+        viewport_,
         levelDocument_,
         CONFIG.voxelEdge,
         CONFIG.voxelHeight
@@ -84,6 +87,7 @@ function Stop()
     cameraNode_ = nil
     camera_ = nil
     debugRenderer_ = nil
+    viewport_ = nil
 end
 
 ---@param eventType string
@@ -129,6 +133,7 @@ function SetupCamera()
     camera.farClip = CONFIG.cameraFarClip
 
     local viewport = Viewport:new(scene_, camera)
+    viewport_ = viewport
     renderer:SetViewport(0, viewport)
     renderer.hdrRendering = true
 end

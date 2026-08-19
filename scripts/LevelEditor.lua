@@ -8,6 +8,7 @@ local UI = require("urhox-libs/UI")
 local PartRootRenderer = require "PartRootRenderer"
 local LevelEditorUI = require "LevelEditorUI"
 local VoxelSandbox = require "VoxelSandbox"
+local OverlayRenderer = require "LevelEditorOverlayRenderer"
 
 local LevelEditor = {}
 
@@ -49,7 +50,7 @@ end
 ---@field editorCamera table
 LevelEditor.__index = LevelEditor
 
-function LevelEditor.New(scene, cameraNode, camera, debugRenderer, levelDocument, edgeLength, voxelHeight)
+function LevelEditor.New(scene, cameraNode, camera, debugRenderer, mainViewport, levelDocument, edgeLength, voxelHeight)
     local self = setmetatable({}, LevelEditor)
     self.scene = scene
     self.cameraNode = cameraNode
@@ -59,6 +60,7 @@ function LevelEditor.New(scene, cameraNode, camera, debugRenderer, levelDocument
     self.edgeLength = edgeLength
     self.voxelHeight = voxelHeight
     self.partRenderer = PartRootRenderer.New(scene, edgeLength, voxelHeight)
+    self.overlayRenderer = OverlayRenderer.New(mainViewport, cameraNode, camera)
     self.selectedPartId = nil
     self.mode = "level"
     self.partEditor = nil
@@ -189,6 +191,7 @@ function LevelEditor:EnterLevelMode()
     end
     self.mode = "level"
     self:ApplyEditorCamera()
+    self.overlayRenderer:SyncCamera()
 
     local built, errorMessage = self.partRenderer:Rebuild(self.levelDocument)
     if not built then
@@ -198,6 +201,7 @@ function LevelEditor:EnterLevelMode()
         local parts = self.levelDocument:GetParts()
         self.selectedPartId = parts[1] and parts[1].id or nil
     end
+    self.overlayRenderer:SyncCamera()
     local selectedPart = self:GetSelectedPart()
     if selectedPart then
         self:SyncTransformGrid(selectedPart)
@@ -567,46 +571,15 @@ function LevelEditor:RotateSelectedPart(deltaSteps)
     return true
 end
 
-function LevelEditor:DrawSelectionGizmo()
-    if self.mode ~= "level" or not self.selectedPartId then
-        return
-    end
-    local root = self.partRenderer:GetRoot(self.selectedPartId)
-    local minPoint, maxPoint = self.partRenderer:GetLocalBounds(self.selectedPartId)
-    if not root or not minPoint or not maxPoint then
-        return
-    end
-
-    local corners = {
-        Vector3(minPoint.x, minPoint.y, minPoint.z),
-        Vector3(maxPoint.x, minPoint.y, minPoint.z),
-        Vector3(maxPoint.x, minPoint.y, maxPoint.z),
-        Vector3(minPoint.x, minPoint.y, maxPoint.z),
-        Vector3(minPoint.x, maxPoint.y, minPoint.z),
-        Vector3(maxPoint.x, maxPoint.y, minPoint.z),
-        Vector3(maxPoint.x, maxPoint.y, maxPoint.z),
-        Vector3(minPoint.x, maxPoint.y, maxPoint.z),
-    }
-    local world = {}
-    for index, corner in ipairs(corners) do
-        world[index] = root.worldTransform * corner
-    end
-    local edges = {
-        { 1, 2 }, { 2, 3 }, { 3, 4 }, { 4, 1 },
-        { 5, 6 }, { 6, 7 }, { 7, 8 }, { 8, 5 },
-        { 1, 5 }, { 2, 6 }, { 3, 7 }, { 4, 8 },
-    }
-    local color = Color(0.44, 0.84, 1.0, 1.0)
-    for _, edge in ipairs(edges) do
-        self.debugRenderer:AddLine(world[edge[1]], world[edge[2]], color, false)
-    end
-end
-
 function LevelEditor:Refresh()
     if self.mode == "level" then
         self:HandleEditorCameraInput()
-        self:DrawSelectionGizmo()
+        self.overlayRenderer:SyncCamera()
+        local root = self.partRenderer:GetRoot(self.selectedPartId)
+        local minPoint, maxPoint = self.partRenderer:GetLocalBounds(self.selectedPartId)
+        self.overlayRenderer:DrawSelection(root, minPoint, maxPoint)
     elseif self.partEditor then
+        self.overlayRenderer:Clear()
         self.partEditor:Refresh()
     end
 end
@@ -621,6 +594,7 @@ function LevelEditor:Stop()
         self.ui = nil
     end
     self.partRenderer:Clear()
+    self.overlayRenderer:Stop()
 end
 
 return LevelEditor

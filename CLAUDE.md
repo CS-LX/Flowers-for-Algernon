@@ -9,6 +9,14 @@
 - 任何会改变已正常视觉结果的替换，必须先保留原实现，并在修改后进行目标画面回归检查；出现纸片、圆柱、黑屏等回归时立即恢复基线。
 - 验证工具报错时，先区分用户脚本错误、资源缺失、运行时能力差异和验证器自身问题，再决定是否修改代码。
 
+## 渲染验证与 3D Overlay
+
+- 不能根据单次黑屏、全黑截图或某个独立 Runtime 的 shader/resource 错误，直接判定 Viewport、RenderPath 或 Overlay 架构不可用。
+- 验证多 Viewport 时，必须使用颜色明确不同的 MainScene/OverlayScene，并检查真实像素；默认 RenderPath 可能包含 `CLEAR_COLOR | CLEAR_DEPTH | CLEAR_STENCIL`，会把前一个 Viewport 清掉。
+- 3D 置顶 Overlay 的正式验证链路是：Viewport 0 绘制 MainScene，Viewport 1 绘制 OverlayScene；Overlay RenderPath 的首个清屏命令只清 `CLEAR_DEPTH`，不能清 `CLEAR_COLOR`。
+- 在确认该链路前，不得用 UI 屏幕空间线条替代真实 3D Overlay，也不得把 DebugRenderer、CustomGeometry、UI Overlay 多次试错后的现象泛化为引擎能力结论。
+- 渲染结论必须区分：API 存在、脚本运行、Scene 创建、真实像素合成、用户预览；低层探针失败时，先检查探针是否真正执行了目标命令以及是否在截图帧前提前退出。
+
 ## 变更范围与回退安全
 
 - 用户要求回退某个功能时，必须按功能边界回退，不得按提交时间粗暴 `reset --hard` 到更早提交；与目标功能无关的已验收功能必须保留。
