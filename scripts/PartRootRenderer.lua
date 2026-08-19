@@ -54,7 +54,9 @@ function PartRootRenderer:BuildPart(part)
 
     local minPoint = Vector3(math.huge, math.huge, math.huge)
     local maxPoint = Vector3(-math.huge, -math.huge, -math.huge)
+    local hasCells = false
     session.document:ForEach(function(cell)
+        hasCells = true
         local position, rotation = self.grid:GetVoxelTransform(cell)
         local radius = self.edgeLength / math.sqrt(3.0)
         minPoint = Vector3(
@@ -75,6 +77,11 @@ function PartRootRenderer:BuildPart(part)
             name = "Voxel_" .. self.grid:CellKey(cell),
         })
     end)
+
+    if not hasCells then
+        minPoint = Vector3(-self.edgeLength * 0.5, 0, -self.edgeLength * 0.5)
+        maxPoint = Vector3(self.edgeLength * 0.5, self.voxelHeight, self.edgeLength * 0.5)
+    end
 
     self.partRoots[part.id] = {
         node = root,

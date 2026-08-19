@@ -3,6 +3,7 @@
 -- 局部体素编辑仍交给 VoxelSandbox，关卡数据仍由 LevelDocument 持有。
 
 local PartEditSession = require "PartEditSession"
+local PartDefinition = require "PartDefinition"
 local UI = require("urhox-libs/UI")
 local PartRootRenderer = require "PartRootRenderer"
 local LevelEditorUI = require "LevelEditorUI"
@@ -16,6 +17,11 @@ end
 
 local function SnapToStep(value, step)
     return math.floor(value / step + 0.5) * step
+end
+
+local function SanitizePartId(text)
+    local id = (text or "part"):lower():gsub("[^%w]+", "_"):gsub("^_+", ""):gsub("_+$", "")
+    return id ~= "" and id or "part"
 end
 
 ---@class LevelEditor
@@ -193,6 +199,139 @@ function LevelEditor:EnterLevelMode()
     self.ui:Build()
     self:RefreshLevelUI("Level View：" .. self.levelDocument.name)
     print("Level Editor: entered level mode")
+end
+
+function LevelEditor:AllocatePartId(baseName)
+    local base = SanitizePartId(baseName)
+    local index = 1
+    local id = "part_" .. base
+    while self.levelDocument:GetPart(id) or fileSystem:FileExists("parts/" .. id .. ".json") do
+        index = index + 1
+        id = "part_" .. base .. "_" .. tostring(index)
+    end
+    return id
+end
+
+function LevelEditor:CreateEmptyPart(name)
+    local partName = name and name ~= "" and name or "新 Part"
+    local id = self:AllocatePartId(partName)
+    local path = "parts/" .. id .. ".json"
+    local session = PartEditSession.New(self.partRenderer.grid, {
+        id = id,
+        name = partName,
+        path = path,
+    })
+    local saved, errorMessage = session:Save()
+    if not saved then
+        self:RefreshLevelUI("新 Part 资源创建失败：" .. tostring(errorMessage))
+        return false
+    end
+
+    local part = PartDefinition.New({
+        id = id,
+        name = partName,
+        localVoxelPath = path,
+        transform = {
+            position = { x = 0, y = 0, z = 0 },
+            rotation = { yawSteps = 0, pitchSteps = 0, rollSteps = 0 },
+            scale = { x = 1, y = 1, z = 1 },
+        },
+        transformCapabilities = { move = true, rotate = true, scale = false },
+        behaviorModes = {},
+        behaviors = {},
+    })
+    local added, addError = self.levelDocument:AddPart(part)
+    if not added then
+        self:RefreshLevelUI("新 Part 加入关卡失败：" .. tostring(addError))
+        return false
+    end
+    self.selectedPartId = id
+    self:SyncTransformGrid(part)
+    local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+    if not rebuilt then
+        self:RefreshLevelUI(tostring(rebuildError))
+        return false
+    end
+    self:RefreshLevelUI("已新建空 Part：" .. partName)
+    return true
+end
+
+function LevelEditor:DuplicateSelectedPart()
+    local source = self:GetSelectedPart()
+    if not source then
+        return false
+    end
+    local sourceSession, sourceError = PartEditSession.Open(self.partRenderer.grid, source)
+    if not sourceSession then
+        self:RefreshLevelUI("无法读取源 Part：" .. tostring(sourceError))
+        return false
+    end
+
+    local name = source.name .. " 副本"
+    local id = self:AllocatePartId(name)
+    local path = "parts/" .. id .. ".json"
+    local cloneSession = PartEditSession.New(self.partRenderer.grid, {
+        id = id,
+        name = name,
+        path = path,
+    })
+    cloneSession.document:LoadTable(sourceSession.document:CloneTable())
+    local saved, saveError = cloneSession:Save()
+    if not saved then
+        self:RefreshLevelUI("副本体素资源保存失败：" .. tostring(saveError))
+        return false
+    end
+
+    local copy = PartDefinition.New(source:ToTable())
+    copy.id = id
+    copy.name = name
+    copy.localVoxelPath = path
+    self:SyncTransformGrid(source)
+    self.transformGrid.hexQ = self.transformGrid.hexQ + self.transformGrid.snapStep
+    copy:SetPosition(self:GetSnappedWorldPosition(
+        self.transformGrid.hexQ,
+        self.transformGrid.hexR,
+        self.transformGrid.layer
+    ))
+    local added, addError = self.levelDocument:AddPart(copy)
+    if not added then
+        self:RefreshLevelUI("副本加入关卡失败：" .. tostring(addError))
+        return false
+    end
+    self.selectedPartId = id
+    self:SyncTransformGrid(copy)
+    local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+    if not rebuilt then
+        self:RefreshLevelUI(tostring(rebuildError))
+        return false
+    end
+    self:RefreshLevelUI("已复制 Part：" .. name)
+    return true
+end
+
+function LevelEditor:DeleteSelectedPart()
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local removed, errorMessage = self.levelDocument:RemovePart(part.id)
+    if not removed then
+        self:RefreshLevelUI("删除 Part 失败：" .. tostring(errorMessage))
+        return false
+    end
+    local parts = self.levelDocument:GetParts()
+    self.selectedPartId = parts[1] and parts[1].id or nil
+    local selected = self:GetSelectedPart()
+    if selected then
+        self:SyncTransformGrid(selected)
+    end
+    local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+    if not rebuilt then
+        self:RefreshLevelUI(tostring(rebuildError))
+        return false
+    end
+    self:RefreshLevelUI("已从关卡移除 Part：" .. part.name .. "（局部资源保留）")
+    return true
 end
 
 function LevelEditor:SyncTransformGrid(part)

@@ -93,6 +93,39 @@ function LevelEditorUI:Build()
         flexGrow = 1,
         flexShrink = 1,
     }
+    self.createButton = UI.Button {
+        text = "+ 新建 Part",
+        height = 30,
+        fontSize = 11,
+        variant = "primary",
+        onClick = function() editor:CreateEmptyPart() end,
+    }
+    self.duplicateButton = UI.Button {
+        text = "复制",
+        flexGrow = 1,
+        height = 28,
+        fontSize = 10,
+        variant = "secondary",
+        onClick = function() editor:DuplicateSelectedPart() end,
+    }
+    self.deleteButton = UI.Button {
+        text = "删除",
+        flexGrow = 1,
+        height = 28,
+        fontSize = 10,
+        variant = "danger",
+        onClick = function()
+            local part = editor:GetSelectedPart()
+            if not part then return end
+            UI.Modal.Confirm({
+                title = "从关卡移除 Part",
+                message = "确定移除“" .. part.name .. "”吗？局部体素 JSON 会保留，不会物理删除。",
+                confirmText = "移除",
+                cancelText = "取消",
+                onConfirm = function() editor:DeleteSelectedPart() end,
+            })
+        end,
+    }
 
     self.openButton = UI.Button {
         text = "打开 Part 编辑器",
@@ -138,6 +171,11 @@ function LevelEditorUI:Build()
                     UI.Label { text = "OBJECT TREE", fontSize = 11, fontWeight = "bold", fontColor = TEXT },
                     UI.Label { text = "LevelRoot", fontSize = 12, fontWeight = "bold", fontColor = { 180, 201, 226, 255 } },
                     self.partList,
+                    self.createButton,
+                    UI.Panel { flexDirection = "row", gap = 4, children = {
+                        self.duplicateButton,
+                        self.deleteButton,
+                    } },
                     UI.Divider { thickness = 1, color = BORDER, spacing = 2 },
                     UI.Label { text = "当前为最小总装闭环：选择、查看、打开 Part。", fontSize = 10, fontColor = MUTED, whiteSpace = "normal" },
                 },
@@ -240,6 +278,8 @@ function LevelEditorUI:Refresh()
         self.modeLabel:SetText("—")
         self.openButton:SetDisabled(true)
         self.saveButton:SetDisabled(true)
+        self.duplicateButton:SetDisabled(true)
+        self.deleteButton:SetDisabled(true)
         return
     end
 
@@ -285,6 +325,8 @@ function LevelEditorUI:Refresh()
     ))
     self.openButton:SetDisabled(false)
     self.saveButton:SetDisabled(false)
+    self.duplicateButton:SetDisabled(false)
+    self.deleteButton:SetDisabled(false)
 end
 
 function LevelEditorUI:SetCameraState(camera)
