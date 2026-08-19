@@ -55,7 +55,6 @@ function LevelEditor.New(scene, cameraNode, camera, debugRenderer, levelDocument
     self.cameraNode = cameraNode
     self.camera = camera
     self.debugRenderer = debugRenderer
-    self.debugRenderer:SetLineAntiAlias(false)
     self.levelDocument = levelDocument
     self.edgeLength = edgeLength
     self.voxelHeight = voxelHeight
@@ -597,17 +596,10 @@ function LevelEditor:DrawSelectionGizmo()
         { 5, 6 }, { 6, 7 }, { 7, 8 }, { 8, 5 },
         { 1, 5 }, { 2, 6 }, { 3, 7 }, { 4, 8 },
     }
-    local center = root.worldTransform * ((minPoint + maxPoint) * 0.5)
-    local orange = Color(1.0, 0.55, 0.05, 1.0)
-    local axisX = Color(1.0, 0.20, 0.16, 1.0)
-    local axisY = Color(0.25, 0.92, 0.35, 1.0)
-    local axisZ = Color(0.18, 0.48, 1.0, 1.0)
+    local color = Color(0.44, 0.84, 1.0, 1.0)
     for _, edge in ipairs(edges) do
-        self.debugRenderer:AddLine(world[edge[1]], world[edge[2]], orange, false)
+        self.debugRenderer:AddLine(world[edge[1]], world[edge[2]], color, false)
     end
-    self.debugRenderer:AddLine(center, center + root.worldRotation * Vector3.RIGHT * 0.8, axisX, false)
-    self.debugRenderer:AddLine(center, center + root.worldRotation * Vector3.UP * 0.8, axisY, false)
-    self.debugRenderer:AddLine(center, center + root.worldRotation * Vector3.FORWARD * 0.8, axisZ, false)
 end
 
 function LevelEditor:Refresh()
