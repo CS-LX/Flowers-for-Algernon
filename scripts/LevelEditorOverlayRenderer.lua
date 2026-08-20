@@ -370,7 +370,7 @@ function OverlayRenderer:DrawVoxelSelection(minPoint, maxPoint, center)
     self:DrawWorldSelection(corners, center, Quaternion(0.0, Vector3.UP))
 end
 
-function OverlayRenderer:DrawSelection(root, minPoint, maxPoint)
+function OverlayRenderer:DrawSelection(root, minPoint, maxPoint, pivotPosition)
     if not root or not minPoint or not maxPoint then
         self:Clear()
         return
@@ -380,7 +380,7 @@ function OverlayRenderer:DrawSelection(root, minPoint, maxPoint)
     for index, corner in ipairs(corners) do
         world[index] = root.worldTransform * corner
     end
-    self:DrawWorldSelection(world, root.worldPosition, root.worldRotation)
+    self:DrawWorldSelection(world, pivotPosition or root.worldPosition, root.worldRotation)
 end
 
 function OverlayRenderer:Stop()

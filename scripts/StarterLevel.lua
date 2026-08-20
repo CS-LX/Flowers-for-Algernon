@@ -121,6 +121,10 @@ function StarterLevel.LoadOrCreate(grid)
         id = towerSession.id,
         name = towerSession.name,
         localVoxelPath = towerSession.path,
+        pivot = {
+            mode = "cell_center",
+            cell = { hexQ = 0, hexR = 0, sector = 0, layer = 0 },
+        },
         transform = {
             position = { x = 0, y = 0, z = 0 },
             rotation = { yawSteps = 0, pitchSteps = 0, rollSteps = 0 },

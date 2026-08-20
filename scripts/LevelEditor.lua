@@ -475,6 +475,68 @@ function LevelEditor:SetSelectedYawSteps(value)
     return true
 end
 
+function LevelEditor:SetSelectedPivotMode(mode)
+    local part = self:GetSelectedPart()
+    if not part or not part:SetPivotMode(mode) then
+        return false
+    end
+    self.levelDocument.dirty = true
+    local root = self.partRenderer:GetRoot(part.id)
+    if root then
+        self.partRenderer:ApplyTransform(root, part)
+    end
+    self:RefreshLevelUI("已更新 Pivot Mode")
+    return true
+end
+
+function LevelEditor:SetSelectedPivotCoordinate(axis, value)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local pivotCell = part:GetPivotCell() or { hexQ = 0, hexR = 0, sector = 0, layer = 0 }
+    if part:GetPivotMode() ~= "cell_center" then
+        part:SetPivotMode("cell_center")
+    end
+    local numeric = tonumber(value)
+    if not numeric then
+        self:RefreshLevelUI("Pivot 坐标必须是数字")
+        return false
+    end
+    local cell = {
+        hexQ = pivotCell.hexQ,
+        hexR = pivotCell.hexR,
+        sector = pivotCell.sector,
+        layer = pivotCell.layer,
+    }
+    if axis == "hexQ" or axis == "hexR" or axis == "sector" or axis == "layer" then
+        cell[axis] = math.floor(numeric)
+    else
+        return false
+    end
+    local candidate = {
+        hexQ = cell.hexQ,
+        hexR = cell.hexR,
+        sector = cell.sector,
+        layer = cell.layer,
+    }
+    local session, errorMessage = PartEditSession.Open(self.partRenderer.grid, part)
+    if not session or not session.document:Get(candidate) then
+        self:RefreshLevelUI("Pivot 必须指向当前 Part 的已有三棱柱 Cell")
+        return false
+    end
+    if not part:SetPivotCell(candidate) then
+        return false
+    end
+    self.levelDocument.dirty = true
+    local root = self.partRenderer:GetRoot(part.id)
+    if root then
+        self.partRenderer:ApplyTransform(root, part)
+    end
+    self:RefreshLevelUI("已更新 Pivot Cell")
+    return true
+end
+
 function LevelEditor:SetSelectedPartName(name)
     local part = self:GetSelectedPart()
     if not part or not part:SetName(name) then
@@ -662,7 +724,8 @@ function LevelEditor:Refresh()
         self.overlayRenderer:SyncCamera()
         local root = self.partRenderer:GetRoot(self.selectedPartId)
         local minPoint, maxPoint = self.partRenderer:GetLocalBounds(self.selectedPartId)
-        self.overlayRenderer:DrawSelection(root, minPoint, maxPoint)
+        local pivotPosition = self.partRenderer:GetPivotWorldPosition(self.selectedPartId)
+        self.overlayRenderer:DrawSelection(root, minPoint, maxPoint, pivotPosition)
     elseif self.partEditor then
         self.overlayRenderer:SyncCamera()
         self.partEditor:Refresh()

@@ -31,6 +31,15 @@ function PartRootRenderer:ColorForMaterial(material)
     return COLORS[((material or 1) - 1) % #COLORS + 1]
 end
 
+function PartRootRenderer:GetPivotPosition(part)
+    local pivotCell = part:GetPivotCell()
+    if pivotCell then
+        local pivotPosition = self.grid:GetCellTransform(pivotCell)
+        return pivotPosition
+    end
+    return Vector3(0, 0, 0)
+end
+
 function PartRootRenderer:ApplyTransform(root, part)
     local transform = part.transform
     root.position = Vector3(
@@ -38,8 +47,18 @@ function PartRootRenderer:ApplyTransform(root, part)
         transform.position.y,
         transform.position.z
     )
-    root.rotation = Quaternion(transform.rotation.yawSteps * 60.0, Vector3.UP)
+    root.rotation = Quaternion()
     root.scale = Vector3(transform.scale.x, transform.scale.y, transform.scale.z)
+
+    local pivot = root:GetChild("RotationPivot", false)
+    local contentRoot = pivot and pivot:GetChild("PartContent", false) or nil
+    if not pivot or not contentRoot then
+        return
+    end
+    local pivotPosition = self:GetPivotPosition(part)
+    pivot.position = pivotPosition
+    pivot.rotation = Quaternion(transform.rotation.yawSteps * 60.0, Vector3.UP)
+    contentRoot.position = -pivotPosition
 end
 
 function PartRootRenderer:BuildPart(part)
@@ -52,6 +71,8 @@ function PartRootRenderer:BuildPart(part)
     local parentNode = parentRoot and parentRoot.node or self.scene
     local root = parentNode:CreateChild("PartRoot_" .. part.id)
     root:SetVar("partId", Variant(part.id))
+    local pivot = root:CreateChild("RotationPivot")
+    local contentRoot = pivot:CreateChild("PartContent")
     self:ApplyTransform(root, part)
 
     local minPoint = Vector3(math.huge, math.huge, math.huge)
@@ -72,7 +93,7 @@ function PartRootRenderer:BuildPart(part)
             math.max(maxPoint.z, position.z + self.edgeLength * 0.5)
         )
         VoxelRenderer.CreateVoxel(self.scene, position, self:ColorForMaterial(cell.material), {
-            parent = root,
+            parent = contentRoot,
             edgeLength = self.edgeLength,
             height = self.voxelHeight,
             rotation = rotation,
@@ -85,8 +106,12 @@ function PartRootRenderer:BuildPart(part)
         maxPoint = Vector3(self.edgeLength * 0.5, self.voxelHeight, self.edgeLength * 0.5)
     end
 
+    local pivotPosition = self:GetPivotPosition(part)
     self.partRoots[part.id] = {
         node = root,
+        pivotNode = pivot,
+        contentRoot = contentRoot,
+        pivotPosition = pivotPosition,
         minPoint = minPoint,
         maxPoint = maxPoint,
     }
@@ -107,6 +132,11 @@ end
 function PartRootRenderer:GetRoot(partId)
     local entry = self.partRoots[partId]
     return entry and entry.node or nil
+end
+
+function PartRootRenderer:GetPivotWorldPosition(partId)
+    local entry = self.partRoots[partId]
+    return entry and entry.pivotNode and entry.pivotNode.worldPosition or nil
 end
 
 function PartRootRenderer:GetLocalBounds(partId)

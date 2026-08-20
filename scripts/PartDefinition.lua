@@ -96,6 +96,20 @@ local function HasMode(modes, wanted)
     return false
 end
 
+local function CopyPivot(source)
+    source = source or {}
+    local cell = source.cell or {}
+    return {
+        mode = source.mode == "cell_center" and "cell_center" or "origin",
+        cell = {
+            hexQ = math.floor(cell.hexQ or 0),
+            hexR = math.floor(cell.hexR or 0),
+            sector = NormalizeSteps(cell.sector),
+            layer = math.max(0, math.floor(cell.layer or 0)),
+        },
+    }
+end
+
 function PartDefinition.New(data)
     local self = setmetatable({}, PartDefinition)
     self:Init(data)
@@ -108,6 +122,7 @@ function PartDefinition:Init(data)
     self.name = data.name or self.id
     self.parentId = data.parentId
     self.localVoxelPath = data.localVoxelPath or ("parts/" .. self.id .. ".json")
+    self.pivot = CopyPivot(data.pivot)
 
     local legacyRotator = data.type == "rotator"
     local transform = data.transform or {}
@@ -204,6 +219,37 @@ function PartDefinition:SetYawSteps(steps)
     if self:HasBehavior(PartDefinition.MODE_ROTATOR) then
         self.behaviors.rotator.state = normalized
     end
+    return true
+end
+
+function PartDefinition:GetPivotMode()
+    return self.pivot and self.pivot.mode or "origin"
+end
+
+function PartDefinition:SetPivotMode(mode)
+    if mode ~= "origin" and mode ~= "cell_center" then
+        return false
+    end
+    if mode == "origin" then
+        self.pivot = CopyPivot({ mode = "origin" })
+    else
+        self.pivot = CopyPivot({
+            mode = "cell_center",
+            cell = self:GetPivotCell() or { hexQ = 0, hexR = 0, sector = 0, layer = 0 },
+        })
+    end
+    return true
+end
+
+function PartDefinition:GetPivotCell()
+    return self.pivot and self.pivot.mode == "cell_center" and self.pivot.cell or nil
+end
+
+function PartDefinition:SetPivotCell(cell)
+    if type(cell) ~= "table" then
+        return false
+    end
+    self.pivot = CopyPivot({ mode = "cell_center", cell = cell })
     return true
 end
 
@@ -324,6 +370,7 @@ function PartDefinition:ToTable()
         name = self.name,
         parentId = self.parentId,
         localVoxelPath = self.localVoxelPath,
+        pivot = CopyPivot(self.pivot),
         transform = {
             position = CopyVector(self.transform.position),
             rotation = {

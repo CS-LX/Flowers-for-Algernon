@@ -114,6 +114,7 @@ Part 不再通过 `static / rotator / slider` 等互斥类型描述，而是由�
 Part
 ├── localVoxelPath
 ├── Transform
+├── Pivot：origin / cell_center / custom（Rotator 默认 cell_center）
 ├── transformCapabilities
 └── behaviorModes + behaviors
 ```

@@ -205,6 +205,36 @@ function LevelEditorUI:Build()
         fontSize = 11,
         onSubmit = function(_, value) editor:SetSelectedTriggerId(value) end,
     }
+    self.pivotModeDropdown = UI.Dropdown {
+        options = {
+            { value = "origin", label = "Origin" },
+            { value = "cell_center", label = "Cell Center" },
+        },
+        value = "origin",
+        height = 26,
+        fontSize = 10,
+        onChange = function(_, value) editor:SetSelectedPivotMode(value) end,
+    }
+    self.pivotQField = UI.TextField {
+        value = "0", placeholder = "Q", height = 26, fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPivotCoordinate("hexQ", value) end,
+        onBlur = function(self) editor:SetSelectedPivotCoordinate("hexQ", self:GetValue()) end,
+    }
+    self.pivotRField = UI.TextField {
+        value = "0", placeholder = "R", height = 26, fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPivotCoordinate("hexR", value) end,
+        onBlur = function(self) editor:SetSelectedPivotCoordinate("hexR", self:GetValue()) end,
+    }
+    self.pivotSectorField = UI.TextField {
+        value = "0", placeholder = "Sector", height = 26, fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPivotCoordinate("sector", value) end,
+        onBlur = function(self) editor:SetSelectedPivotCoordinate("sector", self:GetValue()) end,
+    }
+    self.pivotLayerField = UI.TextField {
+        value = "0", placeholder = "Layer", height = 26, fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPivotCoordinate("layer", value) end,
+        onBlur = function(self) editor:SetSelectedPivotCoordinate("layer", self:GetValue()) end,
+    }
     self.createButton = UI.Button {
         text = "+ 新建 Part",
         height = 30,
@@ -346,6 +376,15 @@ function LevelEditorUI:Build()
                             } },
                             self.positionLabel,
                             self.rotationLabel,
+                            UI.Label { text = "Pivot", width = 62, fontSize = 10, fontColor = MUTED },
+                            UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.pivotModeDropdown } },
+                            UI.Label { text = "Cell", fontSize = 9, fontColor = MUTED },
+                            UI.Panel { flexDirection = "row", gap = 3, children = {
+                                UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.pivotQField } },
+                                UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.pivotRField } },
+                                UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.pivotSectorField } },
+                                UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.pivotLayerField } },
+                            } },
                             UI.Button {
                                 text = "Snap to Tri-Prism Grid",
                                 height = 25,
@@ -443,6 +482,16 @@ function LevelEditorUI:Refresh()
         self.triggerableToggle:SetChecked(false)
         self.rotatorDurationField:SetValue("")
         self.triggerIdField:SetValue("")
+        self.pivotModeDropdown.props.value = "origin"
+        self.pivotModeDropdown:SetDisabled(true)
+        self.pivotQField:SetValue("")
+        self.pivotQField:SetDisabled(true)
+        self.pivotRField:SetValue("")
+        self.pivotRField:SetDisabled(true)
+        self.pivotSectorField:SetValue("")
+        self.pivotSectorField:SetDisabled(true)
+        self.pivotLayerField:SetValue("")
+        self.pivotLayerField:SetDisabled(true)
         self.openButton:SetDisabled(true)
         self.saveButton:SetDisabled(true)
         self.duplicateButton:SetDisabled(true)
@@ -497,6 +546,18 @@ function LevelEditorUI:Refresh()
     self.triggerableToggle:SetChecked(part:HasBehavior("triggerable"))
     self.rotatorDurationField:SetValue(part.behaviors.rotator and tostring(part.behaviors.rotator.duration) or "")
     self.triggerIdField:SetValue(part.behaviors.triggerable and part.behaviors.triggerable.triggerId or "")
+    local pivotCell = part:GetPivotCell()
+    local usesCellPivot = part:GetPivotMode() == "cell_center"
+    self.pivotModeDropdown:SetDisabled(false)
+    self.pivotModeDropdown.props.value = part:GetPivotMode()
+    self.pivotQField:SetValue(pivotCell and tostring(pivotCell.hexQ) or "0")
+    self.pivotQField:SetDisabled(not usesCellPivot)
+    self.pivotRField:SetValue(pivotCell and tostring(pivotCell.hexR) or "0")
+    self.pivotRField:SetDisabled(not usesCellPivot)
+    self.pivotSectorField:SetValue(pivotCell and tostring(pivotCell.sector) or "0")
+    self.pivotSectorField:SetDisabled(not usesCellPivot)
+    self.pivotLayerField:SetValue(pivotCell and tostring(pivotCell.layer) or "0")
+    self.pivotLayerField:SetDisabled(not usesCellPivot)
     local editorCamera = self.editor.editorCamera
     self.cameraLabel:SetText(string.format(
         "%s  Yaw %.0f°  Pitch %.0f°  Zoom %.1f",
