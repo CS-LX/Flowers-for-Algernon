@@ -27,6 +27,7 @@ Level Object Tree
 ```text
 projection = Orthographic
 pitch = 30°
+yaw = 30°
 rotation = 固定的关卡设计角度
 ```
 

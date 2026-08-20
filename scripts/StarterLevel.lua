@@ -89,7 +89,7 @@ function StarterLevel.LoadOrCreate(grid)
     level.fixedCamera = {
         projection = "orthographic",
         pitch = 30,
-        yaw = 0,
+        yaw = 30,
         orthoSize = 12.0,
         nearClip = 0.1,
         farClip = 100.0,

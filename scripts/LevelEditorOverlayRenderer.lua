@@ -380,8 +380,7 @@ function OverlayRenderer:DrawSelection(root, minPoint, maxPoint)
     for index, corner in ipairs(corners) do
         world[index] = root.worldTransform * corner
     end
-    local center = root.worldTransform * ((minPoint + maxPoint) * 0.5)
-    self:DrawWorldSelection(world, center, root.worldRotation)
+    self:DrawWorldSelection(world, root.worldPosition, root.worldRotation)
 end
 
 function OverlayRenderer:Stop()

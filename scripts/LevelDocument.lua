@@ -23,7 +23,7 @@ local function CopyCamera(camera)
     return {
         projection = "orthographic",
         pitch = 30,
-        yaw = camera.yaw or 0,
+        yaw = camera.yaw or 30,
         orthoSize = camera.orthoSize or 10.0,
         nearClip = camera.nearClip or 0.1,
         farClip = camera.farClip or 100.0,
