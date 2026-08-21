@@ -279,6 +279,15 @@ function LevelEditorUI:Build()
             editor:OpenSelectedPart()
         end,
     }
+    self.previewButton = UI.Button {
+        text = "游戏预览",
+        height = 30,
+        fontSize = 11,
+        variant = "primary",
+        onClick = function()
+            editor:StartGamePreview()
+        end,
+    }
     self.saveButton = UI.Button {
         text = "保存关卡",
         height = 30,
@@ -429,6 +438,7 @@ function LevelEditorUI:Build()
                         gap = 6,
                         children = {
                             self.openButton,
+                            self.previewButton,
                             self.saveButton,
                         },
                     },
@@ -493,6 +503,7 @@ function LevelEditorUI:Refresh()
         self.pivotLayerField:SetValue("")
         self.pivotLayerField:SetDisabled(true)
         self.openButton:SetDisabled(true)
+        self.previewButton:SetDisabled(true)
         self.saveButton:SetDisabled(true)
         self.duplicateButton:SetDisabled(true)
         self.deleteButton:SetDisabled(true)
@@ -567,6 +578,7 @@ function LevelEditorUI:Refresh()
         editorCamera.projection == "orthographic" and editorCamera.orthoSize or editorCamera.distance
     ))
     self.openButton:SetDisabled(false)
+    self.previewButton:SetDisabled(false)
     self.saveButton:SetDisabled(false)
     self.duplicateButton:SetDisabled(false)
     self.deleteButton:SetDisabled(false)

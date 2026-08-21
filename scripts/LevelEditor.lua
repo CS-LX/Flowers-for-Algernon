@@ -9,6 +9,7 @@ local PartRootRenderer = require "PartRootRenderer"
 local LevelEditorUI = require "LevelEditorUI"
 local VoxelSandbox = require "VoxelSandbox"
 local OverlayRenderer = require "LevelEditorOverlayRenderer"
+local GamePreview = require "GamePreview"
 
 local LevelEditor = {}
 
@@ -54,6 +55,7 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
     self.scene = scene
     self.cameraNode = cameraNode
     self.camera = camera
+    self.mainViewport = mainViewport
     self.levelDocument = levelDocument
     self.edgeLength = edgeLength
     self.voxelHeight = voxelHeight
@@ -62,6 +64,7 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
     self.selectedPartId = nil
     self.mode = "level"
     self.partEditor = nil
+    self.gamePreview = nil
     self.ui = nil
     self.transformGrid = {
         snapStep = 0.5,
@@ -183,11 +186,18 @@ function LevelEditor:HandleEditorCameraInput()
 end
 
 function LevelEditor:EnterLevelMode()
+    if self.gamePreview then
+        self.gamePreview:Stop()
+        self.gamePreview = nil
+    end
     if self.partEditor then
         self.partEditor:Stop()
         self.partEditor = nil
     end
     self.overlayRenderer:EnterLevelMode()
+    renderer:SetViewport(0, self.mainViewport)
+    renderer:SetViewport(1, self.overlayRenderer.viewport)
+    renderer:SetNumViewports(2)
     self.mode = "level"
     self:ApplyEditorCamera()
     self.overlayRenderer:SyncCamera()
@@ -683,6 +693,37 @@ function LevelEditor:BackToLevel()
     return true
 end
 
+function LevelEditor:StartGamePreview()
+    if self.mode ~= "level" then
+        return false
+    end
+    local preview = GamePreview.New(self.levelDocument, self.edgeLength, self.voxelHeight)
+    local started, errorMessage = preview:Start()
+    if not started then
+        self:RefreshLevelUI("无法启动 Preview：" .. tostring(errorMessage))
+        return false
+    end
+    if self.ui then
+        self.ui:Destroy()
+        self.ui = nil
+    end
+    self.partRenderer:Clear()
+    self.overlayRenderer:Clear()
+    renderer:SetNumViewports(1)
+    self.gamePreview = preview
+    self.mode = "preview"
+    print("Level Editor: entered game preview")
+    return true
+end
+
+function LevelEditor:StopGamePreview()
+    if self.mode ~= "preview" then
+        return false
+    end
+    self:EnterLevelMode()
+    return true
+end
+
 function LevelEditor:SaveLevel()
     local saved, errorMessage = self.levelDocument:Save()
     if not saved then
@@ -729,10 +770,18 @@ function LevelEditor:Refresh()
     elseif self.partEditor then
         self.overlayRenderer:SyncCamera()
         self.partEditor:Refresh()
+    elseif self.mode == "preview" then
+        if input:GetKeyPress(KEY_ESCAPE) then
+            self:StopGamePreview()
+        end
     end
 end
 
 function LevelEditor:Stop()
+    if self.gamePreview then
+        self.gamePreview:Stop()
+        self.gamePreview = nil
+    end
     if self.partEditor then
         self.partEditor:Stop()
         self.partEditor = nil
