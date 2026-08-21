@@ -104,16 +104,6 @@ function VoxelDocument:Count()
     return count
 end
 
-function VoxelDocument:ApplyChanges(changes)
-    for _, change in ipairs(changes or {}) do
-        if change.after then
-            self:Set(change.after)
-        elseif change.before then
-            self:Remove(change.before)
-        end
-    end
-end
-
 function VoxelDocument:ToTable()
     local cells = {}
     self:ForEach(function(cell)

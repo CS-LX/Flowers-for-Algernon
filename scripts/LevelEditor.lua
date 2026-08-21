@@ -37,7 +37,6 @@ end
 ---@field scene Scene
 ---@field cameraNode Node
 ---@field camera Camera
----@field debugRenderer DebugRenderer
 ---@field levelDocument table
 ---@field edgeLength number
 ---@field voxelHeight number
@@ -50,12 +49,11 @@ end
 ---@field editorCamera table
 LevelEditor.__index = LevelEditor
 
-function LevelEditor.New(scene, cameraNode, camera, debugRenderer, mainViewport, levelDocument, edgeLength, voxelHeight)
+function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument, edgeLength, voxelHeight)
     local self = setmetatable({}, LevelEditor)
     self.scene = scene
     self.cameraNode = cameraNode
     self.camera = camera
-    self.debugRenderer = debugRenderer
     self.levelDocument = levelDocument
     self.edgeLength = edgeLength
     self.voxelHeight = voxelHeight
@@ -660,7 +658,6 @@ function LevelEditor:OpenSelectedPart()
         self.scene,
         self.cameraNode,
         self.camera,
-        self.debugRenderer,
         self.edgeLength,
         self.voxelHeight,
         session,
@@ -678,7 +675,10 @@ function LevelEditor:BackToLevel()
     if self.mode ~= "part" or not self.partEditor then
         return false
     end
-    self.partEditor:SaveDocument()
+    local saved, errorMessage = self.partEditor:SaveDocument()
+    if not saved then
+        return false, errorMessage
+    end
     self:EnterLevelMode()
     return true
 end

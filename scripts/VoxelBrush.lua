@@ -154,8 +154,4 @@ function VoxelBrush:Deactivate(context)
     end
 end
 
-function VoxelBrush:WantsContinuousExecution()
-    return true
-end
-
 return VoxelBrush

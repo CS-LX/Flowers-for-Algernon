@@ -1,5 +1,4 @@
--- 六边形视觉闯关游戏：六边形体素基础场景
--- 当前版本：正交相机 + 30 度俯视 + 六个三棱柱体素组成中央六边形
+-- 六边形视觉闯关游戏入口。
 
 local VoxelRenderer = require "VoxelRenderer"
 local TriPrismGrid = require "TriPrismGrid"
@@ -12,8 +11,6 @@ local scene_ = nil
 local cameraNode_ = nil
 ---@type Camera|nil
 local camera_ = nil
----@type DebugRenderer|nil
-local debugRenderer_ = nil
 ---@type Viewport|nil
 local viewport_ = nil
 ---@type table|nil
@@ -28,15 +25,6 @@ local CONFIG = {
     cameraFarClip = 100.0,
     voxelEdge = 1.0,
     voxelHeight = VoxelRenderer.DEFAULT_HEIGHT,
-}
-
-local VOXEL_COLORS = {
-    Color(0.95, 0.25, 0.30, 1.0),
-    Color(0.98, 0.58, 0.20, 1.0),
-    Color(0.95, 0.88, 0.22, 1.0),
-    Color(0.35, 0.78, 0.38, 1.0),
-    Color(0.24, 0.65, 0.92, 1.0),
-    Color(0.62, 0.38, 0.88, 1.0),
 }
 
 local function CreateMaterial(color, metallic, roughness)
@@ -64,7 +52,6 @@ function Start()
         scene_,
         cameraNode_,
         camera_,
-        debugRenderer_,
         viewport_,
         levelDocument_,
         CONFIG.voxelEdge,
@@ -86,7 +73,6 @@ function Stop()
     scene_ = nil
     cameraNode_ = nil
     camera_ = nil
-    debugRenderer_ = nil
     viewport_ = nil
 end
 
@@ -101,7 +87,6 @@ end
 function CreateScene()
     scene_ = Scene()
     scene_:CreateComponent("Octree")
-    debugRenderer_ = scene_:CreateComponent("DebugRenderer")
 
     local lightGroupFile = cache:GetResource("XMLFile", "LightGroup/Daytime.xml")
     local lightGroup = scene_:CreateChild("LightGroup")
@@ -125,29 +110,13 @@ function SetupCamera()
     cameraNode_.position = Vector3(0, 8.660254, -15.0)
     cameraNode_:LookAt(Vector3(0, 0, 0))
 
-    local camera = cameraNode_:CreateComponent("Camera")
-    camera_ = camera
-    camera.orthographic = true
-    camera.orthoSize = CONFIG.cameraOrthoSize
-    camera.nearClip = CONFIG.cameraNearClip
-    camera.farClip = CONFIG.cameraFarClip
+    camera_ = cameraNode_:CreateComponent("Camera")
+    camera_.orthographic = true
+    camera_.orthoSize = CONFIG.cameraOrthoSize
+    camera_.nearClip = CONFIG.cameraNearClip
+    camera_.farClip = CONFIG.cameraFarClip
 
-    local viewport = Viewport:new(scene_, camera)
-    viewport_ = viewport
-    renderer:SetViewport(0, viewport)
+    viewport_ = Viewport:new(scene_, camera_)
+    renderer:SetViewport(0, viewport_)
     renderer.hdrRendering = true
-end
-
-function CreateHexagonVoxelAssembly()
-    VoxelRenderer.CreateHexagonOfVoxels(
-        scene_,
-        Vector3(0, 0, 0),
-        VOXEL_COLORS,
-        {
-            edgeLength = CONFIG.voxelEdge,
-            height = CONFIG.voxelHeight,
-        }
-    )
-
-    print("Voxel spec: edge=" .. CONFIG.voxelEdge .. ", height=" .. CONFIG.voxelHeight)
 end

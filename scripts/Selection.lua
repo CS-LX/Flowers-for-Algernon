@@ -38,10 +38,8 @@ function Selection.New(grid, document, onChanged)
     self.document = document
     self.onChanged = onChanged
     self.cells = {}
-    self.highlightedCell = nil
     self.previewCells = {}
     self.previewBounds = nil
-    self.pendingTransform = nil
     return self
 end
 
@@ -54,24 +52,6 @@ end
 function Selection:ClearPreview()
     self.previewCells = {}
     self.previewBounds = nil
-end
-
-function Selection:SetHighlightedCell(cell)
-    self.highlightedCell = CopyCell(cell)
-end
-
-function Selection:GetHighlightedCell()
-    return CopyCell(self.highlightedCell)
-end
-
-function Selection:SetPendingTransform(transform)
-    self.pendingTransform = transform
-    self:Notify()
-end
-
-function Selection:ClearPendingTransform()
-    self.pendingTransform = nil
-    self:Notify()
 end
 
 function Selection:GetPreviewCells()
@@ -108,7 +88,6 @@ function Selection:Clear()
         self.cells[key] = nil
     end
     self:ClearPreview()
-    self.pendingTransform = nil
     self:Notify()
 end
 

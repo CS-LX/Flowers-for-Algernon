@@ -9,7 +9,7 @@ local PendingEdit = require "PendingEdit"
 local VoxelBrush = require "VoxelBrush"
 local Modifier = require "Modifier"
 local Selection = require "Selection"
-local ViewportRenderer = require "ViewportRenderer"
+local PartEditorDisplayOptions = require "ViewportRenderer"
 local PartEditSession = require "PartEditSession"
 local VoxelHistory = require "VoxelHistory"
 local VoxelRenderer = require "VoxelRenderer"
@@ -50,12 +50,11 @@ local COLORS = {
     Color(0.62, 0.38, 0.88, 1.0),
 }
 
-function VoxelSandbox.New(scene, cameraNode, camera, debugRenderer, edgeLength, voxelHeight, session, overlayRenderer)
+function VoxelSandbox.New(scene, cameraNode, camera, edgeLength, voxelHeight, session, overlayRenderer)
     local self = setmetatable({}, VoxelSandbox)
     self.scene = scene
     self.cameraNode = cameraNode
     self.camera = camera
-    self.debugRenderer = debugRenderer
     self.overlayRenderer = overlayRenderer
     self.grid = TriPrismGrid.New(edgeLength, voxelHeight)
     self.session = session or PartEditSession.CreateStarter(self.grid)
@@ -64,7 +63,7 @@ function VoxelSandbox.New(scene, cameraNode, camera, debugRenderer, edgeLength, 
     self.selection = Selection.New(self.grid, self.document, function()
         self:UpdateSelectionLabel()
     end)
-    self.viewportRenderer = ViewportRenderer.New(self.debugRenderer, self.grid, self.document, self.selection)
+    self.viewportRenderer = PartEditorDisplayOptions.New()
     self.context.selection = self.selection
     self.pendingEdit = PendingEdit.New(self.document)
     self.history = VoxelHistory.New(self.document, function()
@@ -83,14 +82,12 @@ function VoxelSandbox.New(scene, cameraNode, camera, debugRenderer, edgeLength, 
     self.tool = "place"
     self.activeLayer = 0
     self.activeMaterial = 1
+    self.brush:SetMaterial(self.activeMaterial)
     self.hoverCell = nil
     self.hoverExisting = nil
-    self.selectedCells = self.selection.cells
     self.voxelNodes = {}
     self.clipboard = {}
     self.dragActive = false
-    self.dragChanges = {}
-    self.dragChangeKeys = {}
     self.boxSelectionActive = false
     self.boxSelectionStart = nil
     self.boxSelectionEnd = nil
@@ -216,10 +213,8 @@ function VoxelSandbox:RefreshHover()
     if self.tool == "select" or self.tool == "box" or self.tool == "erase" or self.tool == "picker" then
         self.hoverCell = self.hoverExisting
         self.context.cursorCell = self.hoverCell
-        self.selection:SetHighlightedCell(self.hoverExisting)
         return
     end
-    self.selection:SetHighlightedCell(nil)
     if hit and hit.placementCell then
         self.hoverCell = hit.placementCell
         return
@@ -235,38 +230,6 @@ end
 
 function VoxelSandbox:MakeChange(before, after)
     return { before = CopyCell(before), after = CopyCell(after) }
-end
-
-function VoxelSandbox:AddBrushChange(cell)
-    if not cell then return end
-    local normalized = self.grid:NormalizeCell(cell)
-    local key = CellKey(self.grid, normalized)
-    if self.dragChangeKeys[key] then return end
-    local existing = self.document:Get(normalized)
-    if self.tool == "place" and not existing then
-        normalized.material = self.activeMaterial
-        self.dragChanges[#self.dragChanges + 1] = self:MakeChange(nil, normalized)
-        self.dragChangeKeys[key] = true
-    elseif self.tool == "erase" and existing then
-        self.dragChanges[#self.dragChanges + 1] = self:MakeChange(existing, nil)
-        self.dragChangeKeys[key] = true
-    end
-end
-
-function VoxelSandbox:CommitDrag()
-    if #self.dragChanges > 0 then
-        self.history:Execute(self.dragChanges, self.tool == "erase" and "Erase Brush" or "Place Brush")
-    end
-    self.dragChanges = {}
-    self.dragChangeKeys = {}
-    self.dragActive = false
-end
-
-function VoxelSandbox:BeginDrag()
-    self.dragActive = true
-    self.dragChanges = {}
-    self.dragChangeKeys = {}
-    self:AddBrushChange(self.hoverCell)
 end
 
 function VoxelSandbox:BeginBoxSelection()
@@ -376,6 +339,7 @@ end
 function VoxelSandbox:PickMaterial()
     if self.hoverExisting then
         self.activeMaterial = self.hoverExisting.material or 1
+        self.brush:SetMaterial(self.activeMaterial)
         self:SetTool("place")
         self.statusLabel:SetText("已吸取材质 " .. tostring(self.activeMaterial))
     end
@@ -401,6 +365,10 @@ function VoxelSandbox:ApplySelectionTransform(transform)
     local afterCells = {}
     for _, cell in pairs(sourceCells) do
         local after = transform(CopyCell(cell))
+        if not self.grid:IsValid(after) then
+            self.statusLabel:SetText("变换失败：目标超出有效体素层范围")
+            return
+        end
         local key = CellKey(self.grid, after)
         if destinations[key] or (self.document:Get(after) and not sourceCells[CellKey(self.grid, after)]) then
             self.statusLabel:SetText("变换失败：目标位置已被占用")
@@ -653,6 +621,7 @@ function VoxelSandbox:SaveDocument()
         ok and ("已保存 Part：" .. self.session.name)
             or ("保存失败：" .. tostring(message))
     )
+    return ok, message
 end
 
 function VoxelSandbox:LoadDocument()

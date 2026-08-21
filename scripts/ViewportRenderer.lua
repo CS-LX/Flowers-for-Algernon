@@ -1,15 +1,11 @@
--- 体素编辑器辅助显示状态。
--- 所有网格、Hover、命中面、选区和 PendingEdit 绘制统一由 OverlayRenderer 承担。
--- 本模块只保存 UI 可切换的显示选项，不直接调用 DebugRenderer。
+-- Part 编辑器辅助显示选项。
+-- 实际绘制统一由 LevelEditorOverlayRenderer 完成。
 
-local ViewportRenderer = {}
-ViewportRenderer.__index = ViewportRenderer
+local PartEditorDisplayOptions = {}
+PartEditorDisplayOptions.__index = PartEditorDisplayOptions
 
-function ViewportRenderer.New(_, grid, document, selection)
-    local self = setmetatable({}, ViewportRenderer)
-    self.grid = grid
-    self.document = document
-    self.selection = selection
+function PartEditorDisplayOptions.New()
+    local self = setmetatable({}, PartEditorDisplayOptions)
     self.showGrid = true
     self.showAxes = true
     self.showHitFace = true
@@ -17,4 +13,4 @@ function ViewportRenderer.New(_, grid, document, selection)
     return self
 end
 
-return ViewportRenderer
+return PartEditorDisplayOptions

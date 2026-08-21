@@ -107,10 +107,6 @@ function Modifier:Deactivate()
     self.context.modifier = nil
 end
 
-function Modifier:HasPendingChanges()
-    return self.pendingEdit:Count() > 0
-end
-
 function Modifier:NotifyPreview()
     if self.onPreviewChanged then
         self.onPreviewChanged(self.pendingEdit:GetChanges())

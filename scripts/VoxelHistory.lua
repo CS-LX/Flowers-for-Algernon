@@ -21,17 +21,18 @@ end
 local function ApplyChange(document, change, forward)
     if forward then
         if change.after then
-            document:Set(change.after)
+            return document:Set(change.after) ~= nil
         elseif change.before then
-            document:Remove(change.before)
+            return document:Remove(change.before) ~= nil
         end
     else
         if change.before then
-            document:Set(change.before)
+            return document:Set(change.before) ~= nil
         elseif change.after then
-            document:Remove(change.after)
+            return document:Remove(change.after) ~= nil
         end
     end
+    return false
 end
 
 function VoxelHistory.New(document, onChanged)
@@ -66,7 +67,16 @@ function VoxelHistory:Execute(changes, label)
     end
 
     for _, change in ipairs(command.changes) do
-        ApplyChange(self.document, change, true)
+        if (change.before and not self.document.grid:IsValid(change.before))
+            or (change.after and not self.document.grid:IsValid(change.after)) then
+            return false
+        end
+    end
+
+    for _, change in ipairs(command.changes) do
+        if not ApplyChange(self.document, change, true) then
+            return false
+        end
     end
     self.undoStack[#self.undoStack + 1] = command
     self.redoStack = {}
