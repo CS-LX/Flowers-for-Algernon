@@ -81,8 +81,6 @@ function VoxelSandbox.New(scene, cameraNode, camera, edgeLength, voxelHeight, se
     self.edgeLength = edgeLength
     self.voxelHeight = voxelHeight
     self.tool = "place"
-    self.pathNodeTool = false
-    self.pathNodeDeleteMode = false
     self.selectedPathNodeId = nil
     self.activeLayer = 0
     self.activeMaterial = 1
@@ -154,17 +152,9 @@ function VoxelSandbox:CreateUI()
     self.editorUI:Build()
 end
 
-function VoxelSandbox:SetPathNodeTool(enabled, deleteMode)
-    self.pathNodeTool = enabled == true
-    self.pathNodeDeleteMode = self.pathNodeTool and deleteMode == true or false
-    self.selectedPathNodeId = nil
-    if self.pathNodeTool then
-        self.toolLabel:SetText(self.pathNodeDeleteMode and "工具：删除路径节点" or "工具：路径节点")
-        self.statusLabel:SetText(self.pathNodeDeleteMode
-            and "点击已有节点面删除节点"
-            or "点击可见体素面挂载节点；点击已有节点面选中")
-    else
-        self.toolLabel:SetText("工具：笔刷")
+function VoxelSandbox:SyncToolPalette()
+    if self.toolPalette then
+        self.toolPalette:SetTool(self.tool)
     end
 end
 
@@ -179,7 +169,7 @@ function VoxelSandbox:AllocatePathNodeId()
 end
 
 function VoxelSandbox:HandlePathNodePointer()
-    if not self.pathNodeTool or UI.IsPointerOverUI() then
+    if (self.tool ~= "path_node" and self.tool ~= "delete_node") or UI.IsPointerOverUI() then
         return false
     end
     if not input:GetMouseButtonPress(MOUSEB_LEFT) or not self.context.hit then
@@ -192,7 +182,7 @@ function VoxelSandbox:HandlePathNodePointer()
         return true
     end
     local existing = self.document:GetPathNodeAt(hit.cell, face)
-    if self.pathNodeDeleteMode then
+    if self.tool == "delete_node" then
         if not existing then
             self.statusLabel:SetText("当前可见面没有路径节点")
             return true
@@ -243,11 +233,13 @@ function VoxelSandbox:DeleteSelectedPathNode()
 end
 
 function VoxelSandbox:SetTool(tool)
-    self.pathNodeTool = false
-    self.pathNodeDeleteMode = false
     self.selectedPathNodeId = nil
     self.tool = tool
-    local names = { place = "笔刷", erase = "擦除", select = "选择", box = "框选", fill = "填充", picker = "吸管" }
+    local names = {
+        place = "笔刷", erase = "擦除", fill = "填充", picker = "吸管",
+        path_node = "路径节点", delete_node = "删除路径节点",
+        select = "单选", box = "框选",
+    }
     self.context.tool = self.tool
     self.context.activeLayer = self.activeLayer
     self.context.activeMaterial = self.activeMaterial
@@ -264,6 +256,7 @@ function VoxelSandbox:SetTool(tool)
     self.boxSelectionStart = nil
     self.boxSelectionEnd = nil
     self.selection:ClearPreview()
+    self:SyncToolPalette()
 end
 
 function VoxelSandbox:SetLayer(layer)
@@ -305,7 +298,7 @@ function VoxelSandbox:RefreshHover()
     local hit = self:FindExistingCellOnRay()
     self.context:UpdateHit(self:ScreenRay(), hit)
     self.hoverExisting = hit and hit.cell or nil
-    if self.pathNodeTool then
+    if self.tool == "path_node" or self.tool == "delete_node" then
         self.hoverCell = self.hoverExisting
         self.context.cursorCell = self.hoverCell
         return
@@ -541,7 +534,7 @@ end
 
 function VoxelSandbox:HandlePointer()
     local pointerOverUI = UI.IsPointerOverUI()
-    if self.pathNodeTool then
+    if self.tool == "path_node" or self.tool == "delete_node" then
         self:HandlePathNodePointer()
         return
     end
@@ -671,7 +664,7 @@ function VoxelSandbox:DrawDebug()
         self.activeLayer,
         self.pendingEdit:GetChanges(),
         {
-            tool = self.pathNodeTool and "path_node" or self.tool,
+            tool = (self.tool == "path_node" or self.tool == "delete_node") and "path_node" or self.tool,
             showGrid = self.viewportRenderer.showGrid,
             showAxes = self.viewportRenderer.showAxes,
             showHitFace = self.viewportRenderer.showHitFace,

@@ -356,9 +356,12 @@ function TriPrismGrid:GetCellFaces(cell)
     local bottom = {}
     local top = {}
     for index = 1, 3 do
-        bottom[index] = CopyVector(base[index])
-        top[index] = CopyVector(base[index])
-        top[index].y = top[index].y + self.voxelHeight
+        bottom[index] = Vector3(base[index].x, base[index].y, base[index].z)
+        top[index] = Vector3(
+            base[index].x,
+            base[index].y + self.voxelHeight,
+            base[index].z
+        )
     end
 
     local faces = {
@@ -374,21 +377,19 @@ function TriPrismGrid:GetCellFaces(cell)
     for sideIndex, pair in ipairs(sidePairs) do
         local first = pair[1]
         local second = pair[2]
-        local a = base[first]
-        local b = base[second]
-        local normal = NormalizeDirection(Vector3(
-            (a.x + b.x) * 0.5 - base[1].x,
-            0,
-            (a.z + b.z) * 0.5 - base[1].z
-        ))
+        local bottomFirst = CopyVector(base[first])
+        local bottomSecond = CopyVector(base[second])
+        local topSecond = Vector3(bottomSecond.x, bottomSecond.y + self.voxelHeight, bottomSecond.z)
+        local topFirst = Vector3(bottomFirst.x, bottomFirst.y + self.voxelHeight, bottomFirst.z)
+        local normal = NormalizeDirection((bottomSecond - bottomFirst):CrossProduct(topFirst - bottomFirst))
         faces[#faces + 1] = {
             index = sideIndex + 2,
             kind = "side",
             vertices = {
-                CopyVector(base[first]),
-                CopyVector(base[second]),
-                Vector3(base[second].x, base[second].y + self.voxelHeight, base[second].z),
-                Vector3(base[first].x, base[first].y + self.voxelHeight, base[first].z),
+                bottomFirst,
+                bottomSecond,
+                topSecond,
+                topFirst,
             },
             normal = normal,
         }
@@ -403,25 +404,23 @@ function TriPrismGrid:RaycastCell(ray, cell)
     local nearest = nil
     local faces = self:GetCellFaces(cell)
     for _, face in ipairs(faces) do
-        if face.normal:DotProduct(ray.direction) < -EPSILON then
-            local vertices = face.vertices
-            local distance = RayTriangle(ray.origin, ray.direction, vertices[1], vertices[2], vertices[3])
-            if vertices[4] then
-                local secondDistance = RayTriangle(ray.origin, ray.direction, vertices[1], vertices[3], vertices[4])
-                if secondDistance and (not distance or secondDistance < distance) then
-                    distance = secondDistance
-                end
+        local vertices = face.vertices
+        local distance = RayTriangle(ray.origin, ray.direction, vertices[1], vertices[2], vertices[3])
+        if vertices[4] then
+            local secondDistance = RayTriangle(ray.origin, ray.direction, vertices[1], vertices[3], vertices[4])
+            if secondDistance and (not distance or secondDistance < distance) then
+                distance = secondDistance
             end
-            if distance and (not nearest or distance < nearest.distance) then
-                nearest = {
-                    cell = self:NormalizeCell(cell),
-                    face = face.index,
-                    kind = face.kind,
-                    normal = face.normal,
-                    distance = distance,
-                    position = ray.origin + ray.direction * distance,
-                }
-            end
+        end
+        if distance and (not nearest or distance < nearest.distance) then
+            nearest = {
+                cell = self:NormalizeCell(cell),
+                face = face.index,
+                kind = face.kind,
+                normal = face.normal,
+                distance = distance,
+                position = ray.origin + ray.direction * distance,
+            }
         end
     end
     if nearest then

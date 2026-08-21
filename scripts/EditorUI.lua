@@ -25,23 +25,18 @@ function EditorUI:Build()
         fonts = { { name = "sans", path = "Fonts/MiSans-Regular.ttf" } },
         scale = UI.Scale.DEFAULT,
     })
+    UI.Gesture.Config.longPressMinDuration = 220
 
     local editor = self.editor
     local toolPalette = IconToolPalette.New({
-        activeToolId = "edit",
-        activeModes = {
-            edit = "place",
-            selection = "select",
-            transform = "copy",
-            view = "grid",
-            document = "undo",
-        },
         tools = {
-            { id = "edit", icon = "brush", modes = {
-                { id = "place", label = "笔刷", icon = "brush" },
-                { id = "erase", label = "擦除", icon = "erase" },
+            { id = "brush", icon = "brush", modes = { { id = "place", label = "笔刷", icon = "brush" } } },
+            { id = "erase", icon = "erase", modes = { { id = "erase", label = "擦除", icon = "erase" } } },
+            { id = "edit", icon = "fill", modes = {
                 { id = "fill", label = "填充", icon = "fill" },
                 { id = "picker", label = "吸管", icon = "picker" },
+            } },
+            { id = "path", icon = "path", modes = {
                 { id = "path_node", label = "挂载节点", icon = "path" },
                 { id = "delete_node", label = "删除节点", icon = "delete" },
             } },
@@ -78,15 +73,14 @@ function EditorUI:Build()
             } },
         },
         onSelect = function(toolId, modeId)
-            if toolId == "edit" then
-                if modeId == "path_node" then
-                    editor:SetPathNodeTool(true, false)
-                elseif modeId == "delete_node" then
-                    editor:SetPathNodeTool(true, true)
-                else
-                    editor:SetTool(modeId)
-                end
+            if toolId == "brush" or toolId == "erase" then
+                editor:SetTool(modeId)
+            elseif toolId == "path" then
+                editor:SetTool(modeId)
+            elseif toolId == "edit" then
+                editor:SetTool(modeId)
             elseif toolId == "selection" then
+                editor:SetTool(modeId)
                 if modeId == "connected" then editor:SelectConnected()
                 elseif modeId == "same_material" then editor:SelectSameMaterial()
                 elseif modeId == "layer" then editor:SelectLayer()
@@ -95,6 +89,7 @@ function EditorUI:Build()
                 elseif modeId == "clear" then editor:ClearSelection()
                 else editor:SetTool(modeId) end
             elseif toolId == "transform" then
+                editor:SetTool(modeId)
                 if modeId == "copy" then editor:CopySelection()
                 elseif modeId == "paste" then editor:PasteAtHover()
                 elseif modeId == "delete_selection" then editor:DeleteSelection()
@@ -104,18 +99,24 @@ function EditorUI:Build()
                 elseif modeId == "move_right" then editor:MoveSelection(1, 0, 0)
                 elseif modeId == "move_up" then editor:MoveSelection(0, 0, 1) end
             elseif toolId == "view" then
+                editor:SetTool(modeId)
                 if modeId == "grid" then editor:ToggleGrid()
                 elseif modeId == "axes" then editor:ToggleAxes()
                 elseif modeId == "projection" then editor:ToggleProjection() end
             elseif toolId == "document" then
+                editor:SetTool(modeId)
                 if modeId == "undo" then editor:Undo()
                 elseif modeId == "redo" then editor:Redo()
                 elseif modeId == "save" then editor:SaveDocument()
                 elseif modeId == "load" then editor:LoadDocument() end
+            else
+                editor:SetTool(modeId)
             end
         end,
     })
     editor.toolPalette = toolPalette
+    local toolPaletteRoot = toolPalette:Build()
+    editor:SyncToolPalette()
 
     local title = UI.Label {
         text = "TRI-PRISM VOXEL EDITOR",
@@ -187,7 +188,7 @@ function EditorUI:Build()
             UI.Panel {
                 position = "absolute", top = 52, left = 8, width = 62,
                 pointerEvents = "auto",
-                children = { toolPalette:Build() },
+                children = { toolPaletteRoot },
             },
             UI.Panel {
                 position = "absolute", top = 52, right = 8, width = 224, padding = 10, gap = 6,

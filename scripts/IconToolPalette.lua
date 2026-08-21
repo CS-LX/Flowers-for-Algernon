@@ -178,18 +178,27 @@ end
 function IconToolPalette.New(config)
     local self = setmetatable({}, IconToolPalette)
     self.config = config or {}
-    self.activeToolId = self.config.activeToolId
-    self.activeModes = self.config.activeModes or {}
     self.buttonWidgets = {}
     self.modePanels = {}
-    self.modePanelAnchors = {}
     self.root = nil
     return self
 end
 
+function IconToolPalette:SetTool(toolId)
+    local actualToolId = self.config.modeToTool and self.config.modeToTool[toolId] or toolId
+    local tool = self.config.toolsById and self.config.toolsById[actualToolId]
+    if not tool then
+        return
+    end
+    local modeId = self.config.modeToTool and self.config.modeToTool[toolId]
+        and toolId
+        or tool.modes[1].id
+    self.actualToolId = actualToolId
+    self.actualModeId = modeId
+    self:Refresh()
+end
+
 function IconToolPalette:Select(toolId, modeId)
-    self.activeToolId = toolId
-    self.activeModes[toolId] = modeId
     if self.config.onSelect then
         self.config.onSelect(toolId, modeId)
     end
@@ -203,7 +212,6 @@ function IconToolPalette:OpenModes(toolId)
     for id, panel in pairs(self.modePanels) do
         if id == toolId then
             local buttonLayout = self.buttonWidgets[id]:GetAbsoluteLayout()
-            local rootLayout = self.root:GetAbsoluteLayout()
             local viewportWidth, viewportHeight = UI.GetViewportSize()
             local width = 184
             local height = math.min(316, 10 + #self.config.toolsById[id].modes * 37)
@@ -216,9 +224,9 @@ function IconToolPalette:OpenModes(toolId)
                 screenTop = math.max(8, viewportHeight - height - 8)
             end
             panel:SetStyle({
-                position = "absolute",
-                left = screenLeft - rootLayout.x,
-                top = screenTop - rootLayout.y,
+                position = "fixed",
+                left = screenLeft,
+                top = screenTop,
                 width = width,
                 height = height,
                 maxHeight = height,
@@ -234,13 +242,23 @@ end
 
 function IconToolPalette:Refresh()
     for toolId, button in pairs(self.buttonWidgets) do
-        button.props.active = toolId == self.activeToolId
+        local tool = self.config.toolsById[toolId]
+        button.props.active = toolId == self.actualToolId
+        local modeId = toolId == self.actualToolId and self.actualModeId or tool.modes[1].id
+        if tool and modeId then
+            for _, mode in ipairs(tool.modes) do
+                if mode.id == modeId then
+                    button.props.iconPath = ICON_ROOT .. mode.icon .. ".png"
+                    break
+                end
+            end
+        end
     end
     for toolId, panel in pairs(self.modePanels) do
         local tool = self.config.toolsById[toolId]
         if tool then
             panel:ClearChildren()
-            local selected = self.activeModes[toolId] or tool.modes[1].id
+            local selected = toolId == self.actualToolId and self.actualModeId or nil
             for _, mode in ipairs(tool.modes) do
                 panel:AddChild(IconModeButton {
                     modeId = mode.id,
@@ -259,18 +277,21 @@ end
 function IconToolPalette:Build()
     local tools = self.config.tools or {}
     self.config.toolsById = {}
+    self.config.modeToTool = {}
     local children = {}
-    local row = 0
     for _, tool in ipairs(tools) do
         self.config.toolsById[tool.id] = tool
+        for _, mode in ipairs(tool.modes) do
+            self.config.modeToTool[mode.id] = tool.id
+        end
         local modeCount = #(tool.modes or {})
         local button = IconToolButton {
             id = "icon-tool-" .. tool.id,
             iconPath = ICON_ROOT .. tool.icon .. ".png",
-            active = tool.id == self.activeToolId,
+            active = false,
             hasModes = modeCount > 1,
             onActivate = function()
-                self:Select(tool.id, self.activeModes[tool.id] or tool.modes[1].id)
+                self:Select(tool.id, tool.modes[1].id)
             end,
             onOpenModes = function()
                 self:OpenModes(tool.id)
@@ -280,16 +301,18 @@ function IconToolPalette:Build()
         children[#children + 1] = button
         if modeCount > 1 then
             local panel = UI.Panel {
-                position = "absolute",
-                left = 68,
-                top = 7 + row * 54,
+                position = "fixed",
+                left = 0,
+                top = 0,
                 width = 184,
-                maxHeight = 300,
+                height = 120,
+                maxHeight = 316,
                 padding = 5,
                 gap = 3,
                 overflow = "hidden",
                 zIndex = 1000,
                 visible = false,
+                pointerEvents = "auto",
                 backgroundColor = MENU_BG,
                 borderColor = BORDER,
                 borderWidth = 1,
@@ -299,7 +322,6 @@ function IconToolPalette:Build()
             self.modePanels[tool.id] = panel
             children[#children + 1] = panel
         end
-        row = row + 1
     end
     self.root = UI.Panel {
         position = "relative",
