@@ -74,7 +74,8 @@ function LevelEditorUI.New(editor)
     local self = setmetatable({}, LevelEditorUI)
     self.editor = editor
     self.root = nil
-    self.partButtons = nil
+    self.pathNodeLabel = nil
+    self.pathNodeDropdown = nil
     return self
 end
 

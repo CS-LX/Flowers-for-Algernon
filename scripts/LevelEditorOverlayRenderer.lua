@@ -49,6 +49,24 @@ local function AddFaceOutline(geometry, face)
     AddLoop(geometry, face.vertices)
 end
 
+local function AddArrow(geometry, startPoint, endPoint, size)
+    local direction = endPoint - startPoint
+    if direction:Length() < 0.001 then
+        return
+    end
+    direction = direction:Normalized()
+    local side = direction:CrossProduct(Vector3.UP)
+    if side:Length() < 0.001 then
+        side = Vector3.RIGHT
+    else
+        side = side:Normalized()
+    end
+    local headStart = endPoint - direction * size
+    AddLine(geometry, startPoint, endPoint)
+    AddLine(geometry, endPoint, headStart + side * size * 0.5)
+    AddLine(geometry, endPoint, headStart - side * size * 0.5)
+end
+
 local function BuildBoundsCorners(minPoint, maxPoint)
     return {
         Vector3(minPoint.x, minPoint.y, minPoint.z),
@@ -96,8 +114,11 @@ function OverlayRenderer.New(mainViewport, mainCameraNode, mainCamera)
     self.mainCameraNode = mainCameraNode
     self.mainCamera = mainCamera
     self.gizmoNode = self.scene:CreateChild("LevelEditorOverlayGizmos")
+    self.pathNodeNode = self.scene:CreateChild("LevelEditorPathNodeGizmos")
     self.voxelNode = self.scene:CreateChild("LevelEditorVoxelGizmos")
     self.gizmoGeometry = nil
+    self.pathNodeGeometry = nil
+    self.pathNodeMarkers = {}
     self.voxelGeometry = nil
     self.materials = nil
     self.enabled = true
@@ -133,9 +154,19 @@ function OverlayRenderer:EnsureGizmoGeometry()
         red = CreateMaterial("LevelEditorOverlayRed", Color(1.0, 0.20, 0.16, 1.0)),
         green = CreateMaterial("LevelEditorOverlayGreen", Color(0.25, 0.92, 0.35, 1.0)),
         blue = CreateMaterial("LevelEditorOverlayBlue", Color(0.18, 0.48, 1.0, 1.0)),
+        pathNode = CreateMaterial("PathNodeConfigured", Color(0.75, 0.86, 1.0, 1.0)),
+        pathNodeWalkable = CreateMaterial("PathNodeWalkable", Color(0.25, 1.0, 0.45, 1.0)),
+        pathNodeDisabled = CreateMaterial("PathNodeDisabled", Color(1.0, 0.25, 0.22, 1.0)),
+        pathNodeNormal = CreateMaterial("PathNodeNormal", Color(0.72, 0.78, 1.0, 1.0)),
         grid = CreateMaterial("VoxelOverlayGrid", Color(0.30, 0.38, 0.50, 1.0)),
         gridInner = CreateMaterial("VoxelOverlayGridInner", Color(0.20, 0.27, 0.37, 1.0)),
         hover = CreateMaterial("VoxelOverlayHover", Color(0.12, 0.88, 0.96, 1.0)),
+        placePreview = CreateMaterial("VoxelOverlayPlacePreview", Color(0.25, 1.0, 0.46, 1.0)),
+        erasePreview = CreateMaterial("VoxelOverlayErasePreview", Color(1.0, 0.24, 0.20, 1.0)),
+        selectionActive = CreateMaterial("VoxelOverlaySelectionActive", Color(0.78, 0.66, 1.0, 1.0)),
+        boxPreview = CreateMaterial("VoxelOverlayBoxPreview", Color(0.30, 0.92, 0.86, 1.0)),
+        picker = CreateMaterial("VoxelOverlayPicker", Color(0.98, 0.82, 0.28, 1.0)),
+        pathNodeFace = CreateMaterial("VoxelOverlayPathNodeFace", Color(0.72, 0.84, 1.0, 1.0)),
         occupied = CreateMaterial("VoxelOverlayOccupied", Color(1.0, 0.30, 0.22, 1.0)),
         selection = CreateMaterial("VoxelOverlaySelection", Color(1.0, 0.68, 0.12, 1.0)),
         selectionPreview = CreateMaterial("VoxelOverlaySelectionPreview", Color(0.30, 0.92, 0.86, 1.0)),
@@ -143,6 +174,13 @@ function OverlayRenderer:EnsureGizmoGeometry()
         pendingAdd = CreateMaterial("VoxelOverlayPendingAdd", Color(0.25, 1.0, 0.46, 1.0)),
         pendingRemove = CreateMaterial("VoxelOverlayPendingRemove", Color(1.0, 0.24, 0.20, 1.0)),
     }
+end
+
+function OverlayRenderer:EnsurePathNodeGeometry()
+    if self.pathNodeGeometry then
+        return
+    end
+    self.pathNodeGeometry = self.pathNodeNode:CreateComponent("CustomGeometry")
 end
 
 function OverlayRenderer:EnsureVoxelGeometry()
@@ -157,6 +195,13 @@ function OverlayRenderer:ClearTransformGizmo()
     self.gizmoNode.enabled = false
 end
 
+function OverlayRenderer:ClearPathNodeGizmos()
+    self.pathNodeNode.enabled = false
+    for _, marker in pairs(self.pathNodeMarkers) do
+        marker.node.enabled = false
+    end
+end
+
 function OverlayRenderer:ClearVoxelGizmos()
     self.voxelNode.enabled = false
 end
@@ -164,15 +209,18 @@ end
 function OverlayRenderer:Clear()
     self.enabled = false
     self:ClearTransformGizmo()
+    self:ClearPathNodeGizmos()
     self:ClearVoxelGizmos()
 end
 
 function OverlayRenderer:EnterLevelMode()
+    self:ClearPathNodeGizmos()
     self:ClearVoxelGizmos()
     self:ClearTransformGizmo()
 end
 
 function OverlayRenderer:EnterVoxelMode()
+    self:ClearPathNodeGizmos()
     self:ClearVoxelGizmos()
     self:ClearTransformGizmo()
 end
@@ -298,23 +346,92 @@ function OverlayRenderer:DrawVoxelHitFace(grid, hit)
     self:CommitVoxelLines(8)
 end
 
+function OverlayRenderer:GetHitFace(grid, hit)
+    if not hit or not hit.cell or not hit.face then
+        return nil
+    end
+    for _, face in ipairs(grid:GetCellFaces(hit.cell)) do
+        if face.index == hit.face then
+            return face
+        end
+    end
+    return nil
+end
+
+function OverlayRenderer:DrawToolHitFace(grid, hit, material, index)
+    local face = self:GetHitFace(grid, hit)
+    if not face then
+        return
+    end
+    self:BeginVoxelLines(index, material)
+    AddFaceOutline(self.voxelGeometry, face)
+    self:CommitVoxelLines(index)
+end
+
+function OverlayRenderer:DrawToolPlacement(grid, hit, material, index)
+    if not hit or not hit.placementCell then
+        return
+    end
+    self:BeginVoxelLines(index, material)
+    self:AddCellOutline(hit.placementCell)
+    local face = self:GetHitFace(grid, hit)
+    if face then
+        local center = Vector3(0, 0, 0)
+        for _, vertex in ipairs(face.vertices) do
+            center = center + vertex
+        end
+        center = center / #face.vertices
+        AddArrow(self.voxelGeometry, center, grid:GetCellCenter(hit.placementCell), 0.14)
+    end
+    self:CommitVoxelLines(index)
+end
+
+function OverlayRenderer:DrawToolHoverCell(cell, material, index)
+    if not cell then
+        return
+    end
+    self:BeginVoxelLines(index, material)
+    self:AddCellOutline(cell)
+    self:CommitVoxelLines(index)
+end
+
+function OverlayRenderer:DrawToolGizmos(grid, document, selection, context, tool, options)
+    options = options or {}
+    local hit = context.hit
+    if tool == "place" then
+        self:DrawToolHitFace(grid, hit, self.materials.hover, 8)
+        self:DrawToolPlacement(grid, hit, self.materials.placePreview, 9)
+    elseif tool == "erase" then
+        self:DrawToolHitFace(grid, hit, self.materials.hover, 8)
+        self:DrawToolHoverCell(hit and hit.cell, self.materials.erasePreview, 9)
+    elseif tool == "select" then
+        self:DrawToolHoverCell(hit and hit.cell, self.materials.hover, 8)
+    elseif tool == "box" then
+        self:DrawToolHoverCell(hit and hit.cell, self.materials.hover, 8)
+    elseif tool == "fill" then
+        self:DrawToolHitFace(grid, hit, self.materials.hover, 8)
+        self:DrawToolPlacement(grid, hit, self.materials.placePreview, 9)
+    elseif tool == "picker" then
+        self:DrawToolHitFace(grid, hit, self.materials.hover, 8)
+        self:DrawToolHoverCell(hit and hit.cell, self.materials.picker, 9)
+    elseif tool == "path_node" then
+        self:DrawToolHitFace(grid, hit, self.materials.pathNodeFace, 8)
+    else
+        self:DrawToolHitFace(grid, hit, self.materials.hover, 8)
+    end
+end
+
 function OverlayRenderer:DrawVoxelGizmos(grid, document, selection, context, activeLayer, pendingChanges, options)
     options = options or {}
     self:EnsureVoxelGeometry()
     self.voxelGrid = grid
     self.voxelNode.enabled = true
     self.voxelGeometry:Clear()
-    self.voxelGeometry:SetNumGeometries(9)
+    self.voxelGeometry:SetNumGeometries(12)
     if options.showGrid then
         self:DrawVoxelGrid(grid, activeLayer, options.gridRadius or 5)
     end
-    if options.showHitFace then
-        self:DrawVoxelHitFace(grid, context.hit)
-    end
-    local hoverCell = context.cursorCell
-    if hoverCell then
-        self:DrawVoxelHover(grid, hoverCell, document:Get(hoverCell) ~= nil)
-    end
+    self:DrawToolGizmos(grid, document, selection, context, options.tool or "place", options)
     self:DrawVoxelSelectionCells(grid, selection:GetCells())
     self:DrawVoxelPreviewCells(selection:GetPreviewCells())
     local firstCell, secondCell = selection:GetPreviewBounds()
@@ -361,6 +478,58 @@ function OverlayRenderer:DrawWorldSelection(corners, center, rotation)
     self.gizmoGeometry:SetMaterial(3, self.materials.blue)
 end
 
+function OverlayRenderer:EnsurePathNodeMarker(nodeId)
+    local marker = self.pathNodeMarkers[nodeId]
+    if marker then
+        return marker
+    end
+    local marker = self.pathNodeNode:CreateChild("PathNodeMarker_" .. nodeId)
+    marker.scale = Vector3(0.12, 0.12, 0.12)
+    local model = marker:CreateComponent("StaticModel")
+    model.model = cache:GetResource("Model", "Models/Sphere.mdl")
+    local normalMaterial = CreateMaterial(
+        "PathNodeMarker_" .. nodeId,
+        Color(0.25, 1.0, 0.45, 1.0)
+    )
+    local selectedMaterial = CreateMaterial(
+        "PathNodeMarkerSelected_" .. nodeId,
+        Color(0.75, 0.86, 1.0, 1.0)
+    )
+    model.material = normalMaterial
+    marker:SetVar("pathNodeId", Variant(nodeId))
+    marker.enabled = false
+    self.pathNodeMarkers[nodeId] = {
+        node = marker,
+        model = model,
+        normalMaterial = normalMaterial,
+        selectedMaterial = selectedMaterial,
+    }
+    return self.pathNodeMarkers[nodeId]
+end
+
+function OverlayRenderer:DrawVoxelPathNodes(grid, document, selectedNodeId)
+    self:ClearPathNodeGizmos()
+    if not document then
+        return
+    end
+    local nodes = document:GetPathNodes()
+    if #nodes == 0 then
+        return
+    end
+    self.pathNodeNode.enabled = true
+    for _, node in ipairs(nodes) do
+        local localPosition, localNormal = node:GetLocalAnchor(grid, 0.045)
+        if localPosition then
+            local marker = self:EnsurePathNodeMarker(node.id)
+            local selected = node.id == selectedNodeId
+            marker.node.position = localPosition
+            marker.node.scale = selected and Vector3(0.18, 0.18, 0.18) or Vector3(0.12, 0.12, 0.12)
+            marker.model.material = selected and marker.selectedMaterial or marker.normalMaterial
+            marker.node.enabled = true
+        end
+    end
+end
+
 function OverlayRenderer:DrawVoxelSelection(minPoint, maxPoint, center)
     if not minPoint or not maxPoint or not center then
         self:ClearTransformGizmo()
@@ -391,6 +560,8 @@ function OverlayRenderer:Stop()
     end
     self.viewport = nil
     self.gizmoGeometry = nil
+    self.pathNodeGeometry = nil
+    self.pathNodeMarkers = {}
     self.voxelGeometry = nil
     self.materials = nil
     self.voxelMaterials = nil

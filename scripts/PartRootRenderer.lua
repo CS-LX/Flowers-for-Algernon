@@ -134,6 +134,22 @@ function PartRootRenderer:GetRoot(partId)
     return entry and entry.node or nil
 end
 
+function PartRootRenderer:GetPartWorldPoint(partId, localPoint)
+    local entry = self.partRoots[partId]
+    if not entry or not entry.pivotNode then
+        return nil
+    end
+    return entry.pivotNode.worldTransform * (localPoint - entry.pivotPosition)
+end
+
+function PartRootRenderer:GetPartWorldNormal(partId, localNormal)
+    local entry = self.partRoots[partId]
+    if not entry or not entry.pivotNode then
+        return nil
+    end
+    return entry.pivotNode.worldRotation * localNormal
+end
+
 function PartRootRenderer:GetPivotWorldPosition(partId)
     local entry = self.partRoots[partId]
     return entry and entry.pivotNode and entry.pivotNode.worldPosition or nil

@@ -1,6 +1,8 @@
 -- Part 局部三棱柱体素文档与 JSON 持久化。
 -- 文档是一个 Part 的正式数据真相源；渲染节点、预览和历史都依赖它。
 
+local PathNode = require "PathNode"
+
 local VoxelDocument = {}
 VoxelDocument.__index = VoxelDocument
 
@@ -26,6 +28,8 @@ function VoxelDocument.New(grid, path)
     self.version = FORMAT_VERSION
     self.path = path or "parts/default-part.json"
     self.cells = {}
+    self.pathNodes = {}
+    self.pathNodeOrder = {}
     self.materials = {
         { r = 242, g = 75, b = 85, a = 255 },
         { r = 250, g = 148, b = 52, a = 255 },
@@ -60,6 +64,62 @@ function VoxelDocument:Get(cell)
     return self.cells[self:Key(cell)]
 end
 
+function VoxelDocument:GetPathNode(id)
+    return self.pathNodes[id]
+end
+
+function VoxelDocument:GetPathNodes()
+    local result = {}
+    for _, id in ipairs(self.pathNodeOrder) do
+        local node = self.pathNodes[id]
+        if node then
+            result[#result + 1] = node
+        end
+    end
+    return result
+end
+
+function VoxelDocument:AddPathNode(node)
+    if getmetatable(node) ~= PathNode then
+        node = PathNode.New(node)
+    end
+    if self.pathNodes[node.id] then
+        return false, "duplicate PathNode id: " .. node.id
+    end
+    if not self:Get(node.voxelCell) then
+        return false, "PathNode voxel cell does not exist"
+    end
+    self.pathNodes[node.id] = node
+    self.pathNodeOrder[#self.pathNodeOrder + 1] = node.id
+    self.dirty = true
+    return true, node
+end
+
+function VoxelDocument:RemovePathNode(id)
+    if not self.pathNodes[id] then
+        return false, "PathNode does not exist: " .. tostring(id)
+    end
+    self.pathNodes[id] = nil
+    for index, nodeId in ipairs(self.pathNodeOrder) do
+        if nodeId == id then
+            table.remove(self.pathNodeOrder, index)
+            break
+        end
+    end
+    self.dirty = true
+    return true
+end
+
+function VoxelDocument:GetPathNodeAt(cell, face)
+    local key = self:Key(cell) .. ":" .. tostring(face)
+    for _, node in ipairs(self:GetPathNodes()) do
+        if self:Key(node.voxelCell) .. ":" .. tostring(node.face) == key then
+            return node
+        end
+    end
+    return nil
+end
+
 function VoxelDocument:Set(cell)
     local normalized = self.grid:NormalizeCell(cell)
     if not self.grid:IsValid(normalized) then
@@ -80,6 +140,14 @@ function VoxelDocument:Remove(cell)
     local previous = self.cells[key]
     if previous then
         self.cells[key] = nil
+        for index = #self.pathNodeOrder, 1, -1 do
+            local nodeId = self.pathNodeOrder[index]
+            local node = self.pathNodes[nodeId]
+            if node and self:Key(node.voxelCell) == key then
+                self.pathNodes[nodeId] = nil
+                table.remove(self.pathNodeOrder, index)
+            end
+        end
         self.dirty = true
     end
     return previous
@@ -87,6 +155,8 @@ end
 
 function VoxelDocument:Clear()
     self.cells = {}
+    self.pathNodes = {}
+    self.pathNodeOrder = {}
     self.dirty = true
 end
 
@@ -127,6 +197,13 @@ function VoxelDocument:ToTable()
         },
         materials = self.materials,
         cells = cells,
+        pathNodes = (function()
+            local nodes = {}
+            for _, node in ipairs(self:GetPathNodes()) do
+                nodes[#nodes + 1] = node:ToTable()
+            end
+            return nodes
+        end)(),
         camera = self.camera,
     }
 end
@@ -140,6 +217,8 @@ function VoxelDocument:LoadTable(data)
     end
 
     self.cells = {}
+    self.pathNodes = {}
+    self.pathNodeOrder = {}
     if type(data.materials) == "table" then
         self.materials = data.materials
     end
@@ -150,6 +229,16 @@ function VoxelDocument:LoadTable(data)
     for _, cell in ipairs(data.cells) do
         if cell.hexQ ~= nil and cell.hexR ~= nil and cell.sector ~= nil and cell.layer ~= nil then
             self:Set(cell)
+        end
+    end
+    for _, item in ipairs(data.pathNodes or {}) do
+        local node, errorMessage = PathNode.FromTable(item)
+        if not node then
+            return false, errorMessage
+        end
+        local added, addError = self:AddPathNode(node)
+        if not added then
+            return false, addError
         end
     end
     self.dirty = false

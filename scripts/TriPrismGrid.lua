@@ -403,23 +403,25 @@ function TriPrismGrid:RaycastCell(ray, cell)
     local nearest = nil
     local faces = self:GetCellFaces(cell)
     for _, face in ipairs(faces) do
-        local vertices = face.vertices
-        local distance = RayTriangle(ray.origin, ray.direction, vertices[1], vertices[2], vertices[3])
-        if vertices[4] then
-            local secondDistance = RayTriangle(ray.origin, ray.direction, vertices[1], vertices[3], vertices[4])
-            if secondDistance and (not distance or secondDistance < distance) then
-                distance = secondDistance
+        if face.normal:DotProduct(ray.direction) < -EPSILON then
+            local vertices = face.vertices
+            local distance = RayTriangle(ray.origin, ray.direction, vertices[1], vertices[2], vertices[3])
+            if vertices[4] then
+                local secondDistance = RayTriangle(ray.origin, ray.direction, vertices[1], vertices[3], vertices[4])
+                if secondDistance and (not distance or secondDistance < distance) then
+                    distance = secondDistance
+                end
             end
-        end
-        if distance and (not nearest or distance < nearest.distance) then
-            nearest = {
-                cell = self:NormalizeCell(cell),
-                face = face.index,
-                kind = face.kind,
-                normal = face.normal,
-                distance = distance,
-                position = ray.origin + ray.direction * distance,
-            }
+            if distance and (not nearest or distance < nearest.distance) then
+                nearest = {
+                    cell = self:NormalizeCell(cell),
+                    face = face.index,
+                    kind = face.kind,
+                    normal = face.normal,
+                    distance = distance,
+                    position = ray.origin + ray.direction * distance,
+                }
+            end
         end
     end
     if nearest then
