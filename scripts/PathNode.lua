@@ -1,4 +1,4 @@
--- 关卡级可走面路径节点定义。
+-- Part 局部可走面路径节点定义。
 -- 节点锚定在 Part 局部三棱柱的指定面；当前不负责连接和寻路。
 
 local PathNode = {}
@@ -102,6 +102,7 @@ end
 function PathNode:ToTable()
     return {
         id = self.id,
+        partId = self.partId,
         voxelCell = CopyCell(self.voxelCell),
         face = self.face,
         kind = self.kind,

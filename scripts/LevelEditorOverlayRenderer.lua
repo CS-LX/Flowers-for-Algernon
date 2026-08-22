@@ -180,6 +180,7 @@ function OverlayRenderer:EnsurePathNodeGeometry()
     if self.pathNodeGeometry then
         return
     end
+    self:EnsureGizmoGeometry()
     self.pathNodeGeometry = self.pathNodeNode:CreateComponent("CustomGeometry")
 end
 
@@ -516,18 +517,37 @@ function OverlayRenderer:DrawVoxelPathNodes(grid, document, selectedNodeId)
     if #nodes == 0 then
         return
     end
+    self:EnsurePathNodeGeometry()
     self.pathNodeNode.enabled = true
+    self.pathNodeGeometry:Clear()
+    self.pathNodeGeometry:SetNumGeometries(1)
+    self.pathNodeGeometry:BeginGeometry(0, LINE_LIST)
     for _, node in ipairs(nodes) do
         local localPosition, localNormal = node:GetLocalAnchor(grid, 0.045)
         if localPosition then
             local marker = self:EnsurePathNodeMarker(node.id)
             local selected = node.id == selectedNodeId
+            local walkable = node.walkable
+            local markerMaterial = walkable
+                and (selected and marker.selectedMaterial or self.materials.pathNodeWalkable)
+                or self.materials.pathNodeDisabled
+            local arrowLength = selected and 0.34 or 0.24
+            local arrowSize = selected and 0.09 or 0.065
+            localPosition = localPosition + localNormal * 0.01
             marker.node.position = localPosition
             marker.node.scale = selected and Vector3(0.18, 0.18, 0.18) or Vector3(0.12, 0.12, 0.12)
-            marker.model.material = selected and marker.selectedMaterial or marker.normalMaterial
+            marker.model.material = markerMaterial
             marker.node.enabled = true
+            AddArrow(
+                self.pathNodeGeometry,
+                localPosition,
+                localPosition + localNormal * arrowLength,
+                arrowSize
+            )
         end
     end
+    self.pathNodeGeometry:Commit()
+    self.pathNodeGeometry:SetMaterial(0, self.materials.pathNodeNormal)
 end
 
 function OverlayRenderer:DrawVoxelSelection(minPoint, maxPoint, center)

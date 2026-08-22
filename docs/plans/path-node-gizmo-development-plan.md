@@ -7,13 +7,21 @@
 目标工作流是：
 
 ```text
-可走面节点
-  -> 归属 Part / 机关
+Part 局部可走面节点
+  -> PathRuntime 建立临时索引
   -> 固定游戏相机下视觉连接评估
   -> 生成当前有效 Path Graph
-  -> Debug 显示
+  -> Gizmo / Debug 显示评估结果
   -> 后续寻路和角色移动消费 Graph
 ```
+
+节点的持久化所有权与寻路的查询范围必须分开：
+
+- `VoxelDocument.pathNodes` 是 Part 局部 PathNode 的唯一持久化源；
+- 节点锚定在局部 Cell/Face，不因跨 Part 寻路而复制到 `LevelDocument`；
+- `LevelDocument` 只保存 Part 组合、固定游戏相机和引用局部节点的候选连接/固定边；
+- `PathRuntime` 在运行时建立 `partId:localNodeId` 临时索引，并持有派生的当前有效 Graph；
+- Gizmo 显示的是节点和 Graph 的派生状态，不反向修改路径真相源。
 
 公开资料没有披露纪念碑谷内部 Gizmo 的具体颜色、图标或交互界面，因此本计划只采用已确认的成熟原则：
 
