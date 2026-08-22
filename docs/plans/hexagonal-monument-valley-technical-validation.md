@@ -59,18 +59,26 @@
 本项目不是用手写条件边模拟纪念碑谷，而是向成熟的纪念碑谷式工作流靠拢：
 
 ```text
-关卡配置可走面节点与机关
+Part 局部可走面节点与关卡候选连接
   -> 机关到达合法 Snap 状态
-  -> 固定游戏相机下评估节点的视觉连接
+  -> PathRuntime 根据 Part 当前 Transform 和固定游戏相机评估视觉连接
   -> 生成当前有效 Path Graph
   -> 寻路消费 Path Graph
 ```
 
+这里必须区分 **节点源数据的所有权** 和 **运行时寻路图的查询范围**：
+
+- `VoxelDocument.pathNodes` 继续保存 Part 内局部 Cell/Face 上的 PathNode，是节点几何锚点和局部通行语义的唯一持久化源；
+- PathNode 不因为寻路跨越多个 Part，就迁移或复制到 `LevelDocument`；
+- `LevelDocument` 只保存 Part、层级、固定游戏相机、局部节点引用组成的关卡候选连接、固定边和设计者覆盖；
+- `PathRuntime` 在运行时收集各 Part 的局部节点，建立临时 `partId:localNodeId` 索引，派生当前世界锚点和有效连接；
+- `CurrentEffectiveGraph` 是运行时派生缓存和寻路唯一输入，不是新的持久化节点真相源。
+
 关卡配置应主要描述：
 
-- 可走面和逻辑导航节点；
-- 节点的面类型、方向、入口/出口语义；
-- 节点所属 Part 和可变机关；
+- 各 Part 局部可走面节点及其面语义、方向、入口/出口语义；
+- 跨 Part 候选节点对，引用 `partId:localNodeId`，不复制 Cell/Face 等节点定义；
+- 节点所属的可变 Part 或机关；
 - 机关的离散 Snap 状态；
 - 固定游戏相机和视觉连接评估规则。
 
@@ -89,18 +97,20 @@
 
 ```text
 机关旋转动画中
-  -> 只更新表现层
-  -> 不更新 Path Graph
+  -> 只更新受影响 Part 的表现层 Transform
+  -> PathRuntime 保持上一份合法 CurrentEffectiveGraph
 
 机关到达合法 Snap 状态
   -> 提交离散机关状态
-  -> 以固定游戏相机评估视觉连接
-  -> 原子重建当前有效 Path Graph
+  -> PathRuntime 刷新受影响 Part 的派生节点数据
+  -> 以固定游戏相机评估相关视觉连接
+  -> 原子替换 CurrentEffectiveGraph
   -> 更新 topologyVersion
 ```
 
 寻路只读取当前有效 Path Graph，不扫描 Mesh、Scene Node 或物理碰撞，也不反向修改 Graph。
 
+节点源数据分布在 Part 中，寻路入口可以集中；**去中心化的节点所有权不等于去中心化的寻路查询**。
 
 公开资料对成熟纪念碑谷式工作流的影响如下：
 

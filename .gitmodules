@@ -1,0 +1,6 @@
+[submodule "references/impossible-geometry"]
+	path = references/impossible-geometry
+	url = https://github.com/RodrigoHamuy/impossible-geometry.git
+[submodule "references/monument-valley-unity"]
+	path = references/monument-valley-unity
+	url = https://github.com/eliemichel/MonumentValley.git
