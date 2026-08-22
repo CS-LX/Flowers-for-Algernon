@@ -2,6 +2,7 @@
 -- 只管理 Part 定义、关卡级固定相机和保存路径；不持有局部体素、Scene Node 或 Bake 缓存。
 
 local PartDefinition = require "PartDefinition"
+local PathConnectionCandidate = require "PathConnectionCandidate"
 
 local LevelDocument = {}
 LevelDocument.__index = LevelDocument
@@ -54,6 +55,8 @@ function LevelDocument.New(path)
     self.fixedCamera = CopyCamera()
     self.parts = {}
     self.partOrder = {}
+    self.pathCandidates = {}
+    self.pathCandidateOrder = {}
     self.dirty = false
     return self
 end
@@ -81,6 +84,94 @@ function LevelDocument:GetParts()
         local part = self.parts[id]
         if part then
             result[#result + 1] = part
+        end
+    end
+    return result
+end
+
+function LevelDocument:GetPathCandidate(id)
+    return self.pathCandidates[id]
+end
+
+function LevelDocument:GetPathCandidates()
+    local result = {}
+    for _, id in ipairs(self.pathCandidateOrder) do
+        local candidate = self.pathCandidates[id]
+        if candidate then
+            result[#result + 1] = candidate
+        end
+    end
+    return result
+end
+
+function LevelDocument:HasPathCandidate(id)
+    return self.pathCandidates[id] ~= nil
+end
+
+function LevelDocument:AddPathCandidate(candidate)
+    if getmetatable(candidate) ~= PathConnectionCandidate then
+        candidate = PathConnectionCandidate.New(candidate)
+    end
+    if type(candidate.id) ~= "string" or candidate.id == "" then
+        return false, "path candidate id is required"
+    end
+    if not PathConnectionCandidate.IsValidReference(candidate.from)
+        or not PathConnectionCandidate.IsValidReference(candidate.to) then
+        return false, "path candidate has invalid endpoint"
+    end
+    if self.pathCandidates[candidate.id] then
+        return false, "duplicate path candidate id: " .. candidate.id
+    end
+    if not self.parts[candidate.from.partId] then
+        return false, "candidate from Part does not exist: " .. candidate.from.partId
+    end
+    if not self.parts[candidate.to.partId] then
+        return false, "candidate to Part does not exist: " .. candidate.to.partId
+    end
+    self.pathCandidates[candidate.id] = candidate
+    self.pathCandidateOrder[#self.pathCandidateOrder + 1] = candidate.id
+    self.dirty = true
+    return true, candidate
+end
+
+function LevelDocument:RemovePathCandidate(id)
+    if not self.pathCandidates[id] then
+        return false, "path candidate does not exist: " .. tostring(id)
+    end
+    self.pathCandidates[id] = nil
+    for index, candidateId in ipairs(self.pathCandidateOrder) do
+        if candidateId == id then
+            table.remove(self.pathCandidateOrder, index)
+            break
+        end
+    end
+    self.dirty = true
+    return true
+end
+
+function LevelDocument:RemovePathCandidatesForPart(partId)
+    local removed = false
+    for index = #self.pathCandidateOrder, 1, -1 do
+        local candidateId = self.pathCandidateOrder[index]
+        local candidate = self.pathCandidates[candidateId]
+        if candidate
+            and (candidate.from.partId == partId or candidate.to.partId == partId) then
+            self.pathCandidates[candidateId] = nil
+            table.remove(self.pathCandidateOrder, index)
+            removed = true
+        end
+    end
+    if removed then
+        self.dirty = true
+    end
+    return removed
+end
+
+function LevelDocument:GetPathCandidatesByPart(partId)
+    local result = {}
+    for _, candidate in ipairs(self:GetPathCandidates()) do
+        if candidate.from.partId == partId or candidate.to.partId == partId then
+            result[#result + 1] = candidate
         end
     end
     return result
@@ -148,6 +239,7 @@ function LevelDocument:RemovePart(id)
     if not self.parts[id] then
         return false, "Part does not exist: " .. tostring(id)
     end
+    self:RemovePathCandidatesForPart(id)
     self.parts[id] = nil
     for index, partId in ipairs(self.partOrder) do
         if partId == id then
@@ -169,13 +261,24 @@ function LevelDocument:ToTable()
     for _, part in ipairs(self:GetParts()) do
         parts[#parts + 1] = part:ToTable()
     end
-    return {
+    local result = {
         format = FORMAT,
         version = FORMAT_VERSION,
         name = self.name,
         fixedCamera = CopyCamera(self.fixedCamera),
         parts = parts,
     }
+    if #self.pathCandidateOrder > 0 then
+        local candidates = {}
+        for _, id in ipairs(self.pathCandidateOrder) do
+            local candidate = self.pathCandidates[id]
+            if candidate then
+                candidates[#candidates + 1] = candidate:ToTable()
+            end
+        end
+        result.pathCandidates = candidates
+    end
+    return result
 end
 
 function LevelDocument:LoadTable(data)
@@ -190,6 +293,8 @@ function LevelDocument:LoadTable(data)
     self.fixedCamera = CopyCamera(data.fixedCamera)
     self.parts = {}
     self.partOrder = {}
+    self.pathCandidates = {}
+    self.pathCandidateOrder = {}
 
     for _, item in ipairs(data.parts) do
         local part, errorMessage = PartDefinition.FromTable(item)
@@ -197,6 +302,16 @@ function LevelDocument:LoadTable(data)
             return false, errorMessage
         end
         local added, addError = self:AddPart(part)
+        if not added then
+            return false, addError
+        end
+    end
+    for _, item in ipairs(data.pathCandidates or {}) do
+        local candidate, errorMessage = PathConnectionCandidate.FromTable(item)
+        if not candidate then
+            return false, errorMessage
+        end
+        local added, addError = self:AddPathCandidate(candidate)
         if not added then
             return false, addError
         end

@@ -150,6 +150,24 @@ function StarterLevel.LoadOrCreate(grid)
         return nil, towerAddError
     end
 
+    local candidateAdded, candidateError = level:AddPathCandidate({
+        id = "candidate_base_to_rotator",
+        from = {
+            partId = baseSession.id,
+            nodeId = "static_base_top_0",
+        },
+        to = {
+            partId = towerSession.id,
+            nodeId = "rotator_tower_top_0",
+        },
+        kind = "visual_candidate",
+        direction = "bidirectional",
+        enabled = true,
+    })
+    if not candidateAdded then
+        return nil, candidateError
+    end
+
     local saved, saveError = level:Save()
     if not saved then
         return nil, saveError
