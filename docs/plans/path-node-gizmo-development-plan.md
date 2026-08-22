@@ -242,7 +242,7 @@ Graph 是运行时寻路的输入，但寻路不能反向定义 Graph。Graph �
 - [x] 阶段二-Gizmo 基础：Level View 按 pending/accepted/rejected 状态绘制候选连接箭头。
 - [x] 阶段三-有效 Graph 基础：按 accepted 候选生成有向邻接、双向边和 `topologyVersion`。
 - [x] 路径数据输入校验：非法候选端点返回诊断，不在构造阶段崩溃。
-- [x] Part 内局部固定连接基础：同一 Part 的可走 PathNode 按局部锚点和法向建立稳定邻接。
+- [x] Part 内局部固定连接基础：已从锚点距离启发式切换为面顶点、同向法线、共面、正长度边重合和基础方向语义检查。
 - [x] 刷新入口基础：Part 变换、Pivot、Yaw、Scale、行为修改和 Part 编辑返回后统一重建 PathRuntime。
 - [x] 通行语义基础：使用节点 entry/exit direction 和 orientation 参与候选方向兼容评估。
 - [ ] Snap 完成边界：运行时动画、SnapCompleted 事件和 Graph 原子提交。

@@ -1,7 +1,8 @@
 -- 运行时路径节点索引与候选解析。
 -- PathNode 仍由各 Part 的 VoxelDocument 持有；本模块只保存运行时索引和诊断。
 -- 当前版本为不稳定原型：局部连接暂用锚点距离 + 法向启发式。
--- 后续必须替换为 TriPrismGrid 的 Cell/Face 离散邻接语义。
+-- 下一版规则已记录在 docs/tri-prism-face-adjacency-spec.md，
+-- 必须按面顶点、法线、共面和正长度边重合替换本函数。
 
 local PartEditSession = require "PartEditSession"
 
@@ -43,23 +44,128 @@ local function GetWorldNodeData(record, grid, partRenderer)
     return result
 end
 
+local FACE_TOLERANCE = 0.0001
+
+local function GetNodeFace(record, grid)
+    local faces = grid:GetCellFaces(record.node.voxelCell)
+    return faces[record.node:GetFaceIndex()]
+end
+
+local function IsSamePlane(faceA, faceB, tolerance)
+    local normalA = faceA.normal:Normalized()
+    if normalA:DotProduct(faceB.normal:Normalized()) < 1.0 - tolerance then
+        return false
+    end
+    local origin = faceA.vertices[1]
+    for _, vertex in ipairs(faceB.vertices) do
+        if math.abs((vertex - origin):DotProduct(normalA)) > tolerance then
+            return false
+        end
+    end
+    return true
+end
+
+local function IsVerticalEdge(first, second, tolerance)
+    return math.abs(first.x - second.x) <= tolerance
+        and math.abs(first.z - second.z) <= tolerance
+        and math.abs(first.y - second.y) > tolerance
+end
+
+local function GetFaceEdges(face, faceName, tolerance)
+    local edges = {}
+    for index = 1, #face.vertices do
+        local nextIndex = index % #face.vertices + 1
+        local first = face.vertices[index]
+        local second = face.vertices[nextIndex]
+        if faceName == "top" or faceName == "bottom"
+            or IsVerticalEdge(first, second, tolerance) then
+            edges[#edges + 1] = { first = first, second = second }
+        end
+    end
+    return edges
+end
+
+local function HasPositiveEdgeOverlap(edgeA, edgeB, tolerance)
+    local direction = edgeA.second - edgeA.first
+    local length = direction:Length()
+    if length <= tolerance then
+        return false
+    end
+    local normalized = direction / length
+    local otherDirection = edgeB.second - edgeB.first
+    if normalized:CrossProduct(otherDirection):Length() > tolerance * length then
+        return false
+    end
+    if (edgeB.first - edgeA.first):CrossProduct(normalized):Length() > tolerance then
+        return false
+    end
+    local firstProjection = 0.0
+    local secondProjection = length
+    local otherFirst = (edgeB.first - edgeA.first):DotProduct(normalized)
+    local otherSecond = (edgeB.second - edgeA.first):DotProduct(normalized)
+    local overlap = math.min(secondProjection, math.max(otherFirst, otherSecond))
+        - math.max(firstProjection, math.min(otherFirst, otherSecond))
+    return overlap > tolerance
+end
+
+local function IsFaceAdjacent(source, target, grid)
+    local sourceFace = GetNodeFace(source, grid)
+    local targetFace = GetNodeFace(target, grid)
+    if not sourceFace or not targetFace then
+        return false
+    end
+    local sourceName = source.node.face
+    local targetName = target.node.face
+    local sourceTopBottom = sourceName == "top" or sourceName == "bottom"
+    local targetTopBottom = targetName == "top" or targetName == "bottom"
+    if sourceTopBottom ~= targetTopBottom then
+        return false
+    end
+    if sourceTopBottom and sourceName ~= targetName then
+        return false
+    end
+    if not IsSamePlane(sourceFace, targetFace, FACE_TOLERANCE) then
+        return false
+    end
+    local sourceEdges = GetFaceEdges(sourceFace, sourceName, FACE_TOLERANCE)
+    local targetEdges = GetFaceEdges(targetFace, targetName, FACE_TOLERANCE)
+    for _, sourceEdge in ipairs(sourceEdges) do
+        for _, targetEdge in ipairs(targetEdges) do
+            if HasPositiveEdgeOverlap(sourceEdge, targetEdge, FACE_TOLERANCE) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function HasCompatibleLocalDirection(source, target, grid)
+    local sourcePoint = source.node:GetLocalAnchor(grid, 0.0)
+    local targetPoint = target.node:GetLocalAnchor(grid, 0.0)
+    local delta = targetPoint and sourcePoint and targetPoint - sourcePoint or nil
+    if not delta or delta:Length() <= FACE_TOLERANCE then
+        return false
+    end
+    local travel = delta:Normalized()
+    local sourceDirection = source.node:GetLocalDirection(grid, source.node.exitDirection)
+    local targetDirection = target.node:GetLocalDirection(grid, target.node.entryDirection)
+    if not sourceDirection or not targetDirection then
+        return false
+    end
+    return sourceDirection:DotProduct(travel) >= 0.25
+        and targetDirection:DotProduct(-travel) >= 0.25
+end
+
 local function GetLocalFixedNeighbors(partRecord, allRecords, grid)
     local neighbors = {}
-    local sourcePosition, sourceNormal = partRecord.node:GetLocalAnchor(grid, 0.035)
     for _, target in ipairs(allRecords) do
-        if target.key ~= partRecord.key and target.node.walkable then
-            local targetLocal, targetNormal = target.node:GetLocalAnchor(grid, 0.035)
-            if targetLocal and targetNormal and sourcePosition and sourceNormal then
-                local delta = targetLocal - sourcePosition
-                local distance = delta:Length()
-                local normalAlignment = sourceNormal:DotProduct(targetNormal)
-                if distance <= grid.edgeLength * 1.45 and normalAlignment >= 0.5 then
-                    neighbors[#neighbors + 1] = {
-                        key = target.key,
-                        distance = distance,
-                    }
-                end
-            end
+        if target.key ~= partRecord.key and target.node.walkable
+            and IsFaceAdjacent(partRecord, target, grid)
+            and HasCompatibleLocalDirection(partRecord, target, grid) then
+            neighbors[#neighbors + 1] = {
+                key = target.key,
+                kind = "local_fixed",
+            }
         end
     end
     table.sort(neighbors, function(left, right)
