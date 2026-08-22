@@ -183,6 +183,59 @@ local function SortNeighbors(neighbors)
     end)
 end
 
+local function TransformEdge(partRenderer, partId, edge)
+    return {
+        first = partRenderer:GetPartWorldPoint(partId, edge.first),
+        second = partRenderer:GetPartWorldPoint(partId, edge.second),
+    }
+end
+
+local function ProjectEdge(camera, edge)
+    return {
+        first = camera:WorldToScreenPoint(edge.first),
+        second = camera:WorldToScreenPoint(edge.second),
+    }
+end
+
+local function EdgeDirection(edge)
+    local delta = edge.second - edge.first
+    if delta:Length() <= FACE_TOLERANCE then
+        return nil
+    end
+    return delta:Normalized()
+end
+
+local function PointDistanceSquared(a, b)
+    local dx = a.x - b.x
+    local dy = a.y - b.y
+    return dx * dx + dy * dy
+end
+
+local function EvaluateProjectedRoadEdges(fromEdge, toEdge, options)
+    local fromDirection = EdgeDirection(fromEdge)
+    local toDirection = EdgeDirection(toEdge)
+    if not fromDirection or not toDirection then
+        return false, "missing-road-edge"
+    end
+    local directionAlignment = math.abs(fromDirection.x * toDirection.x + fromDirection.y * toDirection.y)
+    local minAlignment = options.minRoadEdgeAlignment or 0.75
+    if directionAlignment < minAlignment then
+        return false, "road-edge-direction-discontinuous"
+    end
+    local gapSquared = math.min(
+        PointDistanceSquared(fromEdge.second, toEdge.first),
+        PointDistanceSquared(fromEdge.first, toEdge.second)
+    )
+    local maxGap = options.maxRoadEdgeGap or 72.0
+    if gapSquared > maxGap * maxGap then
+        return false, "road-edge-gap-too-large"
+    end
+    return true, "road-edge-continuous", {
+        directionAlignment = directionAlignment,
+        endpointGapSquared = gapSquared,
+    }
+end
+
 local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera, options)
     if not record.from or not record.to then
         return false, "unresolved"
@@ -200,6 +253,20 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
         return false, toError
     end
 
+    local fromRoadEdge = record.from.node:GetLocalRoadEdge(grid, record.from.node.exitDirection)
+    local toRoadEdge = record.to.node:GetLocalRoadEdge(grid, record.to.node.entryDirection)
+    if not fromRoadEdge or not toRoadEdge then
+        return false, "missing-road-edge"
+    end
+    local fromWorldEdge = TransformEdge(partRenderer, record.from.partId, fromRoadEdge)
+    local toWorldEdge = TransformEdge(partRenderer, record.to.partId, toRoadEdge)
+    local fromProjectedEdge = ProjectEdge(camera, fromWorldEdge)
+    local toProjectedEdge = ProjectEdge(camera, toWorldEdge)
+    local edgeAccepted, edgeReason, edgeResult = EvaluateProjectedRoadEdges(
+        fromProjectedEdge,
+        toProjectedEdge,
+        options
+    )
     local fromScreen = camera:WorldToScreenPoint(fromData.worldPoint)
     local toScreen = camera:WorldToScreenPoint(toData.worldPoint)
     local fromView = cameraNode:WorldToLocal(fromData.worldPoint)
@@ -222,11 +289,19 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
         toWorldExit = toData.worldExit,
         fromScreenPoint = fromScreen,
         toScreenPoint = toScreen,
+        fromProjectedRoadEdge = fromProjectedEdge,
+        toProjectedRoadEdge = toProjectedEdge,
+        roadEdgeDirectionAlignment = edgeResult and edgeResult.directionAlignment or nil,
+        roadEdgeGapSquared = edgeResult and edgeResult.endpointGapSquared or nil,
         fromViewPoint = fromView,
         toViewPoint = toView,
         screenErrorSquared = screenErrorSquared,
         depthDelta = depthDelta,
     }
+    if not edgeAccepted then
+        result.reason = edgeReason
+        return false, result.reason, result
+    end
     if screenErrorSquared > screenTolerance * screenTolerance then
         result.reason = "screen-misaligned"
         return false, result.reason, result
@@ -257,6 +332,8 @@ function PathRuntime.New(levelDocument, grid)
         screenTolerance = 72.0,
         maxDepthDelta = 2.5,
         minDirectionAlignment = 0.25,
+        minRoadEdgeAlignment = 0.75,
+        maxRoadEdgeGap = 72.0,
     }
     self.partSessions = {}
     self.nodesByKey = {}

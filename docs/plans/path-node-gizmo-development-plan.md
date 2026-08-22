@@ -245,6 +245,7 @@ Graph 是运行时寻路的输入，但寻路不能反向定义 Graph。Graph �
 - [x] Part 内局部固定连接基础：已从锚点距离启发式切换为面顶点、同向法线、共面、正长度边重合和基础方向语义检查。
 - [x] 刷新入口基础：Part 变换、Pivot、Yaw、Scale、行为修改和 Part 编辑返回后统一重建 PathRuntime。
 - [x] 通行语义基础：使用节点 entry/exit direction 和 orientation 参与候选方向兼容评估。
+- [ ] 跨 Part 面视觉邻接：候选面道路边投影连续性、方向、深度和遮挡规则，详见 `docs/cross-part-face-visual-adjacency-spec.md`。
 - [ ] Snap 完成边界：运行时动画、SnapCompleted 事件和 Graph 原子提交。
 
 每完成一个可独立验收的步骤，先更新本节勾选状态和对应说明；实现完成后由用户进行预览和交互验证。收到用户验证结果后，再在后续会话中复核变更、提交并推送；中间缺失模块属于计划内未完成项，不得据此改变已确认的职责边界。

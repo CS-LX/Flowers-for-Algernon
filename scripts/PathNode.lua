@@ -123,6 +123,33 @@ function PathNode:GetLocalDirection(grid, direction)
     return (base * math.cos(angle) + normal:CrossProduct(base) * math.sin(angle)):Normalized()
 end
 
+function PathNode:GetLocalRoadEdge(grid, direction)
+    local faces = grid:GetCellFaces(self.voxelCell)
+    local face = faces[self:GetFaceIndex()]
+    local faceDirection = self:GetLocalDirection(grid, direction)
+    if not face or not faceDirection then
+        return nil
+    end
+    local center = AverageVertices(face.vertices)
+    local bestEdge = nil
+    local bestScore = -math.huge
+    for index = 1, #face.vertices do
+        local nextIndex = index % #face.vertices + 1
+        local first = face.vertices[index]
+        local second = face.vertices[nextIndex]
+        local midpoint = (first + second) * 0.5
+        local score = (midpoint - center):DotProduct(faceDirection)
+        if score > bestScore then
+            bestScore = score
+            bestEdge = {
+                first = CopyVector(first),
+                second = CopyVector(second),
+            }
+        end
+    end
+    return bestEdge
+end
+
 function PathNode:ToTable()
     return {
         id = self.id,
