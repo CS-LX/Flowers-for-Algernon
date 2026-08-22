@@ -115,9 +115,11 @@ function OverlayRenderer.New(mainViewport, mainCameraNode, mainCamera)
     self.mainCamera = mainCamera
     self.gizmoNode = self.scene:CreateChild("LevelEditorOverlayGizmos")
     self.pathNodeNode = self.scene:CreateChild("LevelEditorPathNodeGizmos")
+    self.pathConnectionNode = self.scene:CreateChild("LevelEditorPathConnectionGizmos")
     self.voxelNode = self.scene:CreateChild("LevelEditorVoxelGizmos")
     self.gizmoGeometry = nil
     self.pathNodeGeometry = nil
+    self.pathConnectionGeometry = nil
     self.pathNodeMarkers = {}
     self.voxelGeometry = nil
     self.materials = nil
@@ -184,6 +186,14 @@ function OverlayRenderer:EnsurePathNodeGeometry()
     self.pathNodeGeometry = self.pathNodeNode:CreateComponent("CustomGeometry")
 end
 
+function OverlayRenderer:EnsurePathConnectionGeometry()
+    if self.pathConnectionGeometry then
+        return
+    end
+    self:EnsureGizmoGeometry()
+    self.pathConnectionGeometry = self.pathConnectionNode:CreateComponent("CustomGeometry")
+end
+
 function OverlayRenderer:EnsureVoxelGeometry()
     if self.voxelGeometry then
         return
@@ -198,6 +208,7 @@ end
 
 function OverlayRenderer:ClearPathNodeGizmos()
     self.pathNodeNode.enabled = false
+    self.pathConnectionNode.enabled = false
     for _, marker in pairs(self.pathNodeMarkers) do
         marker.node.enabled = false
     end
@@ -550,6 +561,74 @@ function OverlayRenderer:DrawVoxelPathNodes(grid, document, selectedNodeId)
     self.pathNodeGeometry:SetMaterial(0, self.materials.pathNodeNormal)
 end
 
+function OverlayRenderer:DrawPathConnectionCandidates(pathRuntime)
+    self.pathConnectionNode.enabled = false
+    if not pathRuntime then
+        return
+    end
+    local records = pathRuntime:GetCandidateRecords()
+    if #records == 0 then
+        return
+    end
+    self:EnsurePathConnectionGeometry()
+    self.pathConnectionNode.enabled = true
+    self.pathConnectionGeometry:Clear()
+    self.pathConnectionGeometry:SetNumGeometries(3)
+    local groups = {
+        { status = "pending", index = 0, material = self.materials.picker },
+        { status = "accepted", index = 1, material = self.materials.pathNodeWalkable },
+        { status = "rejected", index = 2, material = self.materials.pathNodeDisabled },
+    }
+    for _, group in ipairs(groups) do
+        self.pathConnectionGeometry:BeginGeometry(group.index, LINE_LIST)
+        for _, record in ipairs(records) do
+            local evaluation = record.evaluation
+            if evaluation and record.status == group.status then
+                AddArrow(
+                    self.pathConnectionGeometry,
+                    evaluation.fromWorldPoint,
+                    evaluation.toWorldPoint,
+                    0.10
+                )
+                if record.candidate.direction == "bidirectional"
+                    or record.candidate.direction == "to_from" then
+                    AddArrow(
+                        self.pathConnectionGeometry,
+                        evaluation.toWorldPoint,
+                        evaluation.fromWorldPoint,
+                        0.10
+                    )
+                end
+            end
+        end
+        self.pathConnectionGeometry:Commit()
+        self.pathConnectionGeometry:SetMaterial(group.index, group.material)
+    end
+end
+
+function OverlayRenderer:DrawLevelPathNodes(pathRuntime)
+    self.pathNodeNode.enabled = false
+    if not pathRuntime then
+        return
+    end
+    self:EnsurePathNodeGeometry()
+    self.pathNodeNode.enabled = true
+    self.pathNodeGeometry:Clear()
+    self.pathNodeGeometry:SetNumGeometries(1)
+    self.pathNodeGeometry:BeginGeometry(0, LINE_LIST)
+    for _, record in ipairs(pathRuntime:GetNodes()) do
+        local position = record.worldPoint
+        local normal = record.worldNormal
+        if not position then
+            position, normal = record.node:GetLocalAnchor(pathRuntime.grid, 0.045)
+        end
+        if position and normal then
+            AddArrow(self.pathNodeGeometry, position, position + normal * 0.24, 0.065)
+        end
+    end
+    self.pathNodeGeometry:Commit()
+    self.pathNodeGeometry:SetMaterial(0, self.materials.pathNodeNormal)
+end
 function OverlayRenderer:DrawVoxelSelection(minPoint, maxPoint, center)
     if not minPoint or not maxPoint or not center then
         self:ClearTransformGizmo()

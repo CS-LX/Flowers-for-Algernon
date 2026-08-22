@@ -51,6 +51,28 @@ end
 ---@field editorCamera table
 LevelEditor.__index = LevelEditor
 
+local function CreateFixedEvaluationCamera(scene, levelDocument)
+    local settings = levelDocument.fixedCamera
+    local target = Vector3(settings.target.x, settings.target.y, settings.target.z)
+    local distance = settings.orthoSize * 1.5
+    local yaw = math.rad(settings.yaw)
+    local pitch = math.rad(settings.pitch)
+    local horizontal = math.cos(pitch) * distance
+    local node = scene:CreateChild("PathEvaluationCamera")
+    node.position = target + Vector3(
+        math.sin(yaw) * horizontal,
+        math.sin(pitch) * distance,
+        -math.cos(yaw) * horizontal
+    )
+    node:LookAt(target)
+    local camera = node:CreateComponent("Camera")
+    camera.orthographic = true
+    camera.orthoSize = settings.orthoSize
+    camera.nearClip = settings.nearClip
+    camera.farClip = settings.farClip
+    return node, camera
+end
+
 function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument, edgeLength, voxelHeight)
     local self = setmetatable({}, LevelEditor)
     self.scene = scene
@@ -61,6 +83,8 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
     self.edgeLength = edgeLength
     self.voxelHeight = voxelHeight
     self.partRenderer = PartRootRenderer.New(scene, edgeLength, voxelHeight)
+    self.evaluationCameraNode, self.evaluationCamera =
+        CreateFixedEvaluationCamera(scene, levelDocument)
     self.pathRuntime = PathRuntime.New(levelDocument, self.partRenderer.grid)
     self.overlayRenderer = OverlayRenderer.New(mainViewport, cameraNode, camera)
     self.selectedPartId = nil
@@ -88,15 +112,24 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
 end
 
 function LevelEditor:Start()
+    self:EnterLevelMode()
+    self.pathRuntime:ConfigureEvaluation(
+        self.partRenderer,
+        self.evaluationCameraNode,
+        self.evaluationCamera,
+        {
+            screenTolerance = 72.0,
+            maxDepthDelta = 2.5,
+            minDirectionAlignment = 0.25,
+        }
+    )
     self.pathRuntime:Rebuild()
     local summary = self.pathRuntime:GetSummary()
     print(string.format(
-        "PathRuntime: %d nodes, %d candidates, %d unresolved",
-        summary.nodeCount,
-        summary.candidateCount,
-        summary.unresolvedCount
+        "PathRuntime graph: edges=%d topology=%d",
+        summary.effectiveEdgeCount,
+        summary.topologyVersion
     ))
-    self:EnterLevelMode()
 end
 
 function LevelEditor:GetSelectedPart()
@@ -436,6 +469,11 @@ function LevelEditor:SetSelectedGridCoordinate(axis, value)
     if root then
         self.partRenderer:ApplyTransform(root, part)
     end
+    local rebuilt, rebuildError = self:RefreshPathRuntime()
+    if not rebuilt then
+        self:RefreshLevelUI("路径刷新失败：" .. tostring(rebuildError))
+        return false
+    end
     self:RefreshLevelUI(string.format(
         "%s 已吸附到 Q %.1f / R %.1f / Layer %.1f",
         part.name,
@@ -465,6 +503,11 @@ function LevelEditor:SnapSelectedPartToGrid()
     if root then
         self.partRenderer:ApplyTransform(root, part)
     end
+    local rebuilt, rebuildError = self:RefreshPathRuntime()
+    if not rebuilt then
+        self:RefreshLevelUI("路径刷新失败：" .. tostring(rebuildError))
+        return false
+    end
     self:RefreshLevelUI("已吸附当前 Part 到三棱柱网格")
     return true
 end
@@ -480,9 +523,9 @@ function LevelEditor:SetSelectedYawSteps(value)
         return false
     end
     self.levelDocument.dirty = true
-    local root = self.partRenderer:GetRoot(part.id)
-    if root then
-        self.partRenderer:ApplyTransform(root, part)
+    local ok, errorMessage = self:ApplyPartTransformAndRefresh(part)
+    if not ok then
+        return false, errorMessage
     end
     self:RefreshLevelUI(string.format(
         "%s Yaw：%d（%d°）",
@@ -502,6 +545,11 @@ function LevelEditor:SetSelectedPivotMode(mode)
     local root = self.partRenderer:GetRoot(part.id)
     if root then
         self.partRenderer:ApplyTransform(root, part)
+    end
+    local rebuilt, rebuildError = self:RefreshPathRuntime()
+    if not rebuilt then
+        self:RefreshLevelUI("路径刷新失败：" .. tostring(rebuildError))
+        return false
     end
     self:RefreshLevelUI("已更新 Pivot Mode")
     return true
@@ -551,6 +599,11 @@ function LevelEditor:SetSelectedPivotCoordinate(axis, value)
     if root then
         self.partRenderer:ApplyTransform(root, part)
     end
+    local rebuilt, rebuildError = self:RefreshPathRuntime()
+    if not rebuilt then
+        self:RefreshLevelUI("路径刷新失败：" .. tostring(rebuildError))
+        return false
+    end
     self:RefreshLevelUI("已更新 Pivot Cell")
     return true
 end
@@ -582,6 +635,7 @@ function LevelEditor:SetSelectedParent(parentId)
         self:RefreshLevelUI(tostring(rebuildError))
         return false
     end
+    self:RefreshPathRuntime()
     self:RefreshLevelUI(parent and ("已将 " .. part.name .. " 移入 " .. parent.name) or "已将 Part 移到 LevelRoot")
     return true
 end
@@ -597,6 +651,11 @@ function LevelEditor:SetSelectedScale(value)
     if root then
         self.partRenderer:ApplyTransform(root, part)
     end
+    local rebuilt, rebuildError = self:RefreshPathRuntime()
+    if not rebuilt then
+        self:RefreshLevelUI("路径刷新失败：" .. tostring(rebuildError))
+        return false
+    end
     self:RefreshLevelUI(string.format("%s Scale：%.2f", part.name, part.transform.scale.x))
     return true
 end
@@ -610,6 +669,11 @@ function LevelEditor:SetSelectedBehaviorMode(mode, enabled)
     local root = self.partRenderer:GetRoot(part.id)
     if root then
         self.partRenderer:ApplyTransform(root, part)
+    end
+    local rebuilt, rebuildError = self:RefreshPathRuntime()
+    if not rebuilt then
+        self:RefreshLevelUI("路径刷新失败：" .. tostring(rebuildError))
+        return false
     end
     self:RefreshLevelUI("已更新 " .. part.name .. " 行为模式")
     return true
@@ -644,6 +708,30 @@ function LevelEditor:SelectPart(partId)
     self.selectedPartId = partId
     self:SyncTransformGrid(self:GetSelectedPart())
     self:RefreshLevelUI("已选择 Part：" .. self:GetSelectedPart().name)
+    return true
+end
+
+function LevelEditor:RefreshPathRuntime()
+    if not self.pathRuntime then
+        return false, "PathRuntime is not available"
+    end
+    return self.pathRuntime:Rebuild()
+end
+
+function LevelEditor:RefreshPathRuntimeAfterPartEdit()
+    return self:RefreshPathRuntime()
+end
+
+function LevelEditor:ApplyPartTransformAndRefresh(part)
+    local root = self.partRenderer:GetRoot(part.id)
+    if root then
+        self.partRenderer:ApplyTransform(root, part)
+    end
+    local rebuilt, errorMessage = self:RefreshPathRuntime()
+    if not rebuilt then
+        self:RefreshLevelUI("路径刷新失败：" .. tostring(errorMessage))
+        return false, errorMessage
+    end
     return true
 end
 
@@ -700,6 +788,7 @@ function LevelEditor:BackToLevel()
         return false, errorMessage
     end
     self:EnterLevelMode()
+    self:RefreshPathRuntimeAfterPartEdit()
     return true
 end
 
@@ -756,9 +845,9 @@ function LevelEditor:RotateSelectedPart(deltaSteps)
         return false
     end
     self.levelDocument.dirty = true
-    local root = self.partRenderer:GetRoot(part.id)
-    if root then
-        self.partRenderer:ApplyTransform(root, part)
+    local ok, errorMessage = self:ApplyPartTransformAndRefresh(part)
+    if not ok then
+        return false, errorMessage
     end
     self:RefreshLevelUI(string.format(
         "%s Yaw：%d（%d°）",
@@ -773,10 +862,15 @@ function LevelEditor:Refresh()
     if self.mode == "level" then
         self:HandleEditorCameraInput()
         self.overlayRenderer:SyncCamera()
+        if self.pathRuntime then
+            self.pathRuntime:EvaluateCandidates()
+        end
         local root = self.partRenderer:GetRoot(self.selectedPartId)
         local minPoint, maxPoint = self.partRenderer:GetLocalBounds(self.selectedPartId)
         local pivotPosition = self.partRenderer:GetPivotWorldPosition(self.selectedPartId)
         self.overlayRenderer:DrawSelection(root, minPoint, maxPoint, pivotPosition)
+        self.overlayRenderer:DrawLevelPathNodes(self.pathRuntime)
+        self.overlayRenderer:DrawPathConnectionCandidates(self.pathRuntime)
     elseif self.partEditor then
         self.overlayRenderer:SyncCamera()
         self.partEditor:Refresh()
@@ -801,6 +895,11 @@ function LevelEditor:Stop()
         self.ui = nil
     end
     self.partRenderer:Clear()
+    if self.evaluationCameraNode then
+        self.evaluationCameraNode:Remove()
+        self.evaluationCameraNode = nil
+        self.evaluationCamera = nil
+    end
     self.pathRuntime = nil
     self.overlayRenderer:Stop()
 end

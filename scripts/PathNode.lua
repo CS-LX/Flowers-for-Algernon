@@ -99,6 +99,30 @@ function PathNode:GetLocalAnchor(grid, offset)
     return center + normal * (offset or 0.035), CopyVector(normal)
 end
 
+function PathNode:GetLocalDirection(grid, direction)
+    local faces = grid:GetCellFaces(self.voxelCell)
+    local face = faces[self:GetFaceIndex()]
+    if not face then
+        return nil
+    end
+    local normal = face.normal:Normalized()
+    local reference = Vector3.FORWARD
+    if math.abs(normal:DotProduct(reference)) > 0.95 then
+        reference = Vector3.RIGHT
+    end
+    local tangent = (reference - normal * reference:DotProduct(normal)):Normalized()
+    local bitangent = normal:CrossProduct(tangent):Normalized()
+    local directions = {
+        forward = tangent,
+        right = bitangent,
+        backward = -tangent,
+        left = -bitangent,
+    }
+    local base = directions[direction] or directions.forward
+    local angle = self.orientation * math.pi / 3.0
+    return (base * math.cos(angle) + normal:CrossProduct(base) * math.sin(angle)):Normalized()
+end
+
 function PathNode:ToTable()
     return {
         id = self.id,

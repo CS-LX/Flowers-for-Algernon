@@ -27,6 +27,26 @@ local function CopyReference(reference)
     }
 end
 
+local function ValidateCandidateData(data)
+    if type(data) ~= "table" then
+        return false, "path connection candidate must be a table"
+    end
+    if type(data.id) ~= "string" or data.id == "" then
+        return false, "path connection candidate id is required"
+    end
+    if not PathConnectionCandidate.IsValidReference(data.from)
+        or not PathConnectionCandidate.IsValidReference(data.to) then
+        return false, "path connection candidate has invalid endpoint"
+    end
+    if data.kind ~= nil and not VALID_KINDS[data.kind] then
+        return false, "unsupported path connection candidate kind"
+    end
+    if data.direction ~= nil and not VALID_DIRECTIONS[data.direction] then
+        return false, "unsupported path connection candidate direction"
+    end
+    return true
+end
+
 function PathConnectionCandidate.IsValidReference(reference)
     return type(reference) == "table"
         and type(reference.partId) == "string"
@@ -36,15 +56,16 @@ function PathConnectionCandidate.IsValidReference(reference)
 end
 
 function PathConnectionCandidate.New(data)
-    data = data or {}
+    local valid, errorMessage = ValidateCandidateData(data)
+    if not valid then
+        return nil, errorMessage
+    end
     local self = setmetatable({}, PathConnectionCandidate)
-    self.id = data.id or "path_candidate"
-    self.from = CopyReference(data.from or {})
-    self.to = CopyReference(data.to or {})
-    self.kind = VALID_KINDS[data.kind] and data.kind or PathConnectionCandidate.KIND_VISUAL
-    self.direction = VALID_DIRECTIONS[data.direction]
-        and data.direction
-        or PathConnectionCandidate.DIRECTION_BIDIRECTIONAL
+    self.id = data.id
+    self.from = CopyReference(data.from)
+    self.to = CopyReference(data.to)
+    self.kind = data.kind or PathConnectionCandidate.KIND_VISUAL
+    self.direction = data.direction or PathConnectionCandidate.DIRECTION_BIDIRECTIONAL
     self.enabled = data.enabled ~= false
     return self
 end
@@ -61,18 +82,9 @@ function PathConnectionCandidate:ToTable()
 end
 
 function PathConnectionCandidate.FromTable(data)
-    if type(data) ~= "table" or type(data.id) ~= "string" or data.id == "" then
-        return nil, "invalid path connection candidate"
-    end
-    if not PathConnectionCandidate.IsValidReference(data.from)
-        or not PathConnectionCandidate.IsValidReference(data.to) then
-        return nil, "path connection candidate has invalid endpoint"
-    end
-    if data.kind ~= nil and not VALID_KINDS[data.kind] then
-        return nil, "unsupported path connection candidate kind"
-    end
-    if data.direction ~= nil and not VALID_DIRECTIONS[data.direction] then
-        return nil, "unsupported path connection candidate direction"
+    local valid, errorMessage = ValidateCandidateData(data)
+    if not valid then
+        return nil, errorMessage
     end
     return PathConnectionCandidate.New(data)
 end

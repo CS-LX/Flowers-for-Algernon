@@ -23,7 +23,7 @@ local function CopyCamera(camera)
     camera = camera or {}
     return {
         projection = "orthographic",
-        pitch = 30,
+        pitch = camera.pitch or 30,
         yaw = camera.yaw or 30,
         orthoSize = camera.orthoSize or 10.0,
         nearClip = camera.nearClip or 0.1,
@@ -110,7 +110,11 @@ end
 
 function LevelDocument:AddPathCandidate(candidate)
     if getmetatable(candidate) ~= PathConnectionCandidate then
-        candidate = PathConnectionCandidate.New(candidate)
+        local normalized, errorMessage = PathConnectionCandidate.New(candidate)
+        if not normalized then
+            return false, errorMessage
+        end
+        candidate = normalized
     end
     if type(candidate.id) ~= "string" or candidate.id == "" then
         return false, "path candidate id is required"
