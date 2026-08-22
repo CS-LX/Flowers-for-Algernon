@@ -10,6 +10,7 @@ local LevelEditorUI = require "LevelEditorUI"
 local VoxelSandbox = require "VoxelSandbox"
 local OverlayRenderer = require "LevelEditorOverlayRenderer"
 local GamePreview = require "GamePreview"
+local PathRuntime = require "PathRuntime"
 
 local LevelEditor = {}
 
@@ -60,6 +61,7 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
     self.edgeLength = edgeLength
     self.voxelHeight = voxelHeight
     self.partRenderer = PartRootRenderer.New(scene, edgeLength, voxelHeight)
+    self.pathRuntime = PathRuntime.New(levelDocument, self.partRenderer.grid)
     self.overlayRenderer = OverlayRenderer.New(mainViewport, cameraNode, camera)
     self.selectedPartId = nil
     self.mode = "level"
@@ -86,6 +88,14 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
 end
 
 function LevelEditor:Start()
+    self.pathRuntime:Rebuild()
+    local summary = self.pathRuntime:GetSummary()
+    print(string.format(
+        "PathRuntime: %d nodes, %d candidates, %d unresolved",
+        summary.nodeCount,
+        summary.candidateCount,
+        summary.unresolvedCount
+    ))
     self:EnterLevelMode()
 end
 
@@ -791,6 +801,7 @@ function LevelEditor:Stop()
         self.ui = nil
     end
     self.partRenderer:Clear()
+    self.pathRuntime = nil
     self.overlayRenderer:Stop()
 end
 

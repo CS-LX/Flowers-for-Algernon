@@ -62,6 +62,7 @@ function Start()
     SubscribeToEvent("Update", "HandleUpdate")
     print("Level: " .. levelDocument_.name .. " (" .. tostring(#levelDocument_:GetParts()) .. " Parts)")
     print("Level Editor: Object Tree ready")
+    print("PathRuntime candidates are indexed for later visual evaluation")
 end
 
 function Stop()
