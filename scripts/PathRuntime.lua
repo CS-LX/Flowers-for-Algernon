@@ -28,18 +28,12 @@ local function GetWorldNodeData(record, grid, partRenderer)
     end
     local worldPoint = partRenderer:GetPartWorldPoint(record.partId, localPoint)
     local worldNormal = partRenderer:GetPartWorldNormal(record.partId, localNormal)
-    local localEntry = record.node:GetLocalDirection(grid, record.node.entryDirection)
-    local localExit = record.node:GetLocalDirection(grid, record.node.exitDirection)
-    local worldEntry = localEntry and partRenderer:GetPartWorldNormal(record.partId, localEntry) or nil
-    local worldExit = localExit and partRenderer:GetPartWorldNormal(record.partId, localExit) or nil
-    if not worldPoint or not worldNormal or not worldEntry or not worldExit then
+    if not worldPoint or not worldNormal then
         return nil, "missing-world-anchor"
     end
     local result = {
         worldPoint = worldPoint,
         worldNormal = worldNormal,
-        worldEntry = worldEntry:Normalized(),
-        worldExit = worldExit:Normalized(),
     }
     return result
 end
@@ -144,17 +138,7 @@ local function HasCompatibleLocalDirection(source, target, grid)
     local sourcePoint = source.node:GetLocalAnchor(grid, 0.0)
     local targetPoint = target.node:GetLocalAnchor(grid, 0.0)
     local delta = targetPoint and sourcePoint and targetPoint - sourcePoint or nil
-    if not delta or delta:Length() <= FACE_TOLERANCE then
-        return false
-    end
-    local travel = delta:Normalized()
-    local sourceDirection = source.node:GetLocalDirection(grid, source.node.exitDirection)
-    local targetDirection = target.node:GetLocalDirection(grid, target.node.entryDirection)
-    if not sourceDirection or not targetDirection then
-        return false
-    end
-    return sourceDirection:DotProduct(travel) >= 0.25
-        and targetDirection:DotProduct(-travel) >= 0.25
+    return delta ~= nil and delta:Length() > FACE_TOLERANCE
 end
 
 local function GetLocalFixedNeighbors(partRecord, allRecords, grid)
@@ -254,8 +238,8 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
         return false, toError
     end
 
-    local fromRoadEdge = record.from.node:GetLocalRoadEdge(grid, record.from.node.exitDirection)
-    local toRoadEdge = record.to.node:GetLocalRoadEdge(grid, record.to.node.entryDirection)
+    local fromRoadEdge = record.from.node:GetLocalRoadEdge(grid)
+    local toRoadEdge = record.to.node:GetLocalRoadEdge(grid)
     if not fromRoadEdge or not toRoadEdge then
         return false, "missing-road-edge"
     end
@@ -284,10 +268,6 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
         toWorldPoint = toData.worldPoint,
         fromWorldNormal = fromData.worldNormal,
         toWorldNormal = toData.worldNormal,
-        fromWorldEntry = fromData.worldEntry,
-        fromWorldExit = fromData.worldExit,
-        toWorldEntry = toData.worldEntry,
-        toWorldExit = toData.worldExit,
         fromScreenPoint = fromScreen,
         toScreenPoint = toScreen,
         fromProjectedRoadEdge = fromProjectedEdge,
@@ -311,13 +291,6 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
         result.reason = "depth-discontinuous"
         return false, result.reason, result
     end
-    local directionAlignment = math.abs(result.fromWorldExit:DotProduct(result.toWorldEntry))
-    result.directionAlignment = directionAlignment
-    local minDirectionAlignment = options.minDirectionAlignment or 0.25
-    if directionAlignment < minDirectionAlignment then
-        result.reason = "direction-incompatible"
-        return false, result.reason, result
-    end
     result.reason = "screen-aligned"
     return true, result.reason, result
 end
@@ -332,7 +305,6 @@ function PathRuntime.New(levelDocument, grid)
     self.evaluationOptions = {
         screenTolerance = 72.0,
         maxDepthDelta = 2.5,
-        minDirectionAlignment = 0.25,
         minRoadEdgeAlignment = 0.75,
         maxRoadEdgeGap = 72.0,
     }

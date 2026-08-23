@@ -54,9 +54,6 @@ function PathNode:Init(data)
     self.face = FACE_INDEX[data.face] and data.face or "top"
     self.kind = VALID_KINDS[data.kind] and data.kind or "floor"
     self.walkable = data.walkable ~= false
-    self.orientation = math.floor(data.orientation or 0) % 6
-    self.entryDirection = data.entryDirection or "forward"
-    self.exitDirection = data.exitDirection or "forward"
 end
 
 function PathNode:GetFaceIndex()
@@ -99,35 +96,10 @@ function PathNode:GetLocalAnchor(grid, offset)
     return center + normal * (offset or 0.035), CopyVector(normal)
 end
 
-function PathNode:GetLocalDirection(grid, direction)
+function PathNode:GetLocalRoadEdge(grid)
     local faces = grid:GetCellFaces(self.voxelCell)
     local face = faces[self:GetFaceIndex()]
     if not face then
-        return nil
-    end
-    local normal = face.normal:Normalized()
-    local reference = Vector3.FORWARD
-    if math.abs(normal:DotProduct(reference)) > 0.95 then
-        reference = Vector3.RIGHT
-    end
-    local tangent = (reference - normal * reference:DotProduct(normal)):Normalized()
-    local bitangent = normal:CrossProduct(tangent):Normalized()
-    local directions = {
-        forward = tangent,
-        right = bitangent,
-        backward = -tangent,
-        left = -bitangent,
-    }
-    local base = directions[direction] or directions.forward
-    local angle = self.orientation * math.pi / 3.0
-    return (base * math.cos(angle) + normal:CrossProduct(base) * math.sin(angle)):Normalized()
-end
-
-function PathNode:GetLocalRoadEdge(grid, direction)
-    local faces = grid:GetCellFaces(self.voxelCell)
-    local face = faces[self:GetFaceIndex()]
-    local faceDirection = self:GetLocalDirection(grid, direction)
-    if not face or not faceDirection then
         return nil
     end
     local center = AverageVertices(face.vertices)
@@ -138,13 +110,10 @@ function PathNode:GetLocalRoadEdge(grid, direction)
         local first = face.vertices[index]
         local second = face.vertices[nextIndex]
         local midpoint = (first + second) * 0.5
-        local score = (midpoint - center):DotProduct(faceDirection)
+        local score = (midpoint - center):Length()
         if score > bestScore then
             bestScore = score
-            bestEdge = {
-                first = CopyVector(first),
-                second = CopyVector(second),
-            }
+            bestEdge = { first = CopyVector(first), second = CopyVector(second) }
         end
     end
     return bestEdge
@@ -158,9 +127,6 @@ function PathNode:ToTable()
         face = self.face,
         kind = self.kind,
         walkable = self.walkable,
-        orientation = self.orientation,
-        entryDirection = self.entryDirection,
-        exitDirection = self.exitDirection,
     }
 end
 

@@ -124,7 +124,6 @@ function LevelEditor:Start()
         {
             screenTolerance = 72.0,
             maxDepthDelta = 2.5,
-            minDirectionAlignment = 0.25,
             minRoadEdgeAlignment = 0.75,
             maxRoadEdgeGap = 72.0,
         }

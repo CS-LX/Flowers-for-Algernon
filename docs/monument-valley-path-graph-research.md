@@ -132,9 +132,6 @@ Part / 可走对象拥有节点
     face = "top",
     kind = "floor",
     walkable = true,
-    orientation = 0,
-    entryDirection = "...",
-    exitDirection = "...",
 }
 ```
 

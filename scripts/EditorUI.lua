@@ -170,30 +170,6 @@ function EditorUI:Build()
         value = "floor", height = 26, fontSize = 10,
         onChange = function(_, value) editor:SetSelectedPathNodeKind(value) end,
     }
-    self.pathNodeEntryDropdown = UI.Dropdown {
-        options = {
-            { value = "forward", label = "Forward" },
-            { value = "right", label = "Right" },
-            { value = "backward", label = "Backward" },
-            { value = "left", label = "Left" },
-        },
-        value = "forward", height = 26, fontSize = 10,
-        onChange = function(_, value) editor:SetSelectedPathNodeDirection("entry", value) end,
-    }
-    self.pathNodeExitDropdown = UI.Dropdown {
-        options = {
-            { value = "forward", label = "Forward" },
-            { value = "right", label = "Right" },
-            { value = "backward", label = "Backward" },
-            { value = "left", label = "Left" },
-        },
-        value = "forward", height = 26, fontSize = 10,
-        onChange = function(_, value) editor:SetSelectedPathNodeDirection("exit", value) end,
-    }
-    self.pathNodeOrientationField = UI.TextField {
-        value = "0", placeholder = "0..5", height = 26, fontSize = 10,
-        onSubmit = function(_, value) editor:SetSelectedPathNodeOrientation(value) end,
-    }
 
     self.root = UI.Panel {
         width = "100%",
@@ -241,18 +217,6 @@ function EditorUI:Build()
                         UI.Label { text = "类型", width = 42, fontSize = 9, fontColor = MUTED_COLOR },
                         self.pathNodeKindDropdown,
                     } },
-                    UI.Panel { flexDirection = "row", gap = 4, children = {
-                        UI.Label { text = "入口", width = 42, fontSize = 9, fontColor = MUTED_COLOR },
-                        self.pathNodeEntryDropdown,
-                    } },
-                    UI.Panel { flexDirection = "row", gap = 4, children = {
-                        UI.Label { text = "出口", width = 42, fontSize = 9, fontColor = MUTED_COLOR },
-                        self.pathNodeExitDropdown,
-                    } },
-                    UI.Panel { flexDirection = "row", gap = 4, children = {
-                        UI.Label { text = "朝向", width = 42, fontSize = 9, fontColor = MUTED_COLOR },
-                        self.pathNodeOrientationField,
-                    } },
                 },
             },
             UI.Panel {
@@ -274,9 +238,6 @@ function EditorUI:RefreshPathNodeInspector()
         self.editor.pathNodeMetaLabel:SetText("")
         self.pathNodeWalkableToggle:SetChecked(false)
         self.pathNodeKindDropdown:SetDisabled(true)
-        self.pathNodeEntryDropdown:SetDisabled(true)
-        self.pathNodeExitDropdown:SetDisabled(true)
-        self.pathNodeOrientationField:SetDisabled(true)
         return
     end
     self.editor.pathNodeTitleLabel:SetText(node.id)
@@ -288,12 +249,6 @@ function EditorUI:RefreshPathNodeInspector()
     self.pathNodeWalkableToggle:SetChecked(node.walkable)
     self.pathNodeKindDropdown:SetDisabled(false)
     self.pathNodeKindDropdown:SetValue(node.kind)
-    self.pathNodeEntryDropdown:SetDisabled(false)
-    self.pathNodeEntryDropdown:SetValue(node.entryDirection)
-    self.pathNodeExitDropdown:SetDisabled(false)
-    self.pathNodeExitDropdown:SetValue(node.exitDirection)
-    self.pathNodeOrientationField:SetDisabled(false)
-    self.pathNodeOrientationField:SetValue(tostring(node.orientation))
 end
 
 function EditorUI:Destroy()

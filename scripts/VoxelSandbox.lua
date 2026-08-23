@@ -193,40 +193,6 @@ function VoxelSandbox:SetSelectedPathNodeWalkable(walkable)
     return true
 end
 
-function VoxelSandbox:SetSelectedPathNodeDirection(directionType, direction)
-    local node = self:GetSelectedPathNode()
-    if not node then return false end
-    if direction ~= "forward" and direction ~= "right"
-        and direction ~= "backward" and direction ~= "left" then
-        return false
-    end
-    if directionType == "entry" then
-        node.entryDirection = direction
-    elseif directionType == "exit" then
-        node.exitDirection = direction
-    else
-        return false
-    end
-    self.document.dirty = true
-    self:RebuildDocumentScene()
-    self:RefreshPathNodeInspector()
-    self:UpdateDocumentStatus()
-    return true
-end
-
-function VoxelSandbox:SetSelectedPathNodeOrientation(value)
-    local node = self:GetSelectedPathNode()
-    if not node then return false end
-    local orientation = tonumber(value)
-    if not orientation then return false end
-    node.orientation = math.floor(orientation) % 6
-    self.document.dirty = true
-    self:RebuildDocumentScene()
-    self:RefreshPathNodeInspector()
-    self:UpdateDocumentStatus()
-    return true
-end
-
 function VoxelSandbox:RefreshPathNodeInspector()
     if self.editorUI then
         self.editorUI:RefreshPathNodeInspector()

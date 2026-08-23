@@ -50,9 +50,6 @@ Part 局部可走面节点
     face = "top",
     kind = "floor",
     walkable = true,
-    orientation = 0,
-    entryDirection = "forward",
-    exitDirection = "forward",
 }
 ```
 
@@ -242,16 +239,15 @@ Graph 是运行时寻路的输入，但寻路不能反向定义 Graph。Graph �
 - [x] 阶段二-Gizmo 基础：Level View 按 pending/accepted/rejected 状态绘制候选连接箭头。
 - [x] 阶段三-有效 Graph 基础：按 accepted 候选生成有向邻接、双向边和 `topologyVersion`。
 - [x] 路径数据输入校验：非法候选端点返回诊断，不在构造阶段崩溃。
-- [x] Part 内局部固定连接基础：已从锚点距离启发式切换为面顶点、同向法线、共面、正长度边重合和基础方向语义检查。
+- [x] Part 内局部固定连接基础：已从锚点距离启发式切换为面顶点、同向法线、共面、正长度边重合和基础几何检查。
 - [x] 刷新入口基础：Part 变换、Pivot、Yaw、Scale、行为修改和 Part 编辑返回后统一重建 PathRuntime。
-- [x] 通行语义基础：使用节点 entry/exit direction 和 orientation 参与候选方向兼容评估。
+- [x] 通行语义基础：使用节点类型和附着面几何参与连接评估，不再依赖节点方向字段。
 - [x] 编辑器 UI 配置基础：Level Inspector 提供 PathNode 全局选择、跨 Part 候选起点/终点、方向选择、添加和删除；不要求用户编辑 JSON。
 - [x] 候选配置 UX 改造基础：支持“拾取起点/终点”模式，在 Level View 直接点击节点；候选列表显示端点和评估状态，删除不要求记忆候选 ID。
-- [x] Level Gizmo 交互基础：节点球体支持鼠标拾取；仅在拾取模式下悬停高亮，普通 Level View 不因鼠标移动变色；候选列表选中时对应连线加粗。
-- [x] Level Gizmo 显示局部固定边：Level View 绘制所有 `local_fixed` 边，使用无箭头普通连线；跨 Part 候选仍使用状态箭头。
-- [x] PathNode 属性变化刷新：新增、删除、kind、walkable、方向和 orientation 修改后刷新所属 Part 文档状态与路径预览。
-
-每完成一个可独立验收的步骤，先更新本节勾选状态和对应说明；实现完成后由用户进行预览和交互验证。收到用户验证结果后，再在后续会话中复核变更、提交并推送；中间缺失模块属于计划内未完成项，不得据此改变已确认的职责边界。
+- [x] Level Gizmo 交互基础：节点球体支持鼠标拾取；仅在拾取模式下悬停高亮，普通 Level View 不因鼠标移动变色；候选列表选中时对应连线加粗。- [x] Level Gizmo 显示局部固定边：Level View 绘制所有 `local_fixed` 边，使用无箭头普通连线；跨 Part 候选仍使用状态箭头。
+- [x] PathNode 稳定化精简：移除 YAGNI 的 `entryDirection`、`exitDirection`、`orientation`，保留 `id`、Cell、Face、`kind`、`walkable` 核心字段。
+- [x] 稳定版路径评估回归基础：运行时不再读取上述 YAGNI 字段；默认关卡可正常加载并构建 Graph。
+- [ ] 稳定版路径评估回归：基于精简 PathNode 重新验证 Part 内面邻接和跨 Part 面投影。每完成一个可独立验收的步骤，先更新本节勾选状态和对应说明；实现完成后由用户进行预览和交互验证。收到用户验证结果后，再在后续会话中复核变更、提交并推送；中间缺失模块属于计划内未完成项，不得据此改变已确认的职责边界。
 
 ## 用户协作规范
 

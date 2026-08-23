@@ -81,17 +81,12 @@ bottom -> 任意面
 
 默认不建立局部固定边。只有未来明确增加特殊通行语义时，才允许单独配置例外规则。
 
-## 节点通行语义
-
-局部固定边必须检查：
+局部固定边只检查：
 
 - `walkable`：两端都必须为 `true`；
-- `kind`：`floor`、`ladder`、`connector` 等类型组合必须被允许；
-- `orientation`：用于解释六向通行方向；
-- `entryDirection` / `exitDirection`：用于检查进入和离开方向。
-
-节点重合或共面不代表语义可通行。
-
+- `kind`：节点类型组合是否允许通过；
+- 面的几何邻接关系；
+- 运行时连接关系。
 ## 推荐实现流程
 
 ```text
@@ -99,7 +94,7 @@ PathNode(cell, face)
   -> 获取该面顶点和法线
   -> 在同一 Part 的候选 Cell/Face 中检查同向共面和边线段重合
   -> 查询邻接 Cell 对应面的 PathNode
-  -> 检查 walkable / kind / direction / orientation
+  -> 检查 walkable / kind / 面几何
   -> 建立局部固定边
 ```
 

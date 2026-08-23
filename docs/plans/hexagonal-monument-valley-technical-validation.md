@@ -163,7 +163,6 @@ Part 局部可走面节点与关卡候选连接
   gridZ = 0,
   level = 0,
   face = "top",
-  orientation = 0,
   walkable = true,
   partId = "start_platform",
   logicalNodeId = "start_01",
