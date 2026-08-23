@@ -121,12 +121,7 @@ function LevelEditor:Start()
         self.partRenderer,
         self.evaluationCameraNode,
         self.evaluationCamera,
-        {
-            screenTolerance = 72.0,
-            maxDepthDelta = 2.5,
-            minRoadEdgeAlignment = 0.75,
-            maxRoadEdgeGap = 72.0,
-        }
+        {}
     )
     self.pathRuntime:Rebuild()
     local summary = self.pathRuntime:GetSummary()

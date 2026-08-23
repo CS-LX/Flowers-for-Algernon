@@ -182,43 +182,29 @@ local function ProjectEdge(camera, edge)
     }
 end
 
-local function EdgeDirection(edge)
-    local delta = edge.second - edge.first
-    if delta:Length() <= FACE_TOLERANCE then
-        return nil
+local function ProjectedEdgesHavePositiveOverlap(edgeA, edgeB, tolerance)
+    local vectorA = edgeA.second - edgeA.first
+    local vectorB = edgeB.second - edgeB.first
+    local lengthA = vectorA:Length()
+    local lengthB = vectorB:Length()
+    if lengthA <= tolerance or lengthB <= tolerance then
+        return false, 0.0
     end
-    return delta:Normalized()
-end
-
-local function PointDistanceSquared(a, b)
-    local dx = a.x - b.x
-    local dy = a.y - b.y
-    return dx * dx + dy * dy
-end
-
-local function EvaluateProjectedRoadEdges(fromEdge, toEdge, options)
-    local fromDirection = EdgeDirection(fromEdge)
-    local toDirection = EdgeDirection(toEdge)
-    if not fromDirection or not toDirection then
-        return false, "missing-road-edge"
+    local directionA = vectorA / lengthA
+    local directionB = vectorB / lengthB
+    if math.abs(directionA.x * directionB.x + directionA.y * directionB.y) < 1.0 - tolerance then
+        return false, 0.0
     end
-    local directionAlignment = math.abs(fromDirection.x * toDirection.x + fromDirection.y * toDirection.y)
-    local minAlignment = options.minRoadEdgeAlignment or 0.75
-    if directionAlignment < minAlignment then
-        return false, "road-edge-direction-discontinuous"
+    local offset = edgeB.first - edgeA.first
+    if math.abs(offset.x * directionA.y - offset.y * directionA.x) > tolerance then
+        return false, 0.0
     end
-    local gapSquared = math.min(
-        PointDistanceSquared(fromEdge.second, toEdge.first),
-        PointDistanceSquared(fromEdge.first, toEdge.second)
-    )
-    local maxGap = options.maxRoadEdgeGap or 72.0
-    if gapSquared > maxGap * maxGap then
-        return false, "road-edge-gap-too-large"
-    end
-    return true, "road-edge-continuous", {
-        directionAlignment = directionAlignment,
-        endpointGapSquared = gapSquared,
-    }
+    local first = offset.x * directionA.x + offset.y * directionA.y
+    local secondOffset = edgeB.second - edgeA.first
+    local second = secondOffset.x * directionA.x + secondOffset.y * directionA.y
+    local overlap = math.min(lengthA, math.max(first, second))
+        - math.max(0.0, math.min(first, second))
+    return overlap > tolerance, math.max(0.0, overlap)
 end
 
 local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera, options)
@@ -247,51 +233,25 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
     local toWorldEdge = TransformEdge(partRenderer, record.to.partId, toRoadEdge)
     local fromProjectedEdge = ProjectEdge(camera, fromWorldEdge)
     local toProjectedEdge = ProjectEdge(camera, toWorldEdge)
-    local edgeAccepted, edgeReason, edgeResult = EvaluateProjectedRoadEdges(
+    local edgeAccepted, edgeOverlap = ProjectedEdgesHavePositiveOverlap(
         fromProjectedEdge,
         toProjectedEdge,
-        options
+        FACE_TOLERANCE
     )
-    local fromScreen = camera:WorldToScreenPoint(fromData.worldPoint)
-    local toScreen = camera:WorldToScreenPoint(toData.worldPoint)
-    local fromView = cameraNode:WorldToLocal(fromData.worldPoint)
-    local toView = cameraNode:WorldToLocal(toData.worldPoint)
-    local screenDeltaX = toScreen.x - fromScreen.x
-    local screenDeltaY = toScreen.y - fromScreen.y
-    local screenErrorSquared = screenDeltaX * screenDeltaX + screenDeltaY * screenDeltaY
-    local depthDelta = math.abs(toView.z - fromView.z)
-    local screenTolerance = options.screenTolerance or 72.0
-    local maxDepthDelta = options.maxDepthDelta or 2.5
-
     local result = {
         fromWorldPoint = fromData.worldPoint,
         toWorldPoint = toData.worldPoint,
         fromWorldNormal = fromData.worldNormal,
         toWorldNormal = toData.worldNormal,
-        fromScreenPoint = fromScreen,
-        toScreenPoint = toScreen,
         fromProjectedRoadEdge = fromProjectedEdge,
         toProjectedRoadEdge = toProjectedEdge,
-        roadEdgeDirectionAlignment = edgeResult and edgeResult.directionAlignment or nil,
-        roadEdgeGapSquared = edgeResult and edgeResult.endpointGapSquared or nil,
-        fromViewPoint = fromView,
-        toViewPoint = toView,
-        screenErrorSquared = screenErrorSquared,
-        depthDelta = depthDelta,
+        projectedEdgeOverlap = edgeOverlap,
     }
     if not edgeAccepted then
-        result.reason = edgeReason
+        result.reason = "projected-face-edge-does-not-overlap"
         return false, result.reason, result
     end
-    if screenErrorSquared > screenTolerance * screenTolerance then
-        result.reason = "screen-misaligned"
-        return false, result.reason, result
-    end
-    if depthDelta > maxDepthDelta then
-        result.reason = "depth-discontinuous"
-        return false, result.reason, result
-    end
-    result.reason = "screen-aligned"
+    result.reason = "projected-face-edge-overlap"
     return true, result.reason, result
 end
 
@@ -302,12 +262,7 @@ function PathRuntime.New(levelDocument, grid)
     self.partRenderer = nil
     self.cameraNode = nil
     self.camera = nil
-    self.evaluationOptions = {
-        screenTolerance = 72.0,
-        maxDepthDelta = 2.5,
-        minRoadEdgeAlignment = 0.75,
-        maxRoadEdgeGap = 72.0,
-    }
+    self.evaluationOptions = {}
     self.partSessions = {}
     self.nodesByKey = {}
     self.nodesByPart = {}
