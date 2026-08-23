@@ -507,6 +507,10 @@ function OverlayRenderer:EnsurePathNodeMarker(nodeId)
         "PathNodeMarkerSelected_" .. nodeId,
         Color(0.75, 0.86, 1.0, 1.0)
     )
+    local hoverMaterial = CreateMaterial(
+        "PathNodeMarkerHover_" .. nodeId,
+        Color(1.0, 0.86, 0.18, 1.0)
+    )
     model.material = normalMaterial
     marker:SetVar("pathNodeId", Variant(nodeId))
     marker.enabled = false
@@ -515,6 +519,7 @@ function OverlayRenderer:EnsurePathNodeMarker(nodeId)
         model = model,
         normalMaterial = normalMaterial,
         selectedMaterial = selectedMaterial,
+        hoverMaterial = hoverMaterial,
     }
     return self.pathNodeMarkers[nodeId]
 end
@@ -561,7 +566,7 @@ function OverlayRenderer:DrawVoxelPathNodes(grid, document, selectedNodeId)
     self.pathNodeGeometry:SetMaterial(0, self.materials.pathNodeNormal)
 end
 
-function OverlayRenderer:DrawPathConnectionCandidates(pathRuntime)
+function OverlayRenderer:DrawPathConnectionCandidates(pathRuntime, selectedCandidateId)
     self.pathConnectionNode.enabled = false
     if not pathRuntime then
         return
@@ -584,11 +589,12 @@ function OverlayRenderer:DrawPathConnectionCandidates(pathRuntime)
         for _, record in ipairs(records) do
             local evaluation = record.evaluation
             if evaluation and record.status == group.status then
+                local lineSize = record.id == selectedCandidateId and 0.18 or 0.10
                 AddArrow(
                     self.pathConnectionGeometry,
                     evaluation.fromWorldPoint,
                     evaluation.toWorldPoint,
-                    0.10
+                    lineSize
                 )
                 if record.candidate.direction == "bidirectional"
                     or record.candidate.direction == "to_from" then
@@ -596,7 +602,7 @@ function OverlayRenderer:DrawPathConnectionCandidates(pathRuntime)
                         self.pathConnectionGeometry,
                         evaluation.toWorldPoint,
                         evaluation.fromWorldPoint,
-                        0.10
+                        lineSize
                     )
                 end
             end
@@ -606,7 +612,7 @@ function OverlayRenderer:DrawPathConnectionCandidates(pathRuntime)
     end
 end
 
-function OverlayRenderer:DrawLevelPathNodes(pathRuntime)
+function OverlayRenderer:DrawLevelPathNodes(pathRuntime, hoveredNodeKey, pickedFromKey, pickedToKey)
     self.pathNodeNode.enabled = false
     if not pathRuntime then
         return
@@ -619,12 +625,16 @@ function OverlayRenderer:DrawLevelPathNodes(pathRuntime)
     for _, record in ipairs(pathRuntime:GetNodes()) do
         local position = record.worldPoint
         local normal = record.worldNormal
-        if not position then
-            position, normal = record.node:GetLocalAnchor(pathRuntime.grid, 0.045)
-        end
-        if position and normal then
-            AddArrow(self.pathNodeGeometry, position, position + normal * 0.24, 0.065)
-        end
+        local marker = self:EnsurePathNodeMarker(record.key)
+        local hovered = record.key == hoveredNodeKey
+        local picked = record.key == pickedFromKey or record.key == pickedToKey
+        local highlighted = hovered or picked
+        marker.node.position = position or Vector3(0, 0, 0)
+        marker.node.scale = highlighted and Vector3(0.22, 0.22, 0.22) or Vector3(0.14, 0.14, 0.14)
+        marker.model.material = hovered
+            and marker.hoverMaterial
+            or (picked and marker.selectedMaterial or marker.normalMaterial)
+        marker.node.enabled = position ~= nil
     end
     self.pathNodeGeometry:Commit()
     self.pathNodeGeometry:SetMaterial(0, self.materials.pathNodeNormal)

@@ -87,6 +87,10 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
         CreateFixedEvaluationCamera(scene, levelDocument)
     self.pathRuntime = PathRuntime.New(levelDocument, self.partRenderer.grid)
     self.overlayRenderer = OverlayRenderer.New(mainViewport, cameraNode, camera)
+    self.pathHoveredNodeKey = nil
+    self.pathPickMode = nil
+    self.pathPickedFromKey = nil
+    self.pathPickedToKey = nil
     self.selectedPartId = nil
     self.mode = "level"
     self.partEditor = nil
@@ -337,6 +341,11 @@ function LevelEditor:CreateEmptyPart(name)
         self:RefreshLevelUI(tostring(rebuildError))
         return false
     end
+    local pathRebuilt, pathError = self:RefreshPathRuntime()
+    if not pathRebuilt then
+        self:RefreshLevelUI(tostring(pathError))
+        return false
+    end
     self:RefreshLevelUI("已新建空 Part：" .. partName)
     return true
 end
@@ -414,6 +423,15 @@ function LevelEditor:DeleteSelectedPart()
     if not rebuilt then
         self:RefreshLevelUI(tostring(rebuildError))
         return false
+    end
+    local pathRebuilt, pathError = self:RefreshPathRuntime()
+    if not pathRebuilt then
+        self:RefreshLevelUI(tostring(pathError))
+        return false
+    end
+    if self.ui then
+        self.ui.selectedPathCandidateId = nil
+        self.ui:Refresh()
     end
     self:RefreshLevelUI("已从关卡移除 Part：" .. part.name .. "（局部资源保留）")
     return true
@@ -713,6 +731,184 @@ function LevelEditor:SelectPart(partId)
     return true
 end
 
+function LevelEditor:UpdatePathNodeHover()
+    self.pathHoveredNodeKey = nil
+    if not self.pathRuntime or not self.pathPickMode then
+        return
+    end
+    local mouse = input:GetMousePosition()
+    local width = graphics:GetWidth()
+    local height = graphics:GetHeight()
+    local ray = self.camera:GetScreenRay(mouse.x / width, mouse.y / height)
+    local best = nil
+    local bestDistance = math.huge
+    for _, record in ipairs(self.pathRuntime:GetNodes()) do
+        if record.worldPoint then
+            local offset = record.worldPoint - ray.origin
+            local projection = offset:DotProduct(ray.direction)
+            if projection >= 0 then
+                local closest = ray.origin + ray.direction * projection
+                local distance = (record.worldPoint - closest):Length()
+                if distance < bestDistance and distance <= 0.35 then
+                    best = record
+                    bestDistance = distance
+                end
+            end
+        end
+    end
+    self.pathHoveredNodeKey = best and best.key or nil
+end
+
+function LevelEditor:BeginPathPick(mode)
+    if mode ~= "from" and mode ~= "to" then
+        return false
+    end
+    self.pathPickMode = mode
+    self:RefreshLevelUI(mode == "from" and "请在场景中点击起点节点" or "请在场景中点击终点节点")
+    return true
+end
+
+function LevelEditor:CancelPathPick()
+    self.pathPickMode = nil
+    self:RefreshLevelUI("已取消路径节点拾取")
+end
+
+function LevelEditor:GetPathPickState()
+    return {
+        mode = self.pathPickMode,
+        fromKey = self.pathPickedFromKey,
+        toKey = self.pathPickedToKey,
+    }
+end
+
+function LevelEditor:TryPickPathNode(screenX, screenY)
+    if self.mode ~= "level" or not self.pathPickMode or not self.pathRuntime then
+        return false
+    end
+    local width = graphics:GetWidth()
+    local height = graphics:GetHeight()
+    local ray = self.camera:GetScreenRay(screenX / width, screenY / height)
+    local best = nil
+    local bestDistance = math.huge
+    for _, record in ipairs(self.pathRuntime:GetNodes()) do
+        if record.worldPoint then
+            local toPoint = record.worldPoint - ray.origin
+            local projection = toPoint:DotProduct(ray.direction)
+            if projection >= 0 then
+                local closest = ray.origin + ray.direction * projection
+                local distance = (record.worldPoint - closest):Length()
+                if distance < bestDistance and distance <= 0.35 then
+                    best = record
+                    bestDistance = distance
+                end
+            end
+        end
+    end
+    if not best then
+        self:RefreshLevelUI("没有命中路径节点，请点击节点球体或法向箭头")
+        return false
+    end
+    if self.pathPickMode == "from" then
+        self.pathPickedFromKey = best.key
+        self.pathPickMode = nil
+        self:RefreshLevelUI("已选择起点：" .. best.key)
+    else
+        self.pathPickedToKey = best.key
+        self.pathPickMode = nil
+        self:RefreshLevelUI("已选择终点：" .. best.key)
+    end
+    if self.ui then
+        self.ui:RefreshPathCandidatePicker()
+    end
+    return true
+end
+
+function LevelEditor:GetPathNodeOptions()
+    local options = {}
+    if not self.pathRuntime then
+        return options
+    end
+    for _, record in ipairs(self.pathRuntime:GetNodes()) do
+        options[#options + 1] = {
+            value = record.key,
+            label = record.key .. " [" .. record.node.face .. "]",
+        }
+    end
+    return options
+end
+
+function LevelEditor:GetPathCandidateOptions()
+    local options = {}
+    for _, candidate in ipairs(self.levelDocument:GetPathCandidates()) do
+        options[#options + 1] = {
+            value = candidate.id,
+            label = candidate.id .. "  " .. candidate.direction,
+        }
+    end
+    return options
+end
+
+local function SplitPathNodeKey(key)
+    if type(key) ~= "string" then
+        return nil, nil
+    end
+    local separator = key:find(":", 1, true)
+    if not separator then
+        return nil, nil
+    end
+    return key:sub(1, separator - 1), key:sub(separator + 1)
+end
+
+function LevelEditor:AddPathCandidateFromUI(fromKey, toKey, direction)
+    fromKey = fromKey or self.pathPickedFromKey
+    toKey = toKey or self.pathPickedToKey
+    local fromPartId, fromNodeId = SplitPathNodeKey(fromKey)
+    local toPartId, toNodeId = SplitPathNodeKey(toKey)
+    if not fromPartId or not toPartId then
+        return false, "请选择有效的起点和终点节点"
+    end
+    local index = 1
+    local id = "candidate_" .. tostring(index)
+    while self.levelDocument:HasPathCandidate(id) do
+        index = index + 1
+        id = "candidate_" .. tostring(index)
+    end
+    local added, errorMessage = self.levelDocument:AddPathCandidate({
+        id = id,
+        from = { partId = fromPartId, nodeId = fromNodeId },
+        to = { partId = toPartId, nodeId = toNodeId },
+        kind = "visual_candidate",
+        direction = direction or "bidirectional",
+        enabled = true,
+    })
+    if not added then
+        return false, errorMessage
+    end
+    local rebuilt, rebuildError = self:RefreshPathRuntime()
+    if not rebuilt then
+        return false, rebuildError
+    end
+    self.pathHoveredNodeKey = nil
+    self.pathPickMode = nil
+    self.pathPickedFromKey = nil
+    self.pathPickedToKey = nil
+    self:RefreshLevelUI("已创建跨 Part 路径候选：" .. id)
+    return true, id
+end
+
+function LevelEditor:RemovePathCandidateFromUI(candidateId)
+    local removed, errorMessage = self.levelDocument:RemovePathCandidate(candidateId)
+    if not removed then
+        return false, errorMessage
+    end
+    local rebuilt, rebuildError = self:RefreshPathRuntime()
+    if not rebuilt then
+        return false, rebuildError
+    end
+    self:RefreshLevelUI("已删除路径候选：" .. candidateId)
+    return true
+end
+
 function LevelEditor:RefreshPathRuntime()
     if not self.pathRuntime then
         return false, "PathRuntime is not available"
@@ -867,12 +1063,27 @@ function LevelEditor:Refresh()
         if self.pathRuntime then
             self.pathRuntime:EvaluateCandidates()
         end
+        self:UpdatePathNodeHover()
+        if input:GetMouseButtonPress(MOUSEB_LEFT) and not UI.IsPointerOverUI() then
+            local mouse = input:GetMousePosition()
+            if self:TryPickPathNode(mouse.x, mouse.y) then
+                return
+            end
+        end
         local root = self.partRenderer:GetRoot(self.selectedPartId)
         local minPoint, maxPoint = self.partRenderer:GetLocalBounds(self.selectedPartId)
         local pivotPosition = self.partRenderer:GetPivotWorldPosition(self.selectedPartId)
         self.overlayRenderer:DrawSelection(root, minPoint, maxPoint, pivotPosition)
-        self.overlayRenderer:DrawLevelPathNodes(self.pathRuntime)
-        self.overlayRenderer:DrawPathConnectionCandidates(self.pathRuntime)
+        self.overlayRenderer:DrawLevelPathNodes(
+            self.pathRuntime,
+            self.pathPickMode and self.pathHoveredNodeKey or nil,
+            self.pathPickedFromKey,
+            self.pathPickedToKey
+        )
+        self.overlayRenderer:DrawPathConnectionCandidates(
+            self.pathRuntime,
+            self.ui and self.ui.selectedPathCandidateId or nil
+        )
     elseif self.partEditor then
         self.overlayRenderer:SyncCamera()
         self.partEditor:Refresh()

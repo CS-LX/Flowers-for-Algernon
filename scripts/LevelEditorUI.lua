@@ -76,6 +76,8 @@ function LevelEditorUI.New(editor)
     self.root = nil
     self.pathNodeLabel = nil
     self.pathNodeDropdown = nil
+    self.pathCandidateStatusLabel = nil
+    self.selectedPathCandidateId = nil
     return self
 end
 
@@ -138,6 +140,86 @@ function LevelEditorUI:Build()
     self.capabilityLabel = UI.Label { text = "", fontSize = 11, fontColor = MUTED, whiteSpace = "normal" }
     self.modeLabel = UI.Label { text = "", fontSize = 11, fontColor = { 157, 220, 255, 255 }, whiteSpace = "normal" }
     self.cameraLabel = UI.Label { text = "", fontSize = 10, fontColor = { 173, 214, 255, 255 } }
+    self.pathCandidateFromPickButton = UI.Button {
+        text = "拾取起点",
+        height = 27, fontSize = 10, variant = "secondary",
+        onClick = function() editor:BeginPathPick("from") end,
+    }
+    self.pathCandidateToPickButton = UI.Button {
+        text = "拾取终点",
+        height = 27, fontSize = 10, variant = "secondary",
+        onClick = function() editor:BeginPathPick("to") end,
+    }
+    self.pathCandidateCancelPickButton = UI.Button {
+        text = "取消拾取",
+        height = 27, fontSize = 10, variant = "secondary",
+        onClick = function() editor:CancelPathPick() end,
+    }
+    self.pathCandidateFromDropdown = UI.Dropdown {
+        options = {}, value = "", placeholder = "起点节点", height = 26, fontSize = 10,
+    }
+    self.pathCandidateToDropdown = UI.Dropdown {
+        options = {}, value = "", placeholder = "终点节点", height = 26, fontSize = 10,
+    }
+    self.pathCandidateDirectionDropdown = UI.Dropdown {
+        options = {
+            { value = "bidirectional", label = "双向" },
+            { value = "from_to", label = "起点 → 终点" },
+            { value = "to_from", label = "终点 → 起点" },
+        },
+        value = "bidirectional", height = 26, fontSize = 10,
+    }
+    self.pathCandidateAddButton = UI.Button {
+        text = "添加候选连接", height = 27, fontSize = 10, variant = "secondary",
+        onClick = function()
+            local ok, result = editor:AddPathCandidateFromUI(
+                self.pathCandidateFromDropdown:GetValue(),
+                self.pathCandidateToDropdown:GetValue(),
+                self.pathCandidateDirectionDropdown:GetValue()
+            )
+            if ok then
+                self.selectedPathCandidateId = nil
+                self.pathCandidateDropdown:SetValue("")
+                self.pathCandidateFromDropdown:SetValue("")
+                self.pathCandidateToDropdown:SetValue("")
+                self.pathCandidateStatusLabel:SetText("已添加：" .. result)
+                self:Refresh()
+            else
+                self.pathCandidateStatusLabel:SetText("添加失败：" .. tostring(result))
+            end
+        end,
+    }
+    self.pathCandidateList = UI.List {
+        items = {}, variant = "dense", selectable = true, showDividers = true,
+        height = 120, flexShrink = 1,
+        onItemClick = function(_, item)
+            self.selectedPathCandidateId = item.id
+            self.pathCandidateStatusLabel:SetText(tostring(item.secondary or item.text or item.id))
+        end,
+    }
+    self.pathCandidateRemoveButton = UI.Button {
+        text = "删除选中候选", height = 27, fontSize = 10, variant = "danger",
+        onClick = function()
+            local candidateId = self.selectedPathCandidateId or self.pathCandidateDropdown:GetValue()
+            if not candidateId or candidateId == "" then
+                self.pathCandidateStatusLabel:SetText("请先选择候选")
+                return
+            end
+            local ok, result = editor:RemovePathCandidateFromUI(candidateId)
+            if ok then
+                self.selectedPathCandidateId = nil
+                self.pathCandidateDropdown:SetValue("")
+                self.pathCandidateStatusLabel:SetText("已删除：" .. candidateId)
+                self:Refresh()
+            else
+                self.pathCandidateStatusLabel:SetText("删除失败：" .. tostring(result))
+            end
+        end,
+    }
+    self.pathCandidateDropdown = UI.Dropdown {
+        options = {}, value = "", placeholder = "已有候选", height = 26, fontSize = 10,
+    }
+    self.pathCandidateStatusLabel = UI.Label { text = "仅通过 UI 配置，不需编辑 JSON", fontSize = 9, fontColor = MUTED, whiteSpace = "normal" }
 
     self.tree = UI.Tree {
         nodes = {},
@@ -418,6 +500,34 @@ function LevelEditorUI:Build()
                             self.capabilityLabel,
                         },
                     },
+                    InspectorComponentHeader("⌁", "Path Candidates"),
+                    UI.Panel {
+                        padding = 8,
+                        gap = 4,
+                        borderBottomWidth = 1,
+                        borderBottomColor = BORDER,
+                        children = {
+                            UI.Label { text = "跨 Part 面候选仅进入固定相机评估，不等于已连通。", fontSize = 9, fontColor = MUTED, whiteSpace = "normal" },
+                            UI.Label { text = "起点 / 终点", fontSize = 9, fontColor = MUTED },
+                            UI.Panel { flexDirection = "row", gap = 4, children = {
+                                self.pathCandidateFromPickButton,
+                                self.pathCandidateToPickButton,
+                                self.pathCandidateCancelPickButton,
+                            } },
+                            UI.Panel { flexDirection = "row", gap = 4, children = {
+                                UI.Panel { flexGrow = 1, flexShrink = 1, children = { self.pathCandidateFromDropdown } },
+                                UI.Panel { flexGrow = 1, flexShrink = 1, children = { self.pathCandidateToDropdown } },
+                            } },
+                            UI.Panel { flexDirection = "row", gap = 4, children = {
+                                self.pathCandidateDirectionDropdown,
+                                self.pathCandidateAddButton,
+                            } },
+                            self.pathCandidateList,
+                            self.pathCandidateDropdown,
+                            self.pathCandidateRemoveButton,
+                            self.pathCandidateStatusLabel,
+                        },
+                    },
                     InspectorComponentHeader("◉", "Editor Preview Camera"),
                     UI.Panel {
                         padding = 8,
@@ -473,6 +583,30 @@ function LevelEditorUI:Refresh()
     self.tree:SetNodes(self.editor.levelDocument:GetTreeNodes())
     self.tree:ExpandAll()
 
+    local candidateItems = {}
+    for _, candidate in ipairs(self.editor.levelDocument:GetPathCandidates()) do
+        local status = "未评估"
+        local reason = ""
+        for _, record in ipairs(self.editor.pathRuntime:GetCandidateRecords()) do
+            if record.id == candidate.id then
+                status = record.status
+                reason = record.reason or ""
+                break
+            end
+        end
+        candidateItems[#candidateItems + 1] = {
+            id = candidate.id,
+            text = candidate.id,
+            secondary = candidate.from.partId .. ":" .. candidate.from.nodeId .. "  →  " .. candidate.to.partId .. ":" .. candidate.to.nodeId .. "  [" .. status .. "] " .. reason,
+        }
+    end
+    self.pathCandidateList:SetItems(candidateItems)
+    self.pathCandidateFromDropdown:SetOptions(self.editor:GetPathNodeOptions())
+    self.pathCandidateToDropdown:SetOptions(self.editor:GetPathNodeOptions())
+    self.pathCandidateFromDropdown:SetValue(self.editor.pathPickedFromKey or "")
+    self.pathCandidateToDropdown:SetValue(self.editor.pathPickedToKey or "")
+    self.pathCandidateDropdown:SetOptions(self.editor:GetPathCandidateOptions())
+
     local part = self.editor:GetSelectedPart()
     if not part then
         self.selectionLabel:SetText("未选择 Part")
@@ -504,6 +638,9 @@ function LevelEditorUI:Refresh()
         self.pivotLayerField:SetValue("")
         self.pivotLayerField:SetDisabled(true)
         self.openButton:SetDisabled(true)
+        self.pathCandidateFromPickButton:SetDisabled(true)
+        self.pathCandidateToPickButton:SetDisabled(true)
+        self.pathCandidateCancelPickButton:SetDisabled(true)
         self.previewButton:SetDisabled(true)
         self.saveButton:SetDisabled(true)
         self.duplicateButton:SetDisabled(true)
@@ -579,10 +716,18 @@ function LevelEditorUI:Refresh()
         editorCamera.projection == "orthographic" and editorCamera.orthoSize or editorCamera.distance
     ))
     self.openButton:SetDisabled(false)
+    self.pathCandidateFromPickButton:SetDisabled(false)
+    self.pathCandidateToPickButton:SetDisabled(false)
+    self.pathCandidateCancelPickButton:SetDisabled(false)
     self.previewButton:SetDisabled(false)
     self.saveButton:SetDisabled(false)
     self.duplicateButton:SetDisabled(false)
     self.deleteButton:SetDisabled(false)
+end
+
+function LevelEditorUI:RefreshPathCandidatePicker()
+    self.pathCandidateFromDropdown:SetValue(self.editor.pathPickedFromKey or "")
+    self.pathCandidateToDropdown:SetValue(self.editor.pathPickedToKey or "")
 end
 
 function LevelEditorUI:SetCameraState(camera)
