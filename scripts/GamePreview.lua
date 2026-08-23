@@ -48,11 +48,10 @@ end
 function GamePreview:CreateCamera()
     local settings = self.levelDocument.fixedCamera
     local target = Vector3(settings.target.x, settings.target.y, settings.target.z)
-    local distance = settings.orthoSize * 1.5
-    local yaw = math.rad(settings.yaw)
     local pitch = math.rad(settings.pitch)
+    local distance = settings.orthoSize * 1.5
+    local yaw = math.rad(30.0)
     local horizontal = math.cos(pitch) * distance
-
     self.cameraNode = self.scene:CreateChild("FixedPreviewCamera")
     self.cameraNode.position = target + Vector3(
         math.sin(yaw) * horizontal,

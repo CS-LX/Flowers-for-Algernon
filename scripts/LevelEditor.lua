@@ -54,9 +54,9 @@ LevelEditor.__index = LevelEditor
 local function CreateFixedEvaluationCamera(scene, levelDocument)
     local settings = levelDocument.fixedCamera
     local target = Vector3(settings.target.x, settings.target.y, settings.target.z)
-    local distance = settings.orthoSize * 1.5
-    local yaw = math.rad(settings.yaw)
     local pitch = math.rad(settings.pitch)
+    local distance = settings.orthoSize * 1.5
+    local yaw = math.rad(30.0)
     local horizontal = math.cos(pitch) * distance
     local node = scene:CreateChild("PathEvaluationCamera")
     node.position = target + Vector3(

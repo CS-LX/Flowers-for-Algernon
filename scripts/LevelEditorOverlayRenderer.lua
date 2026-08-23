@@ -285,6 +285,31 @@ function OverlayRenderer:DrawLevelHexGrid(grid, levelDocument, activeLayer, radi
     self.voxelGeometry:SetMaterial(1, self.materials.gridInner)
 end
 
+function OverlayRenderer:DrawVoxelGrid(grid, activeLayer, radius)
+    self:EnsureVoxelGeometry()
+    self.voxelGrid = grid
+    local y = activeLayer * grid.voxelHeight + 0.035
+    self:BeginVoxelLines(0, self.materials.grid)
+    for hexR = -radius, radius do
+        for hexQ = -radius, radius do
+            AddLoop(self.voxelGeometry, grid:GetHexVertices(hexQ, hexR, y))
+        end
+    end
+    self:CommitVoxelLines(0)
+    self:BeginVoxelLines(1, self.materials.gridInner)
+    for hexR = -radius, radius do
+        for hexQ = -radius, radius do
+            for sector = 0, 5 do
+                local cell = { hexQ = hexQ, hexR = hexR, sector = sector, layer = activeLayer }
+                local triangle = grid:GetTriangleVertices(cell, 0.035)
+                AddLine(self.voxelGeometry, triangle[1], triangle[2])
+                AddLine(self.voxelGeometry, triangle[1], triangle[3])
+            end
+        end
+    end
+    self:CommitVoxelLines(1)
+end
+
 function OverlayRenderer:DrawVoxelCellOutline(cell, material, index)
     self:BeginVoxelLines(index, material)
     self:AddCellOutline(cell)
