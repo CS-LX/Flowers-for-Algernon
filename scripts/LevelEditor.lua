@@ -1069,6 +1069,7 @@ function LevelEditor:Refresh()
         local minPoint, maxPoint = self.partRenderer:GetLocalBounds(self.selectedPartId)
         local pivotPosition = self.partRenderer:GetPivotWorldPosition(self.selectedPartId)
         self.overlayRenderer:DrawSelection(root, minPoint, maxPoint, pivotPosition)
+        self.overlayRenderer:DrawLevelHexGrid(self.partRenderer.grid, self.levelDocument, 0, 6)
         self.overlayRenderer:DrawLevelPathNodes(
             self.pathRuntime,
             self.pathPickMode and self.pathHoveredNodeKey or nil,

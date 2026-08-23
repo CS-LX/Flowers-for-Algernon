@@ -254,33 +254,35 @@ function OverlayRenderer:AddCellOutline(cell)
     end
 end
 
-function OverlayRenderer:DrawVoxelGrid(grid, activeLayer, radius)
-    local y = activeLayer * grid.voxelHeight + 0.035
-    self:BeginVoxelLines(0, self.materials.grid)
-    for hexR = -radius, radius do
-        for hexQ = -radius, radius do
+function OverlayRenderer:DrawLevelHexGrid(grid, levelDocument, activeLayer, radius)
+    self:EnsureVoxelGeometry()
+    self.voxelNode.enabled = true
+    self.voxelGrid = grid
+    self.voxelGeometry:Clear()
+    self.voxelGeometry:SetNumGeometries(2)
+    local y = activeLayer * grid.voxelHeight + 0.02
+    local range = radius or 5
+    self.voxelGeometry:BeginGeometry(0, LINE_LIST)
+    for hexR = -range, range do
+        for hexQ = -range, range do
             AddLoop(self.voxelGeometry, grid:GetHexVertices(hexQ, hexR, y))
         end
     end
-    self:CommitVoxelLines(0)
-
-    self:BeginVoxelLines(1, self.materials.gridInner)
-    for hexR = -radius, radius do
-        for hexQ = -radius, radius do
+    self.voxelGeometry:Commit()
+    self.voxelGeometry:SetMaterial(0, self.materials.grid)
+    self.voxelGeometry:BeginGeometry(1, LINE_LIST)
+    for hexR = -range, range do
+        for hexQ = -range, range do
             for sector = 0, 5 do
-                local cell = {
-                    hexQ = hexQ,
-                    hexR = hexR,
-                    sector = sector,
-                    layer = activeLayer,
-                }
-                local triangle = grid:GetTriangleVertices(cell, 0.035)
+                local cell = { hexQ = hexQ, hexR = hexR, sector = sector, layer = activeLayer }
+                local triangle = grid:GetTriangleVertices(cell, 0.02)
                 AddLine(self.voxelGeometry, triangle[1], triangle[2])
                 AddLine(self.voxelGeometry, triangle[1], triangle[3])
             end
         end
     end
-    self:CommitVoxelLines(1)
+    self.voxelGeometry:Commit()
+    self.voxelGeometry:SetMaterial(1, self.materials.gridInner)
 end
 
 function OverlayRenderer:DrawVoxelCellOutline(cell, material, index)
