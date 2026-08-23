@@ -187,24 +187,46 @@ local function ProjectedEdgesHavePositiveOverlap(edgeA, edgeB, tolerance)
     local vectorB = edgeB.second - edgeB.first
     local lengthA = vectorA:Length()
     local lengthB = vectorB:Length()
-    if lengthA <= tolerance or lengthB <= tolerance then
-        return false, 0.0
-    end
+    if lengthA <= tolerance or lengthB <= tolerance then return false, 0.0 end
     local directionA = vectorA / lengthA
     local directionB = vectorB / lengthB
     if math.abs(directionA.x * directionB.x + directionA.y * directionB.y) < 1.0 - tolerance then
         return false, 0.0
     end
     local offset = edgeB.first - edgeA.first
-    if math.abs(offset.x * directionA.y - offset.y * directionA.x) > tolerance then
-        return false, 0.0
-    end
+    if math.abs(offset.x * directionA.y - offset.y * directionA.x) > tolerance then return false, 0.0 end
     local first = offset.x * directionA.x + offset.y * directionA.y
     local secondOffset = edgeB.second - edgeA.first
     local second = secondOffset.x * directionA.x + secondOffset.y * directionA.y
-    local overlap = math.min(lengthA, math.max(first, second))
-        - math.max(0.0, math.min(first, second))
+    local overlap = math.min(lengthA, math.max(first, second)) - math.max(0.0, math.min(first, second))
     return overlap > tolerance, math.max(0.0, overlap)
+end
+local function TransformEdges(partRenderer, partId, edges)
+    local result = {}
+    for _, edge in ipairs(edges) do
+        result[#result + 1] = TransformEdge(partRenderer, partId, edge)
+    end
+    return result
+end
+
+local function ProjectEdges(camera, edges)
+    local result = {}
+    for _, edge in ipairs(edges) do
+        result[#result + 1] = ProjectEdge(camera, edge)
+    end
+    return result
+end
+
+local function FindPositiveOverlapPair(edgesA, edgesB, tolerance)
+    for indexA, edgeA in ipairs(edgesA) do
+        for indexB, edgeB in ipairs(edgesB) do
+            local overlaps, length = ProjectedEdgesHavePositiveOverlap(edgeA, edgeB, tolerance)
+            if overlaps then
+                return true, length, indexA, indexB
+            end
+        end
+    end
+    return false, 0.0, nil, nil
 end
 
 local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera, options)
@@ -224,18 +246,20 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
         return false, toError
     end
 
-    local fromRoadEdge = record.from.node:GetLocalRoadEdge(grid)
-    local toRoadEdge = record.to.node:GetLocalRoadEdge(grid)
-    if not fromRoadEdge or not toRoadEdge then
-        return false, "missing-road-edge"
+    local fromLocalEdges = record.from.node:GetLocalFaceEdges(grid)
+    local toLocalEdges = record.to.node:GetLocalFaceEdges(grid)
+    if not fromLocalEdges or not toLocalEdges then
+        return false, "missing-face-edges"
     end
-    local fromWorldEdge = TransformEdge(partRenderer, record.from.partId, fromRoadEdge)
-    local toWorldEdge = TransformEdge(partRenderer, record.to.partId, toRoadEdge)
-    local fromProjectedEdge = ProjectEdge(camera, fromWorldEdge)
-    local toProjectedEdge = ProjectEdge(camera, toWorldEdge)
-    local edgeAccepted, edgeOverlap = ProjectedEdgesHavePositiveOverlap(
-        fromProjectedEdge,
-        toProjectedEdge,
+    local fromProjectedEdges = ProjectEdges(camera, TransformEdges(
+        partRenderer, record.from.partId, fromLocalEdges
+    ))
+    local toProjectedEdges = ProjectEdges(camera, TransformEdges(
+        partRenderer, record.to.partId, toLocalEdges
+    ))
+    local edgeAccepted, edgeOverlap, fromEdgeIndex, toEdgeIndex = FindPositiveOverlapPair(
+        fromProjectedEdges,
+        toProjectedEdges,
         FACE_TOLERANCE
     )
     local result = {
@@ -243,8 +267,10 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
         toWorldPoint = toData.worldPoint,
         fromWorldNormal = fromData.worldNormal,
         toWorldNormal = toData.worldNormal,
-        fromProjectedRoadEdge = fromProjectedEdge,
-        toProjectedRoadEdge = toProjectedEdge,
+        fromProjectedEdges = fromProjectedEdges,
+        toProjectedEdges = toProjectedEdges,
+        matchedFromEdgeIndex = fromEdgeIndex,
+        matchedToEdgeIndex = toEdgeIndex,
         projectedEdgeOverlap = edgeOverlap,
     }
     if not edgeAccepted then

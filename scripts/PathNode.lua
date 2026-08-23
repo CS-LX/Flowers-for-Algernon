@@ -96,27 +96,21 @@ function PathNode:GetLocalAnchor(grid, offset)
     return center + normal * (offset or 0.035), CopyVector(normal)
 end
 
-function PathNode:GetLocalRoadEdge(grid)
+function PathNode:GetLocalFaceEdges(grid)
     local faces = grid:GetCellFaces(self.voxelCell)
     local face = faces[self:GetFaceIndex()]
     if not face then
         return nil
     end
-    local center = AverageVertices(face.vertices)
-    local bestEdge = nil
-    local bestScore = -math.huge
+    local edges = {}
     for index = 1, #face.vertices do
         local nextIndex = index % #face.vertices + 1
-        local first = face.vertices[index]
-        local second = face.vertices[nextIndex]
-        local midpoint = (first + second) * 0.5
-        local score = (midpoint - center):Length()
-        if score > bestScore then
-            bestScore = score
-            bestEdge = { first = CopyVector(first), second = CopyVector(second) }
-        end
+        edges[#edges + 1] = {
+            first = CopyVector(face.vertices[index]),
+            second = CopyVector(face.vertices[nextIndex]),
+        }
     end
-    return bestEdge
+    return edges
 end
 
 function PathNode:ToTable()
