@@ -168,6 +168,71 @@ function VoxelSandbox:AllocatePathNodeId()
     return id
 end
 
+function VoxelSandbox:GetSelectedPathNode()
+    return self.selectedPathNodeId and self.document:GetPathNode(self.selectedPathNodeId) or nil
+end
+
+function VoxelSandbox:SetSelectedPathNodeKind(kind)
+    local node = self:GetSelectedPathNode()
+    if not node then return false end
+    if kind ~= "floor" and kind ~= "ladder" and kind ~= "connector" then return false end
+    node.kind = kind
+    self.document.dirty = true
+    self:RebuildDocumentScene()
+    self:UpdateDocumentStatus()
+    return true
+end
+
+function VoxelSandbox:SetSelectedPathNodeWalkable(walkable)
+    local node = self:GetSelectedPathNode()
+    if not node then return false end
+    node.walkable = walkable == true
+    self.document.dirty = true
+    self:RebuildDocumentScene()
+    self:UpdateDocumentStatus()
+    return true
+end
+
+function VoxelSandbox:SetSelectedPathNodeDirection(directionType, direction)
+    local node = self:GetSelectedPathNode()
+    if not node then return false end
+    if direction ~= "forward" and direction ~= "right"
+        and direction ~= "backward" and direction ~= "left" then
+        return false
+    end
+    if directionType == "entry" then
+        node.entryDirection = direction
+    elseif directionType == "exit" then
+        node.exitDirection = direction
+    else
+        return false
+    end
+    self.document.dirty = true
+    self:RebuildDocumentScene()
+    self:RefreshPathNodeInspector()
+    self:UpdateDocumentStatus()
+    return true
+end
+
+function VoxelSandbox:SetSelectedPathNodeOrientation(value)
+    local node = self:GetSelectedPathNode()
+    if not node then return false end
+    local orientation = tonumber(value)
+    if not orientation then return false end
+    node.orientation = math.floor(orientation) % 6
+    self.document.dirty = true
+    self:RebuildDocumentScene()
+    self:RefreshPathNodeInspector()
+    self:UpdateDocumentStatus()
+    return true
+end
+
+function VoxelSandbox:RefreshPathNodeInspector()
+    if self.editorUI then
+        self.editorUI:RefreshPathNodeInspector()
+    end
+end
+
 function VoxelSandbox:HandlePathNodePointer()
     if (self.tool ~= "path_node" and self.tool ~= "delete_node") or UI.IsPointerOverUI() then
         return false
@@ -194,11 +259,13 @@ function VoxelSandbox:HandlePathNodePointer()
         end
         self.selectedPathNodeId = nil
         self.statusLabel:SetText("已删除路径节点：" .. existing.id)
+        self:RefreshPathNodeInspector()
         return true
     end
     if existing then
         self.selectedPathNodeId = existing.id
         self.statusLabel:SetText("已选择路径节点：" .. existing.id)
+        self:RefreshPathNodeInspector()
         return true
     end
     local node = PathNode.New({
@@ -216,6 +283,7 @@ function VoxelSandbox:HandlePathNodePointer()
     end
     self.selectedPathNodeId = node.id
     self.statusLabel:SetText("已挂载路径节点：" .. node.id .. " / " .. face)
+    self:RefreshPathNodeInspector()
     return true
 end
 

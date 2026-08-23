@@ -248,8 +248,8 @@ Graph 是运行时寻路的输入，但寻路不能反向定义 Graph。Graph �
 - [x] 编辑器 UI 配置基础：Level Inspector 提供 PathNode 全局选择、跨 Part 候选起点/终点、方向选择、添加和删除；不要求用户编辑 JSON。
 - [x] 候选配置 UX 改造基础：支持“拾取起点/终点”模式，在 Level View 直接点击节点；候选列表显示端点和评估状态，删除不要求记忆候选 ID。
 - [x] Level Gizmo 交互基础：节点球体支持鼠标拾取；仅在拾取模式下悬停高亮，普通 Level View 不因鼠标移动变色；候选列表选中时对应连线加粗。
-- [x] 删除 Part 清理路径状态：删除 Part 后同步重建 Part 显示和 PathRuntime，清除相关候选线与列表选中状态。
-- [ ] 编辑器 UI 完整化：PathNode 类型、walkable、方向语义和面内节点详情编辑。
+- [x] Level Gizmo 显示局部固定边：Level View 绘制所有 `local_fixed` 边，使用无箭头普通连线；跨 Part 候选仍使用状态箭头。
+- [x] PathNode 属性变化刷新：新增、删除、kind、walkable、方向和 orientation 修改后刷新所属 Part 文档状态与路径预览。
 
 每完成一个可独立验收的步骤，先更新本节勾选状态和对应说明；实现完成后由用户进行预览和交互验证。收到用户验证结果后，再在后续会话中复核变更、提交并推送；中间缺失模块属于计划内未完成项，不得据此改变已确认的职责边界。
 
@@ -262,6 +262,13 @@ Graph 是运行时寻路的输入，但寻路不能反向定义 Graph。Graph �
 - 中间状态缺少的模块不代表架构偏移；应依据本计划和验收标准继续推进，不因局部未完成而临时改变真相源或职责边界。
 - 未经验证的替代方案不得升级为目标架构；发现问题时先区分代码错误、资源缺失、验证环境错误和计划内未完成。
 
+路径数据和 Preview 存储边界遵守：
+
+```text
+docs/level-storage-and-source-of-truth.md
+```
+
+在 Runtime 实际存档路径未被诊断确认前，不得把 `/workspace/levels` 或 `/workspace/parts` 的统计当作 Preview 当前关卡统计。
 ## 用户编辑能力约束
 
 用户当前没有直接读写或编辑 JSON 的能力，也没有其他直接修改游戏内容的途径。所有关卡、Part、PathNode、候选连接和测试配置，必须通过游戏内的 `EditorUI`、`LevelEditorUI`、`VoxelSandbox` 及相关 UI 间接完成。

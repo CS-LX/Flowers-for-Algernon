@@ -132,8 +132,9 @@ function LevelEditor:Start()
     self.pathRuntime:Rebuild()
     local summary = self.pathRuntime:GetSummary()
     print(string.format(
-        "PathRuntime graph: edges=%d topology=%d",
+        "PathRuntime graph: edges=%d localFixed=%d topology=%d",
         summary.effectiveEdgeCount,
+        self.pathRuntime:GetLocalFixedEdgeCount(),
         summary.topologyVersion
     ))
 end

@@ -571,14 +571,15 @@ function OverlayRenderer:DrawPathConnectionCandidates(pathRuntime, selectedCandi
     if not pathRuntime then
         return
     end
-    local records = pathRuntime:GetCandidateRecords()
-    if #records == 0 then
+    local candidateRecords = pathRuntime:GetCandidateRecords()
+    local effectiveEdges = pathRuntime:GetEffectiveEdges()
+    if #candidateRecords == 0 and #effectiveEdges == 0 then
         return
     end
     self:EnsurePathConnectionGeometry()
     self.pathConnectionNode.enabled = true
     self.pathConnectionGeometry:Clear()
-    self.pathConnectionGeometry:SetNumGeometries(3)
+    self.pathConnectionGeometry:SetNumGeometries(4)
     local groups = {
         { status = "pending", index = 0, material = self.materials.picker },
         { status = "accepted", index = 1, material = self.materials.pathNodeWalkable },
@@ -586,7 +587,7 @@ function OverlayRenderer:DrawPathConnectionCandidates(pathRuntime, selectedCandi
     }
     for _, group in ipairs(groups) do
         self.pathConnectionGeometry:BeginGeometry(group.index, LINE_LIST)
-        for _, record in ipairs(records) do
+        for _, record in ipairs(candidateRecords) do
             local evaluation = record.evaluation
             if evaluation and record.status == group.status then
                 local lineSize = record.id == selectedCandidateId and 0.18 or 0.10
@@ -610,10 +611,38 @@ function OverlayRenderer:DrawPathConnectionCandidates(pathRuntime, selectedCandi
         self.pathConnectionGeometry:Commit()
         self.pathConnectionGeometry:SetMaterial(group.index, group.material)
     end
+
+    self.pathConnectionGeometry:BeginGeometry(3, LINE_LIST)
+    local drawnLocalEdges = {}
+    for _, edge in ipairs(effectiveEdges) do
+        if edge.kind == "local_fixed" then
+            local left = edge.from < edge.to and edge.from or edge.to
+            local right = edge.from < edge.to and edge.to or edge.from
+            local edgeKey = left .. "|" .. right
+            if not drawnLocalEdges[edgeKey] then
+                local fromRecord = pathRuntime:GetNode(edge.from)
+                local toRecord = pathRuntime:GetNode(edge.to)
+                if fromRecord and toRecord
+                    and fromRecord.worldPoint and toRecord.worldPoint then
+                    AddLine(
+                        self.pathConnectionGeometry,
+                        fromRecord.worldPoint,
+                        toRecord.worldPoint
+                    )
+                    drawnLocalEdges[edgeKey] = true
+                end
+            end
+        end
+    end
+    self.pathConnectionGeometry:Commit()
+    self.pathConnectionGeometry:SetMaterial(3, self.materials.green)
 end
 
 function OverlayRenderer:DrawLevelPathNodes(pathRuntime, hoveredNodeKey, pickedFromKey, pickedToKey)
     self.pathNodeNode.enabled = false
+    for _, marker in pairs(self.pathNodeMarkers) do
+        marker.node.enabled = false
+    end
     if not pathRuntime then
         return
     end

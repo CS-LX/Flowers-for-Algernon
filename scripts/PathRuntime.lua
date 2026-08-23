@@ -53,7 +53,8 @@ end
 
 local function IsSamePlane(faceA, faceB, tolerance)
     local normalA = faceA.normal:Normalized()
-    if normalA:DotProduct(faceB.normal:Normalized()) < 1.0 - tolerance then
+    local normalB = faceB.normal:Normalized()
+    if normalA:DotProduct(normalB) < 1.0 - tolerance then
         return false
     end
     local origin = faceA.vertices[1]
@@ -357,6 +358,7 @@ function PathRuntime:Clear()
 end
 
 function PathRuntime:LoadPartNodes(part)
+    print("PathRuntime loading Part: " .. part.id .. " path=" .. tostring(part.localVoxelPath))
     local session, errorMessage = PartEditSession.Open(self.grid, part)
     if not session then
         AddDiagnostic(
@@ -370,6 +372,7 @@ function PathRuntime:LoadPartNodes(part)
 
     self.partSessions[part.id] = session
     self.nodesByPart[part.id] = {}
+    local loadedNodeIds = {}
     for _, node in ipairs(session.document:GetPathNodes()) do
         local key = NodeKey(part.id, node.id)
         if self.nodesByKey[key] then
@@ -385,8 +388,10 @@ function PathRuntime:LoadPartNodes(part)
             }
             self.nodesByKey[key] = record
             self.nodesByPart[part.id][#self.nodesByPart[part.id] + 1] = record
+            loadedNodeIds[#loadedNodeIds + 1] = node.id
         end
     end
+    print("PathRuntime Part nodes: " .. part.id .. " count=" .. tostring(#loadedNodeIds) .. " ids=" .. (#loadedNodeIds > 0 and table.concat(loadedNodeIds, ",") or "<none>"))
     return true
 end
 
@@ -573,6 +578,16 @@ function PathRuntime:GetEffectiveEdges()
         result[#result + 1] = edge
     end
     return result
+end
+
+function PathRuntime:GetLocalFixedEdgeCount()
+    local count = 0
+    for _, edge in ipairs(self.effectiveEdges) do
+        if edge.kind == "local_fixed" then
+            count = count + 1
+        end
+    end
+    return count
 end
 
 function PathRuntime:GetNeighbors(key)
