@@ -89,7 +89,6 @@ function VoxelDocument:AddPathNode(node)
     if not self:Get(node.voxelCell) then
         return false, "PathNode voxel cell does not exist"
     end
-    node.partId = nil
     self.pathNodes[node.id] = node
     self.pathNodeOrder[#self.pathNodeOrder + 1] = node.id
     self.dirty = true

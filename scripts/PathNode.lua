@@ -49,7 +49,6 @@ end
 function PathNode:Init(data)
     data = data or {}
     self.id = data.id or "path_node"
-    self.partId = data.partId or nil
     self.voxelCell = CopyCell(data.voxelCell or data.cell)
     self.face = FACE_INDEX[data.face] and data.face or "top"
     self.kind = VALID_KINDS[data.kind] and data.kind or "floor"
@@ -116,7 +115,6 @@ end
 function PathNode:ToTable()
     return {
         id = self.id,
-        partId = self.partId,
         voxelCell = CopyCell(self.voxelCell),
         face = self.face,
         kind = self.kind,

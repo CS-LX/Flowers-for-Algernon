@@ -2,6 +2,7 @@
 -- 从 LevelDocument 重建独立 Part 显示层级，不改写 Editor、PartDefinition 或局部体素数据。
 
 local PartRootRenderer = require "PartRootRenderer"
+local FixedGameCamera = require "FixedGameCamera"
 
 local GamePreview = {}
 GamePreview.__index = GamePreview
@@ -46,25 +47,11 @@ function GamePreview:CreateScene()
 end
 
 function GamePreview:CreateCamera()
-    local settings = self.levelDocument.fixedCamera
-    local target = Vector3(settings.target.x, settings.target.y, settings.target.z)
-    local pitch = math.rad(settings.pitch)
-    local distance = settings.orthoSize * 1.5
-    local yaw = math.rad(30.0)
-    local horizontal = math.cos(pitch) * distance
-    self.cameraNode = self.scene:CreateChild("FixedPreviewCamera")
-    self.cameraNode.position = target + Vector3(
-        math.sin(yaw) * horizontal,
-        math.sin(pitch) * distance,
-        -math.cos(yaw) * horizontal
+    self.cameraNode, self.camera = FixedGameCamera.Create(
+        self.scene,
+        "FixedPreviewCamera",
+        self.levelDocument.fixedCamera
     )
-    self.cameraNode:LookAt(target)
-
-    self.camera = self.cameraNode:CreateComponent("Camera")
-    self.camera.orthographic = true
-    self.camera.orthoSize = settings.orthoSize
-    self.camera.nearClip = settings.nearClip
-    self.camera.farClip = settings.farClip
     self.viewport = Viewport:new(self.scene, self.camera)
 end
 

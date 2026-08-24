@@ -111,8 +111,11 @@ local function IsFaceAdjacent(source, target, grid)
     end
     local sourceName = source.node.face
     local targetName = target.node.face
-    local sourceTopBottom = sourceName == "top" or sourceName == "bottom"
-    local targetTopBottom = targetName == "top" or targetName == "bottom"
+    if sourceName == "bottom" or targetName == "bottom" then
+        return false
+    end
+    local sourceTopBottom = sourceName == "top"
+    local targetTopBottom = targetName == "top"
     if sourceTopBottom ~= targetTopBottom then
         return false
     end

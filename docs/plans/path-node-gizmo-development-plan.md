@@ -252,6 +252,11 @@ Graph 是运行时寻路的输入，但寻路不能反向定义 Graph。Graph �
 
 本次复盘结论：之前错误来自把规范中的“对应面边集合”实现成 `PathNode:GetLocalRoadEdge()` 单边 API。稳定实现必须使用 `GetLocalFaceEdges()` 返回完整边集合，并两两检测正长度投影重合。
 
+## 本轮架构审计与低风险重构
+
+已完成审计：Preview、Level Object Tree、Part Voxel Editor 三层职责总体保持分离；`LevelEditor` 是协调器，不引入通用 EventBus 或万能 Manager。固定 Runtime 相机姿态已抽取为窄职责工具；PathNode 保持局部数据真相；路径节点拾取使用统一的屏幕射线查询；`bottom` 默认不生成局部固定边。
+
+
 ## 用户协作规范
 
 - 每个独立步骤完成后，先在本计划中标记已完成内容。

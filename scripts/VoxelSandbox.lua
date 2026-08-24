@@ -236,7 +236,6 @@ function VoxelSandbox:HandlePathNodePointer()
     end
     local node = PathNode.New({
         id = self:AllocatePathNodeId(),
-        partId = self.session.id,
         voxelCell = hit.cell,
         face = face,
         kind = "floor",

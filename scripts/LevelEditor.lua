@@ -10,6 +10,7 @@ local LevelEditorUI = require "LevelEditorUI"
 local VoxelSandbox = require "VoxelSandbox"
 local OverlayRenderer = require "LevelEditorOverlayRenderer"
 local GamePreview = require "GamePreview"
+local FixedGameCamera = require "FixedGameCamera"
 local PathRuntime = require "PathRuntime"
 
 local LevelEditor = {}
@@ -52,25 +53,11 @@ end
 LevelEditor.__index = LevelEditor
 
 local function CreateFixedEvaluationCamera(scene, levelDocument)
-    local settings = levelDocument.fixedCamera
-    local target = Vector3(settings.target.x, settings.target.y, settings.target.z)
-    local pitch = math.rad(settings.pitch)
-    local distance = settings.orthoSize * 1.5
-    local yaw = math.rad(30.0)
-    local horizontal = math.cos(pitch) * distance
-    local node = scene:CreateChild("PathEvaluationCamera")
-    node.position = target + Vector3(
-        math.sin(yaw) * horizontal,
-        math.sin(pitch) * distance,
-        -math.cos(yaw) * horizontal
+    return FixedGameCamera.Create(
+        scene,
+        "PathEvaluationCamera",
+        levelDocument.fixedCamera
     )
-    node:LookAt(target)
-    local camera = node:CreateComponent("Camera")
-    camera.orthographic = true
-    camera.orthoSize = settings.orthoSize
-    camera.nearClip = settings.nearClip
-    camera.farClip = settings.farClip
-    return node, camera
 end
 
 function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument, edgeLength, voxelHeight)
@@ -726,15 +713,13 @@ function LevelEditor:SelectPart(partId)
     return true
 end
 
-function LevelEditor:UpdatePathNodeHover()
-    self.pathHoveredNodeKey = nil
-    if not self.pathRuntime or not self.pathPickMode then
-        return
+function LevelEditor:FindPathNodeAtScreenPoint(screenX, screenY, radius)
+    if not self.pathRuntime then
+        return nil
     end
-    local mouse = input:GetMousePosition()
     local width = graphics:GetWidth()
     local height = graphics:GetHeight()
-    local ray = self.camera:GetScreenRay(mouse.x / width, mouse.y / height)
+    local ray = self.camera:GetScreenRay(screenX / width, screenY / height)
     local best = nil
     local bestDistance = math.huge
     for _, record in ipairs(self.pathRuntime:GetNodes()) do
@@ -744,13 +729,23 @@ function LevelEditor:UpdatePathNodeHover()
             if projection >= 0 then
                 local closest = ray.origin + ray.direction * projection
                 local distance = (record.worldPoint - closest):Length()
-                if distance < bestDistance and distance <= 0.35 then
+                if distance < bestDistance and distance <= (radius or 0.35) then
                     best = record
                     bestDistance = distance
                 end
             end
         end
     end
+    return best
+end
+
+function LevelEditor:UpdatePathNodeHover()
+    self.pathHoveredNodeKey = nil
+    if not self.pathRuntime or not self.pathPickMode then
+        return
+    end
+    local mouse = input:GetMousePosition()
+    local best = self:FindPathNodeAtScreenPoint(mouse.x, mouse.y)
     self.pathHoveredNodeKey = best and best.key or nil
 end
 
@@ -780,25 +775,7 @@ function LevelEditor:TryPickPathNode(screenX, screenY)
     if self.mode ~= "level" or not self.pathPickMode or not self.pathRuntime then
         return false
     end
-    local width = graphics:GetWidth()
-    local height = graphics:GetHeight()
-    local ray = self.camera:GetScreenRay(screenX / width, screenY / height)
-    local best = nil
-    local bestDistance = math.huge
-    for _, record in ipairs(self.pathRuntime:GetNodes()) do
-        if record.worldPoint then
-            local toPoint = record.worldPoint - ray.origin
-            local projection = toPoint:DotProduct(ray.direction)
-            if projection >= 0 then
-                local closest = ray.origin + ray.direction * projection
-                local distance = (record.worldPoint - closest):Length()
-                if distance < bestDistance and distance <= 0.35 then
-                    best = record
-                    bestDistance = distance
-                end
-            end
-        end
-    end
+    local best = self:FindPathNodeAtScreenPoint(screenX, screenY)
     if not best then
         self:RefreshLevelUI("没有命中路径节点，请点击节点球体或法向箭头")
         return false
