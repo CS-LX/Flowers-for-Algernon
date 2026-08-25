@@ -488,7 +488,7 @@ function PathRuntime:EvaluateCandidates()
     return true
 end
 
-function PathRuntime:AddDirectedEdge(adjacency, fromKey, toKey, candidateId)
+function PathRuntime:AddDirectedEdge(adjacency, fromKey, toKey, candidateId, kind)
     local neighbors = adjacency[fromKey]
     if not neighbors then
         neighbors = {}
@@ -497,6 +497,7 @@ function PathRuntime:AddDirectedEdge(adjacency, fromKey, toKey, candidateId)
     neighbors[#neighbors + 1] = {
         key = toKey,
         candidateId = candidateId,
+        kind = kind or "local_fixed",
     }
 end
 
@@ -527,12 +528,12 @@ function PathRuntime:BuildEffectiveGraph()
             local toKey = record.toKey
             if record.candidate.direction == "bidirectional"
                 or record.candidate.direction == "from_to" then
-                self:AddDirectedEdge(adjacency, fromKey, toKey, record.id)
+                self:AddDirectedEdge(adjacency, fromKey, toKey, record.id, "candidate")
                 edges[#edges + 1] = { id = record.id .. ":from_to", candidateId = record.id, from = fromKey, to = toKey }
             end
             if record.candidate.direction == "bidirectional"
                 or record.candidate.direction == "to_from" then
-                self:AddDirectedEdge(adjacency, toKey, fromKey, record.id)
+                self:AddDirectedEdge(adjacency, toKey, fromKey, record.id, "candidate")
                 edges[#edges + 1] = { id = record.id .. ":to_from", candidateId = record.id, from = toKey, to = fromKey }
             end
         end
@@ -562,7 +563,7 @@ end
 
 function PathRuntime:IsCandidateEdge(fromKey, toKey)
     for _, edge in ipairs(self.adjacency[fromKey] or {}) do
-        if edge.key == toKey and edge.candidateId ~= nil then
+        if edge.key == toKey and edge.kind == "candidate" then
             return true
         end
     end

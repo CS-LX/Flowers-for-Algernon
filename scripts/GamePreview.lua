@@ -26,11 +26,12 @@ local function CreateUnlitMaterial(color)
     return material
 end
 
-function GamePreview.New(levelDocument, edgeLength, voxelHeight)
+function GamePreview.New(levelDocument, edgeLength, voxelHeight, overlayViewManager)
     local self = setmetatable({}, GamePreview)
     self.levelDocument = levelDocument
     self.edgeLength = edgeLength
     self.voxelHeight = voxelHeight
+    self.overlayViewManager = overlayViewManager
     self.scene = nil
     self.cameraNode = nil
     self.camera = nil
@@ -179,8 +180,8 @@ function GamePreview:Start()
         return false, "出生点必须是有效的可走 PathNode"
     end
 
-    renderer:SetNumViewports(1)
-    renderer:SetViewport(0, self.viewport)
+    self.overlayViewManager:BindPreview(self.viewport)
+    self.overlayViewManager:SyncCamera(self.cameraNode, self.camera)
     self.player = PlayerController.New(self.pathRuntime, self.spawnNodeKey)
     local playerStarted, playerError = self.player:Start()
     if not playerStarted then
@@ -196,6 +197,7 @@ function GamePreview:Update(timeStep)
     self:HandlePointer()
     if self.player then
         self.player:Update(timeStep)
+        self.overlayViewManager:PresentPlayer(self.player)
     end
     self:UpdateFeedback(timeStep)
 end
@@ -204,6 +206,10 @@ function GamePreview:Stop()
     if self.player then
         self.player:Stop()
         self.player = nil
+    end
+    if self.overlayViewManager then
+        self.overlayViewManager:ClearPlayer()
+        self.overlayViewManager:BindEditor(self.overlayViewManager.mainViewport)
     end
     if self.feedbackNode then
         self.feedbackNode:Remove()

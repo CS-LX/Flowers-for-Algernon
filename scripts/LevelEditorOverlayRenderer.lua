@@ -88,33 +88,11 @@ local function BuildBoundsEdges()
     }
 end
 
-local function BuildOverlayRenderPath(mainViewport)
-    local path = mainViewport:GetRenderPath():Clone()
-    for index = 0, path:GetNumCommands() - 1 do
-        local command = path:GetCommand(index)
-        if index == 0 then
-            command.clearFlags = CLEAR_DEPTH
-            command.enabled = true
-        elseif command.type == CMD_SCENEPASS
-            or command.type == CMD_FORWARDLIGHTS
-            or command.type == CMD_LIGHTVOLUMES then
-            command.enabled = true
-        else
-            command.enabled = false
-        end
-        path:SetCommand(index, command)
-    end
-    return path
-end
-
-function OverlayRenderer.New(mainViewport, mainCameraNode, mainCamera)
+function OverlayRenderer.New(scene, cameraNode, camera)
     local self = setmetatable({}, OverlayRenderer)
-    self.scene = Scene()
-    self.scene:CreateComponent("Octree")
-    self.cameraNode = self.scene:CreateChild("LevelEditorOverlayCamera")
-    self.camera = self.cameraNode:CreateComponent("Camera")
-    self.mainCameraNode = mainCameraNode
-    self.mainCamera = mainCamera
+    self.scene = scene
+    self.cameraNode = cameraNode
+    self.camera = camera
     self.gizmoNode = self.scene:CreateChild("LevelEditorOverlayGizmos")
     self.pathNodeNode = self.scene:CreateChild("LevelEditorPathNodeGizmos")
     self.pathConnectionNode = self.scene:CreateChild("LevelEditorPathConnectionGizmos")
@@ -126,26 +104,12 @@ function OverlayRenderer.New(mainViewport, mainCameraNode, mainCamera)
     self.voxelGeometry = nil
     self.materials = nil
     self.enabled = true
-
-    self.cameraNode.position = mainCameraNode.worldPosition
-    self.cameraNode.rotation = mainCameraNode.worldRotation
-    self:SyncCamera()
-
-    local renderPath = BuildOverlayRenderPath(mainViewport)
-    self.viewport = Viewport:new(self.scene, self.camera, renderPath)
-    renderer:SetViewport(1, self.viewport)
-    renderer:SetNumViewports(2)
     return self
 end
 
-function OverlayRenderer:SyncCamera()
-    self.cameraNode.position = self.mainCameraNode.worldPosition
-    self.cameraNode.rotation = self.mainCameraNode.worldRotation
-    self.camera.orthographic = self.mainCamera.orthographic
-    self.camera.orthoSize = self.mainCamera.orthoSize
-    self.camera.fov = self.mainCamera.fov
-    self.camera.nearClip = self.mainCamera.nearClip
-    self.camera.farClip = self.mainCamera.farClip
+function OverlayRenderer:SyncCamera(cameraNode, camera)
+    self.cameraNode = cameraNode or self.cameraNode
+    self.camera = camera or self.camera
 end
 
 function OverlayRenderer:EnsureGizmoGeometry()
@@ -240,23 +204,8 @@ function OverlayRenderer:EnterVoxelMode()
 end
 
 function OverlayRenderer:BindCamera(cameraNode, camera)
-    self.mainCameraNode = cameraNode
-    self.mainCamera = camera
-    self:SyncCamera()
-end
-
-function OverlayRenderer:BindViewports(mainViewport)
-    renderer:SetViewport(0, mainViewport)
-    renderer:SetViewport(1, self.viewport)
-    renderer:SetNumViewports(2)
-end
-
-function OverlayRenderer:EnterPreviewMode(cameraNode, camera, mainViewport)
-    self:Clear()
-    self:BindCamera(cameraNode, camera)
-    self:BindViewports(mainViewport)
-    self.enabled = true
-    print("OverlayRenderer: entered preview overlay mode")
+    self.cameraNode = cameraNode or self.cameraNode
+    self.camera = camera or self.camera
 end
 
 function OverlayRenderer:BeginVoxelLines(index, material)
@@ -740,12 +689,7 @@ function OverlayRenderer:DrawSelection(root, minPoint, maxPoint, pivotPosition)
 end
 
 function OverlayRenderer:Stop()
-    renderer:SetNumViewports(1)
-    if self.scene then
-        self.scene:Clear(true, true)
-        self.scene = nil
-    end
-    self.viewport = nil
+    self.scene = nil
     self.gizmoGeometry = nil
     self.pathNodeGeometry = nil
     self.pathNodeMarkers = {}

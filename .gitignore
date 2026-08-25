@@ -37,7 +37,4 @@ templates/
 tools/
 urhox-libs/
 AGENTS.md
-# User-local uploads, screenshots and credentials
-_uploads/
-screenshots/
-secret/
+CLAUDE.md

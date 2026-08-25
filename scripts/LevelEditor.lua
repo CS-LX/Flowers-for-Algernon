@@ -9,6 +9,7 @@ local PartRootRenderer = require "PartRootRenderer"
 local LevelEditorUI = require "LevelEditorUI"
 local VoxelSandbox = require "VoxelSandbox"
 local OverlayRenderer = require "LevelEditorOverlayRenderer"
+local OverlayViewManager = require "OverlayViewManager"
 local GamePreview = require "GamePreview"
 local FixedGameCamera = require "FixedGameCamera"
 local PathRuntime = require "PathRuntime"
@@ -73,7 +74,12 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
     self.evaluationCameraNode, self.evaluationCamera =
         CreateFixedEvaluationCamera(scene, levelDocument)
     self.pathRuntime = PathRuntime.New(levelDocument, self.partRenderer.grid)
-    self.overlayRenderer = OverlayRenderer.New(mainViewport, cameraNode, camera)
+    self.overlayViewManager = OverlayViewManager.New(mainViewport, cameraNode, camera)
+    self.overlayRenderer = OverlayRenderer.New(
+        self.overlayViewManager:GetEditorScene(),
+        self.overlayViewManager:GetEditorCameraNode(),
+        self.overlayViewManager:GetEditorCamera()
+    )
     self.pathHoveredNodeKey = nil
     self.pathPickMode = nil
     self.pathPickedFromKey = nil
@@ -225,11 +231,16 @@ function LevelEditor:EnterLevelMode()
         self.partEditor:Stop()
         self.partEditor = nil
     end
+    self.overlayViewManager:BindEditor(self.mainViewport)
+    self.overlayViewManager:SyncCamera(self.cameraNode, self.camera)
     self.overlayRenderer:EnterLevelMode()
-    self.overlayRenderer:BindCamera(self.cameraNode, self.camera)
-    self.overlayRenderer:BindViewports(self.mainViewport)
+    self.overlayRenderer:BindCamera(
+        self.overlayViewManager:GetEditorCameraNode(),
+        self.overlayViewManager:GetEditorCamera()
+    )
     self.mode = "level"
     self:ApplyEditorCamera()
+    self.overlayViewManager:SyncCamera(self.cameraNode, self.camera)
     self.overlayRenderer:SyncCamera()
 
     local built, errorMessage = self.partRenderer:Rebuild(self.levelDocument)
@@ -1043,7 +1054,8 @@ function LevelEditor:StartGamePreview()
     local preview = GamePreview.New(
         self.levelDocument,
         self.edgeLength,
-        self.voxelHeight
+        self.voxelHeight,
+        self.overlayViewManager
     )
     local started, errorMessage = preview:Start()
     if not started then
@@ -1111,6 +1123,7 @@ function LevelEditor:Refresh(timeStep)
     timeStep = timeStep or 0.0
     if self.mode == "level" then
         self:HandleEditorCameraInput()
+        self.overlayViewManager:SyncCamera(self.cameraNode, self.camera)
         self.overlayRenderer:SyncCamera()
         if self.pathRuntime then
             self.pathRuntime:EvaluateCandidates()
@@ -1169,6 +1182,7 @@ function LevelEditor:Stop()
         self.evaluationCamera = nil
     end
     self.pathRuntime = nil
+    self.overlayViewManager:Stop()
     self.overlayRenderer:Stop()
 end
 
