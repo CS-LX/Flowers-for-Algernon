@@ -220,6 +220,77 @@ local function ProjectEdges(camera, edges)
     return result
 end
 
+local function IsPointInsideFace(point, faceVertices, normal, tolerance)
+    local hasPositive = false
+    local hasNegative = false
+    for index = 1, #faceVertices do
+        local nextIndex = index % #faceVertices + 1
+        local edge = faceVertices[nextIndex] - faceVertices[index]
+        local offset = point - faceVertices[index]
+        local side = edge:CrossProduct(offset):DotProduct(normal)
+        if side > tolerance then
+            hasPositive = true
+        elseif side < -tolerance then
+            hasNegative = true
+        end
+        if hasPositive and hasNegative then
+            return false
+        end
+    end
+    return true
+end
+
+local function GetWorldFace(record, grid, partRenderer)
+    local faces = grid:GetCellFaces(record.node.voxelCell)
+    local face = faces[record.node:GetFaceIndex()]
+    if not face then
+        return nil
+    end
+    local vertices = {}
+    for _, vertex in ipairs(face.vertices) do
+        vertices[#vertices + 1] = partRenderer:GetPartWorldPoint(record.partId, vertex)
+    end
+    local normal = partRenderer:GetPartWorldNormal(record.partId, face.normal):Normalized()
+    return vertices, normal
+end
+
+local function RayTriangle(rayOrigin, rayDirection, a, b, c)
+    local edgeA = b - a
+    local edgeB = c - a
+    local cross = rayDirection:CrossProduct(edgeB)
+    local determinant = edgeA:DotProduct(cross)
+    if math.abs(determinant) <= FACE_TOLERANCE then
+        return nil
+    end
+    local inverse = 1.0 / determinant
+    local offset = rayOrigin - a
+    local u = offset:DotProduct(cross) * inverse
+    if u < -FACE_TOLERANCE or u > 1.0 + FACE_TOLERANCE then
+        return nil
+    end
+    local crossOffset = offset:CrossProduct(edgeA)
+    local v = rayDirection:DotProduct(crossOffset) * inverse
+    if v < -FACE_TOLERANCE or u + v > 1.0 + FACE_TOLERANCE then
+        return nil
+    end
+    local distance = edgeB:DotProduct(crossOffset) * inverse
+    if distance < -FACE_TOLERANCE then
+        return nil
+    end
+    return math.max(0.0, distance)
+end
+
+local function RayFace(ray, vertices)
+    local nearest = RayTriangle(ray.origin, ray.direction, vertices[1], vertices[2], vertices[3])
+    if vertices[4] then
+        local second = RayTriangle(ray.origin, ray.direction, vertices[1], vertices[3], vertices[4])
+        if second and (not nearest or second < nearest) then
+            nearest = second
+        end
+    end
+    return nearest
+end
+
 local function FindPositiveOverlapPair(edgesA, edgesB, tolerance)
     for indexA, edgeA in ipairs(edgesA) do
         for indexB, edgeB in ipairs(edgesB) do
@@ -489,6 +560,15 @@ function PathRuntime:BuildEffectiveGraph()
     self.topologyVersion = self.topologyVersion + 1
 end
 
+function PathRuntime:IsCandidateEdge(fromKey, toKey)
+    for _, edge in ipairs(self.adjacency[fromKey] or {}) do
+        if edge.key == toKey and edge.candidateId ~= nil then
+            return true
+        end
+    end
+    return false
+end
+
 function PathRuntime:FindPath(startKey, goalKey)
     if not self.nodesByKey[startKey] or not self.nodesByKey[goalKey] then
         return nil, "node-not-found"
@@ -569,6 +649,31 @@ end
 
 function PathRuntime:GetNode(key)
     return self.nodesByKey[key]
+end
+
+function PathRuntime:FindNodeCandidatesAtRay(ray)
+    if not ray then
+        return {}
+    end
+    local candidates = {}
+    for _, record in pairs(self.nodesByKey) do
+        if record.node.walkable then
+            local vertices, normal = GetWorldFace(record, self.grid, self.partRenderer)
+            if vertices and normal and ray.direction:DotProduct(normal) < 0.0 then
+                local distance = RayFace(ray, vertices)
+                if distance then
+                    candidates[#candidates + 1] = {
+                        record = record,
+                        distance = distance,
+                    }
+                end
+            end
+        end
+    end
+    table.sort(candidates, function(left, right)
+        return left.distance < right.distance
+    end)
+    return candidates
 end
 
 function PathRuntime:GetNodes()

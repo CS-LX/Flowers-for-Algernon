@@ -226,9 +226,8 @@ function LevelEditor:EnterLevelMode()
         self.partEditor = nil
     end
     self.overlayRenderer:EnterLevelMode()
-    renderer:SetViewport(0, self.mainViewport)
-    renderer:SetViewport(1, self.overlayRenderer.viewport)
-    renderer:SetNumViewports(2)
+    self.overlayRenderer:BindCamera(self.cameraNode, self.camera)
+    self.overlayRenderer:BindViewports(self.mainViewport)
     self.mode = "level"
     self:ApplyEditorCamera()
     self.overlayRenderer:SyncCamera()
@@ -717,9 +716,14 @@ function LevelEditor:FindPathNodeAtScreenPoint(screenX, screenY, radius)
     if not self.pathRuntime then
         return nil
     end
-    local width = graphics:GetWidth()
-    local height = graphics:GetHeight()
+    local width = math.max(1, graphics:GetWidth())
+    local height = math.max(1, graphics:GetHeight())
     local ray = self.camera:GetScreenRay(screenX / width, screenY / height)
+    local candidates = self.pathRuntime:FindNodeCandidatesAtRay(ray)
+    if candidates[1] then
+        return candidates[1].record
+    end
+
     local best = nil
     local bestDistance = math.huge
     for _, record in ipairs(self.pathRuntime:GetNodes()) do
@@ -729,7 +733,7 @@ function LevelEditor:FindPathNodeAtScreenPoint(screenX, screenY, radius)
             if projection >= 0 then
                 local closest = ray.origin + ray.direction * projection
                 local distance = (record.worldPoint - closest):Length()
-                if distance < bestDistance and distance <= (radius or 0.35) then
+                if distance < bestDistance and distance <= (radius or 0.5) then
                     best = record
                     bestDistance = distance
                 end
@@ -750,16 +754,21 @@ function LevelEditor:UpdatePathNodeHover()
 end
 
 function LevelEditor:BeginPathPick(mode)
-    if mode ~= "from" and mode ~= "to" then
+    if mode ~= "from" and mode ~= "to" and mode ~= "spawn" then
         return false
     end
     self.pathPickMode = mode
-    self:RefreshLevelUI(mode == "from" and "请在场景中点击起点节点" or "请在场景中点击终点节点")
+    self.pathHoveredNodeKey = nil
+    local message = mode == "from" and "请点击场景中的 PathNode 作为起点"
+        or mode == "to" and "请点击场景中的 PathNode 作为终点"
+        or "请点击场景中的 PathNode 作为出生点"
+    self:RefreshLevelUI(message)
     return true
 end
 
 function LevelEditor:CancelPathPick()
     self.pathPickMode = nil
+    self.pathHoveredNodeKey = nil
     self:RefreshLevelUI("已取消路径节点拾取")
 end
 
@@ -777,20 +786,34 @@ function LevelEditor:TryPickPathNode(screenX, screenY)
     end
     local best = self:FindPathNodeAtScreenPoint(screenX, screenY)
     if not best then
-        self:RefreshLevelUI("没有命中路径节点，请点击节点球体或法向箭头")
+        self:RefreshLevelUI("没有命中 PathNode，请点击绿色节点球体或对应体素面")
         return false
     end
     if self.pathPickMode == "from" then
         self.pathPickedFromKey = best.key
         self.pathPickMode = nil
         self:RefreshLevelUI("已选择起点：" .. best.key)
-    else
+    elseif self.pathPickMode == "to" then
         self.pathPickedToKey = best.key
         self.pathPickMode = nil
         self:RefreshLevelUI("已选择终点：" .. best.key)
+    else
+        if not best.node.walkable then
+            self:RefreshLevelUI("出生点必须是可行走 PathNode")
+            return false
+        end
+        local changed, errorMessage = self.levelDocument:SetSpawnNodeKey(best.key)
+        if not changed then
+            self:RefreshLevelUI("设置出生点失败：" .. tostring(errorMessage))
+            return false
+        end
+        self.pathPickMode = nil
+        self.pathHoveredNodeKey = nil
+        self:RefreshLevelUI("已设置出生点：" .. best.key)
     end
     if self.ui then
         self.ui:RefreshPathCandidatePicker()
+        self.ui:RefreshSpawnPicker()
     end
     return true
 end
@@ -807,6 +830,41 @@ function LevelEditor:GetPathNodeOptions()
         }
     end
     return options
+end
+
+function LevelEditor:GetSpawnNodeKey()
+    return self.levelDocument:GetSpawnNodeKey()
+end
+
+function LevelEditor:SetSpawnNodeFromUI(nodeKey)
+    if nodeKey == nil or nodeKey == "" then
+        return self:ClearSpawnNode()
+    end
+    if not self.pathRuntime or not self.pathRuntime:GetNode(nodeKey) then
+        self:RefreshLevelUI("出生点必须是有效的可走 PathNode")
+        return false
+    end
+    local changed, errorMessage = self.levelDocument:SetSpawnNodeKey(nodeKey)
+    if not changed then
+        self:RefreshLevelUI("设置出生点失败：" .. tostring(errorMessage))
+        return false
+    end
+    self:RefreshLevelUI("已设置出生点：" .. nodeKey)
+    return true
+end
+
+function LevelEditor:ClearSpawnNode()
+    if not self.levelDocument:GetSpawnNodeKey() then
+        return true
+    end
+    self.levelDocument:SetSpawnNodeKey(nil)
+    self.pathPickMode = nil
+    self.pathHoveredNodeKey = nil
+    if self.ui then
+        self.ui:RefreshSpawnPicker()
+    end
+    self:RefreshLevelUI("已清空出生点")
+    return true
 end
 
 function LevelEditor:GetPathCandidateOptions()
@@ -885,7 +943,18 @@ function LevelEditor:RefreshPathRuntime()
     if not self.pathRuntime then
         return false, "PathRuntime is not available"
     end
-    return self.pathRuntime:Rebuild()
+    local rebuilt, errorMessage = self.pathRuntime:Rebuild()
+    if not rebuilt then
+        return false, errorMessage
+    end
+    local spawnNodeKey = self.levelDocument:GetSpawnNodeKey()
+    if spawnNodeKey and not self.pathRuntime:GetNode(spawnNodeKey) then
+        self.levelDocument:ClearSpawnNodeIf(spawnNodeKey)
+        if self.ui then
+            self.ui:SetStatus("出生点节点已失效，已自动清空，请重新配置")
+        end
+    end
+    return true
 end
 
 function LevelEditor:RefreshPathRuntimeAfterPartEdit()
@@ -966,7 +1035,16 @@ function LevelEditor:StartGamePreview()
     if self.mode ~= "level" then
         return false
     end
-    local preview = GamePreview.New(self.levelDocument, self.edgeLength, self.voxelHeight)
+    local spawnNodeKey = self.levelDocument:GetSpawnNodeKey()
+    if not spawnNodeKey or not self.pathRuntime:GetNode(spawnNodeKey) then
+        self:RefreshLevelUI("无法启动 Preview：必须先配置有效的出生点")
+        return false
+    end
+    local preview = GamePreview.New(
+        self.levelDocument,
+        self.edgeLength,
+        self.voxelHeight
+    )
     local started, errorMessage = preview:Start()
     if not started then
         self:RefreshLevelUI("无法启动 Preview：" .. tostring(errorMessage))
@@ -977,8 +1055,9 @@ function LevelEditor:StartGamePreview()
         self.ui = nil
     end
     self.partRenderer:Clear()
-    self.overlayRenderer:Clear()
-    renderer:SetNumViewports(1)
+    self.overlayRenderer:ClearTransformGizmo()
+    self.overlayRenderer:ClearPathNodeGizmos()
+    self.overlayRenderer:ClearVoxelGizmos()
     self.gamePreview = preview
     self.mode = "preview"
     print("Level Editor: entered game preview")
@@ -1028,7 +1107,8 @@ function LevelEditor:RotateSelectedPart(deltaSteps)
     return true
 end
 
-function LevelEditor:Refresh()
+function LevelEditor:Refresh(timeStep)
+    timeStep = timeStep or 0.0
     if self.mode == "level" then
         self:HandleEditorCameraInput()
         self.overlayRenderer:SyncCamera()
@@ -1063,6 +1143,8 @@ function LevelEditor:Refresh()
     elseif self.mode == "preview" then
         if input:GetKeyPress(KEY_ESCAPE) then
             self:StopGamePreview()
+        elseif self.gamePreview then
+            self.gamePreview:Update(timeStep)
         end
     end
 end

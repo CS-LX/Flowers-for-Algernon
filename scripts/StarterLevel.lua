@@ -168,6 +168,13 @@ function StarterLevel.LoadOrCreate(grid)
         return nil, candidateError
     end
 
+    local spawnSet, spawnError = level:SetSpawnNodeKey(
+        baseSession.id .. ":static_base_top_0"
+    )
+    if not spawnSet then
+        return nil, spawnError
+    end
+
     local saved, saveError = level:Save()
     if not saved then
         return nil, saveError

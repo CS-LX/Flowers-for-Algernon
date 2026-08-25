@@ -57,6 +57,7 @@ function LevelDocument.New(path)
     self.partOrder = {}
     self.pathCandidates = {}
     self.pathCandidateOrder = {}
+    self.spawnNodeKey = nil
     self.dirty = false
     return self
 end
@@ -181,6 +182,41 @@ function LevelDocument:GetPathCandidatesByPart(partId)
     return result
 end
 
+function LevelDocument:GetSpawnNodeKey()
+    return self.spawnNodeKey
+end
+
+function LevelDocument:SetSpawnNodeKey(nodeKey)
+    if nodeKey ~= nil and (type(nodeKey) ~= "string" or nodeKey == "") then
+        return false, "出生点必须是有效的 PathNode key"
+    end
+    self.spawnNodeKey = nodeKey
+    self.dirty = true
+    return true
+end
+
+function LevelDocument:ClearSpawnNodeForPart(partId)
+    if type(self.spawnNodeKey) ~= "string" then
+        return false
+    end
+    local prefix = tostring(partId) .. ":"
+    if self.spawnNodeKey:sub(1, #prefix) ~= prefix then
+        return false
+    end
+    self.spawnNodeKey = nil
+    self.dirty = true
+    return true
+end
+
+function LevelDocument:ClearSpawnNodeIf(nodeKey)
+    if self.spawnNodeKey ~= nodeKey then
+        return false
+    end
+    self.spawnNodeKey = nil
+    self.dirty = true
+    return true
+end
+
 function LevelDocument:SetParent(childId, parentId)
     local child = self.parts[childId]
     if not child then
@@ -244,6 +280,7 @@ function LevelDocument:RemovePart(id)
         return false, "Part does not exist: " .. tostring(id)
     end
     self:RemovePathCandidatesForPart(id)
+    self:ClearSpawnNodeForPart(id)
     self.parts[id] = nil
     for index, partId in ipairs(self.partOrder) do
         if partId == id then
@@ -271,6 +308,7 @@ function LevelDocument:ToTable()
         name = self.name,
         fixedCamera = CopyCamera(self.fixedCamera),
         parts = parts,
+        ["出生点"] = self.spawnNodeKey,
     }
     if #self.pathCandidateOrder > 0 then
         local candidates = {}
@@ -299,6 +337,8 @@ function LevelDocument:LoadTable(data)
     self.partOrder = {}
     self.pathCandidates = {}
     self.pathCandidateOrder = {}
+    self.spawnNodeKey = type(data["出生点"]) == "string" and data["出生点"]
+        or (type(data.spawnNodeKey) == "string" and data.spawnNodeKey or nil)
 
     for _, item in ipairs(data.parts) do
         local part, errorMessage = PartDefinition.FromTable(item)

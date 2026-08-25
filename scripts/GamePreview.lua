@@ -1,8 +1,10 @@
 -- 固定游戏镜头下的只读关卡 Preview。
--- 从 LevelDocument 重建独立 Part 显示层级，不改写 Editor、PartDefinition 或局部体素数据。
+-- Preview 只持有关卡场景、PathRuntime 和角色逻辑；Overlay Viewport 由 LevelEditor 统一持有。
 
 local PartRootRenderer = require "PartRootRenderer"
 local FixedGameCamera = require "FixedGameCamera"
+local PathRuntime = require "PathRuntime"
+local PlayerController = require "PlayerController"
 
 local GamePreview = {}
 GamePreview.__index = GamePreview
@@ -17,6 +19,13 @@ local function CreatePreviewMaterial(color, metallic, roughness)
     return material
 end
 
+local function CreateUnlitMaterial(color)
+    local material = Material:new()
+    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml"))
+    material:SetShaderParameter("MatDiffColor", Variant(color))
+    return material
+end
+
 function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     local self = setmetatable({}, GamePreview)
     self.levelDocument = levelDocument
@@ -27,6 +36,13 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.camera = nil
     self.viewport = nil
     self.partRenderer = nil
+    self.pathRuntime = nil
+    self.player = nil
+    self.spawnNodeKey = nil
+    self.feedbackNode = nil
+    self.feedbackElapsed = 0.0
+    self.feedbackDuration = 0.55
+    self.feedbackOriginScale = 0.12
     return self
 end
 
@@ -46,31 +62,153 @@ function GamePreview:CreateScene()
     floorModel.castShadows = false
 end
 
-function GamePreview:CreateCamera()
+function GamePreview:CreateFeedback(record, reachable)
+    if self.feedbackNode then
+        self.feedbackNode:Remove()
+        self.feedbackNode = nil
+    end
+    local node = self.scene:CreateChild("PathClickFeedback")
+    local worldPoint = Vector3(
+        record.worldPoint.x,
+        record.worldPoint.y,
+        record.worldPoint.z
+    )
+    local normal = record.worldNormal
+        and Vector3(record.worldNormal.x, record.worldNormal.y, record.worldNormal.z)
+        or Vector3.UP
+    node.position = worldPoint + normal * 0.025
+    node.rotation = Quaternion(Vector3.UP, normal)
+    node.scale = Vector3(self.feedbackOriginScale, self.feedbackOriginScale, self.feedbackOriginScale)
+
+    local ring = node:CreateComponent("StaticModel")
+    ring.model = TorusGeometry(0.55, 0.055, 24, 8):ToModel()
+    ring.material = CreateUnlitMaterial(
+        reachable and Color(0.25, 1.0, 0.58, 1.0) or Color(1.0, 0.28, 0.24, 1.0)
+    )
+    self.feedbackNode = node
+    self.feedbackElapsed = 0.0
+end
+
+function GamePreview:UpdateFeedback(timeStep)
+    if not self.feedbackNode then
+        return
+    end
+    self.feedbackElapsed = self.feedbackElapsed + timeStep
+    local progress = math.min(1.0, self.feedbackElapsed / self.feedbackDuration)
+    local scale = self.feedbackOriginScale * (1.0 + progress * 2.4)
+    self.feedbackNode.scale = Vector3(scale, scale, scale)
+    self.feedbackNode.enabled = progress < 1.0
+    if progress >= 1.0 then
+        self.feedbackNode:Remove()
+        self.feedbackNode = nil
+    end
+end
+
+function GamePreview:FindClickedNode()
+    local mouse = input:GetMousePosition()
+    local width = math.max(1, graphics:GetWidth())
+    local height = math.max(1, graphics:GetHeight())
+    local ray = self.camera:GetScreenRay(mouse.x / width, mouse.y / height)
+    local candidates = self.pathRuntime:FindNodeCandidatesAtRay(ray)
+    return candidates[1] and candidates[1].record or nil
+end
+
+function GamePreview:HandlePointer()
+    if not input:GetMouseButtonPress(MOUSEB_LEFT) or not self.player then
+        return
+    end
+    if self.player:IsWalking() then
+        return
+    end
+    local target = self:FindClickedNode()
+    if not target then
+        return
+    end
+    local path, errorMessage = self.pathRuntime:FindPath(
+        self.player:GetCurrentNodeKey(),
+        target.key
+    )
+    local reachable = path ~= nil
+    self:CreateFeedback(target, reachable)
+    if not reachable then
+        print("Game Preview: target unreachable " .. target.key .. " (" .. tostring(errorMessage) .. ")")
+        return
+    end
+    local moved, moveError = self.player:MoveTo(path, target.key)
+    if not moved then
+        print("Game Preview: player move rejected: " .. tostring(moveError))
+        return
+    end
+    print("Game Preview: BFS path " .. table.concat(path, " -> "))
+end
+
+function GamePreview:Start()
+    self.spawnNodeKey = self.levelDocument:GetSpawnNodeKey()
+    if not self.spawnNodeKey or self.spawnNodeKey == "" then
+        return false, "必须先配置有效的出生点"
+    end
+    self:CreateScene()
     self.cameraNode, self.camera = FixedGameCamera.Create(
         self.scene,
         "FixedPreviewCamera",
         self.levelDocument.fixedCamera
     )
     self.viewport = Viewport:new(self.scene, self.camera)
-end
-
-function GamePreview:Start()
-    self:CreateScene()
-    self:CreateCamera()
     self.partRenderer = PartRootRenderer.New(self.scene, self.edgeLength, self.voxelHeight)
     local built, errorMessage = self.partRenderer:Rebuild(self.levelDocument)
     if not built then
         self:Stop()
         return false, errorMessage
     end
+
+    self.pathRuntime = PathRuntime.New(self.levelDocument, self.partRenderer.grid)
+    self.pathRuntime:ConfigureEvaluation(
+        self.partRenderer,
+        self.cameraNode,
+        self.camera,
+        {}
+    )
+    local rebuilt, rebuildError = self.pathRuntime:Rebuild()
+    if not rebuilt then
+        self:Stop()
+        return false, rebuildError
+    end
+    local spawn = self.pathRuntime:GetNode(self.spawnNodeKey)
+    if not spawn or not spawn.node.walkable or not spawn.worldPoint then
+        self:Stop()
+        return false, "出生点必须是有效的可走 PathNode"
+    end
+
     renderer:SetNumViewports(1)
     renderer:SetViewport(0, self.viewport)
-    print("Game Preview: started with fixed orthographic camera")
+    self.player = PlayerController.New(self.pathRuntime, self.spawnNodeKey)
+    local playerStarted, playerError = self.player:Start()
+    if not playerStarted then
+        self:Stop()
+        return false, playerError
+    end
+
+    print("Game Preview: started with player model only")
     return true
 end
 
+function GamePreview:Update(timeStep)
+    self:HandlePointer()
+    if self.player then
+        self.player:Update(timeStep)
+    end
+    self:UpdateFeedback(timeStep)
+end
+
 function GamePreview:Stop()
+    if self.player then
+        self.player:Stop()
+        self.player = nil
+    end
+    if self.feedbackNode then
+        self.feedbackNode:Remove()
+        self.feedbackNode = nil
+    end
     if self.partRenderer then
         self.partRenderer:Clear()
         self.partRenderer = nil
@@ -79,6 +217,7 @@ function GamePreview:Stop()
         self.scene:Clear(true, true)
         self.scene = nil
     end
+    self.pathRuntime = nil
     self.cameraNode = nil
     self.camera = nil
     self.viewport = nil

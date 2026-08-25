@@ -78,6 +78,7 @@ function LevelEditorUI.New(editor)
     self.pathNodeDropdown = nil
     self.pathCandidateStatusLabel = nil
     self.selectedPathCandidateId = nil
+    self.spawnNodeDropdown = nil
     return self
 end
 
@@ -155,6 +156,26 @@ function LevelEditorUI:Build()
         height = 27, fontSize = 10, variant = "secondary",
         onClick = function() editor:CancelPathPick() end,
     }
+    self.pathCandidateClearFromButton = UI.Button {
+        text = "清除起点",
+        height = 27, fontSize = 10, variant = "secondary",
+        onClick = function()
+            editor.pathPickedFromKey = nil
+            editor.pathPickMode = nil
+            self:RefreshPathCandidatePicker()
+            editor:RefreshLevelUI("已清除候选连接起点")
+        end,
+    }
+    self.pathCandidateClearToButton = UI.Button {
+        text = "清除终点",
+        height = 27, fontSize = 10, variant = "secondary",
+        onClick = function()
+            editor.pathPickedToKey = nil
+            editor.pathPickMode = nil
+            self:RefreshPathCandidatePicker()
+            editor:RefreshLevelUI("已清除候选连接终点")
+        end,
+    }
     self.pathCandidateFromDropdown = UI.Dropdown {
         options = {}, value = "", placeholder = "起点节点", height = 26, fontSize = 10,
     }
@@ -220,6 +241,18 @@ function LevelEditorUI:Build()
         options = {}, value = "", placeholder = "已有候选", height = 26, fontSize = 10,
     }
     self.pathCandidateStatusLabel = UI.Label { text = "仅通过 UI 配置，不需编辑 JSON", fontSize = 9, fontColor = MUTED, whiteSpace = "normal" }
+    self.spawnNodeDropdown = UI.Dropdown {
+        options = {}, value = "", placeholder = "选择出生 PathNode", height = 26, fontSize = 10,
+        onChange = function(_, value) editor:SetSpawnNodeFromUI(value) end,
+    }
+    self.spawnClearButton = UI.Button {
+        text = "清空出生点", height = 26, fontSize = 10, variant = "secondary",
+        onClick = function() editor:ClearSpawnNode() end,
+    }
+    self.spawnPickButton = UI.Button {
+        text = "拾取出生点", height = 26, fontSize = 10, variant = "primary",
+        onClick = function() editor:BeginPathPick("spawn") end,
+    }
 
     self.tree = UI.Tree {
         nodes = {},
@@ -515,6 +548,10 @@ function LevelEditorUI:Build()
                                 self.pathCandidateCancelPickButton,
                             } },
                             UI.Panel { flexDirection = "row", gap = 4, children = {
+                                self.pathCandidateClearFromButton,
+                                self.pathCandidateClearToButton,
+                            } },
+                            UI.Panel { flexDirection = "row", gap = 4, children = {
                                 UI.Panel { flexGrow = 1, flexShrink = 1, children = { self.pathCandidateFromDropdown } },
                                 UI.Panel { flexGrow = 1, flexShrink = 1, children = { self.pathCandidateToDropdown } },
                             } },
@@ -526,6 +563,20 @@ function LevelEditorUI:Build()
                             self.pathCandidateDropdown,
                             self.pathCandidateRemoveButton,
                             self.pathCandidateStatusLabel,
+                        },
+                    },
+                    InspectorComponentHeader("⌂", "Preview Spawn"),
+                    UI.Panel {
+                        padding = 8,
+                        gap = 4,
+                        borderBottomWidth = 1,
+                        borderBottomColor = BORDER,
+                        children = {
+                            UI.Label { text = "出生点是 Preview 的必选项；删除对应节点后会自动清空。", fontSize = 9, fontColor = MUTED, whiteSpace = "normal" },
+                            UI.Panel { flexDirection = "row", gap = 4, children = {
+                                self.spawnPickButton,
+                                self.spawnClearButton,
+                            } },
                         },
                     },
                     InspectorComponentHeader("◉", "Editor Preview Camera"),
@@ -601,11 +652,16 @@ function LevelEditorUI:Refresh()
         }
     end
     self.pathCandidateList:SetItems(candidateItems)
+    local hasPart = self.editor:GetSelectedPart() ~= nil
     self.pathCandidateFromDropdown:SetOptions(self.editor:GetPathNodeOptions())
     self.pathCandidateToDropdown:SetOptions(self.editor:GetPathNodeOptions())
     self.pathCandidateFromDropdown:SetValue(self.editor.pathPickedFromKey or "")
     self.pathCandidateToDropdown:SetValue(self.editor.pathPickedToKey or "")
     self.pathCandidateDropdown:SetOptions(self.editor:GetPathCandidateOptions())
+    self.spawnPickButton:SetDisabled(not hasPart)
+    self.spawnClearButton:SetDisabled(not hasPart)
+    self.spawnNodeDropdown:SetOptions(self.editor:GetPathNodeOptions())
+    self.spawnNodeDropdown.props.value = self.editor:GetSpawnNodeKey() or ""
 
     local part = self.editor:GetSelectedPart()
     if not part then
@@ -641,6 +697,8 @@ function LevelEditorUI:Refresh()
         self.pathCandidateFromPickButton:SetDisabled(true)
         self.pathCandidateToPickButton:SetDisabled(true)
         self.pathCandidateCancelPickButton:SetDisabled(true)
+        self.spawnPickButton:SetDisabled(true)
+        self.spawnClearButton:SetDisabled(true)
         self.previewButton:SetDisabled(true)
         self.saveButton:SetDisabled(true)
         self.duplicateButton:SetDisabled(true)
@@ -723,6 +781,11 @@ function LevelEditorUI:Refresh()
     self.saveButton:SetDisabled(false)
     self.duplicateButton:SetDisabled(false)
     self.deleteButton:SetDisabled(false)
+end
+
+function LevelEditorUI:RefreshSpawnPicker()
+    self.spawnNodeDropdown:SetOptions(self.editor:GetPathNodeOptions())
+    self.spawnNodeDropdown.props.value = self.editor:GetSpawnNodeKey() or ""
 end
 
 function LevelEditorUI:RefreshPathCandidatePicker()

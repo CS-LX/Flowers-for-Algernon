@@ -81,7 +81,7 @@ end
 ---@param eventData UpdateEventData
 function HandleUpdate(eventType, eventData)
     if levelEditor_ then
-        levelEditor_:Refresh()
+        levelEditor_:Refresh(eventData["TimeStep"]:GetFloat())
     end
 end
 
