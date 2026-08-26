@@ -1,5 +1,9 @@
 # OverlayViewManager 正式执行方案
 
+## 落地状态
+
+职责分离已闭环：`OverlayViewManager` 拥有 Overlay Viewport；`PlayerController` 不持有 Drawable；编辑器 Gizmo 仍走 Editor Overlay。角色置顶不再切 Preview Overlay 相机，改为主场景 `depth_test_disabled` Surface Shader + `SetRenderOrder(255)`，避免 Clone RenderPath 丢失 Tonemap。下文若仍写“玩家进入 Overlay Viewport”，以本节为准。
+
 ## 目标
 
 建立唯一的 Overlay View 所有者，彻底隔离编辑器辅助 Overlay、Preview 玩家 Overlay 与角色逻辑 Model，避免多个模块抢占 Viewport、重复创建玩家 Drawable、重复绘制角色和光照链路不一致。
@@ -57,12 +61,11 @@ Viewport 1: PreviewOverlayViewport
 
 Preview Overlay 与 Editor Overlay 必须是两个独立的 Overlay Layer，但由同一个 `OverlayViewManager` 统一创建、绑定、切换和清理。业务模块不得各自创建 Viewport。
 
-`PreviewOverlayViewport` 的第一版用途是承载玩家 Topmost View，玩家暂用纯色非光照材质：
+`PreviewOverlayViewport` 继续服务 Preview 辅助 Overlay。玩家角色始终留在主场景：
 
-- Overlay RenderPath 不清颜色，只按设计清理深度。
-- 玩家材质使用 `Techniques/NoTextureUnlit.xml`。
-- 普通路径的玩家使用相同纯色材质和正常深度状态。
-- 候选路径的玩家使用相同纯色材质，但采用 Topmost 深度状态。
+- 普通路径：`PlayerSolid.shader`，正常深度。
+- 候选路径置顶：`PlayerSolidTopmost.shader`（`depth_test_disabled` + `depth_draw_never`）和 `SetRenderOrder(255)`。
+- 颜色继续走主相机后处理，不因置顶切换 Overlay 相机。
 
 ## PlayerModel 接口
 
@@ -130,23 +133,19 @@ OverlayViewManager:Stop()
 ### normal -> topmost
 
 ```text
-1. 从 PlayerModel 读取 position / rotation。
-2. OverlayViewManager 销毁 MainPreviewScene 中的 PlayerView。
-3. 确认 MainPreviewScene 不再持有玩家 Drawable。
-4. 在 PreviewOverlayScene 创建唯一 PlayerView。
-5. 应用 position / rotation。
-6. 使用纯色 Topmost 材质和深度状态。
+1. 从 PlayerController 读取 position / rotation。
+2. 销毁当前 PlayerView。
+3. 在 MainPreviewScene 重建唯一 PlayerView。
+4. 绑定 PlayerSolidTopmost.shader，SetRenderOrder(255)。
 ```
 
 ### topmost -> normal
 
 ```text
-1. 从 PlayerModel 读取 position / rotation。
-2. OverlayViewManager 销毁 PreviewOverlayScene 中的 PlayerView。
-3. 确认 PreviewOverlayScene 不再持有玩家 Drawable。
-4. 在 MainPreviewScene 创建唯一 PlayerView。
-5. 应用 position / rotation。
-6. 使用纯色正常深度材质和深度状态。
+1. 从 PlayerController 读取 position / rotation。
+2. 销毁当前 PlayerView。
+3. 在 MainPreviewScene 重建唯一 PlayerView。
+4. 绑定普通 PlayerSolid.shader，恢复默认 RenderOrder。
 ```
 
 不使用“两个角色同时存在再切换 `enabled`”作为唯一性保证。`enabled` 只能作为额外显示状态，不能替代 View 生命周期清理。
@@ -285,6 +284,6 @@ GamePreview 不直接操作 Overlay Viewport。
 正常路径最多一个玩家 Drawable。
 候选路径最多一个玩家 Drawable。
 正常路径允许体素遮挡玩家。
-候选路径玩家位于 PreviewOverlayViewport 并高于体素绘制。
-玩家普通和 Topmost 状态都使用纯色非光照材质。
+候选路径玩家仍在主场景，使用 depth_test_disabled 画在体素之上。
+玩家普通和 Topmost 状态都使用纯色 Surface Shader，颜色走主相机后处理。
 ```

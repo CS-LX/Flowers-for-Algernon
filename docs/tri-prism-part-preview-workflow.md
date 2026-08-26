@@ -1,5 +1,10 @@
 # 三棱柱体素关卡 Part 与预览工作流
 
+## 落地状态
+
+工作流已闭环。Level Object Tree、Part 局部编辑、Editor Camera 与 Game Preview 固定相机分离、Preview 旋转塔拖动-Snap、点击/拖动手势分流、角色跟随可动 Part，均已按本文实现。Mesh Bake 仍未做，不影响当前白盒工作流。
+
+
 ## 目标
 
 在保持三棱柱体素编辑精度与六边形错视基准的前提下，建立类似 Unity 的关卡物体树工作流：
@@ -96,23 +101,20 @@ Game Preview 的旋转塔遵循纪念碑谷式拖动-Snap，不复用编辑器�
 ### 视觉连接与逻辑连接分离
 
 ```text
-视觉重合 != 自动可通行
+视觉重合 \!= 自动可通行
 ```
 
-即使两个 Part 在固定镜头下视觉对齐，角色是否可以通过，仍由关卡逻辑图显式决定。
+两个 Part 在固定镜头下看起来对齐，只是视觉评估输入。角色是否可通过，由当前有效 Path Graph 决定：
 
 ```text
-Mechanism State
-  -> Conditional Logic Edge
-  -> Walkability
+关卡配置的跨 Part 候选
+  + 机关合法 Snap 状态
+  + 固定游戏相机下投影面边正长度重合
+  -> CurrentEffectiveGraph
+  -> 寻路
 ```
 
-例如：
-
-```text
-RotatorTower.state == 2
-  -> Edge(stair_1, bridge_3) enabled
-```
+设计者配置候选范围，不手写每个 Snap 状态的错视边。显式条件边只作固定连接、白盒兜底或设计者覆盖。
 
 ## Part 是编辑与运行时边界
 

@@ -1,5 +1,10 @@
 # 三棱柱体素面邻接语义规范
 
+## 落地状态
+
+已闭环。同一 Part 内的 `local_fixed` 边由 `PathRuntime` 按本规范生成：同向法线、共面、正长度边重合、`walkable`。不再使用节点距离启发式。跨 Part 错视连接不走本规范，见 `docs/cross-part-face-visual-adjacency-spec.md`。
+
+
 ## 目的
 
 规定三棱柱体素之间何时可以形成**局部固定路径连接**。本规范只定义离散 Cell/Face 邻接和通行语义，不定义跨 Part 错视连接。
