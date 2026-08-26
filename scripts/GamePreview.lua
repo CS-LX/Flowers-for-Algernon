@@ -188,7 +188,7 @@ function GamePreview:Start()
 
     self.overlayViewManager:BindPreview(self.viewport)
     self.overlayViewManager:SyncCamera(self.cameraNode, self.camera)
-    self.player = PlayerController.New(self.pathRuntime, self.spawnNodeKey)
+    self.player = PlayerController.New(self.pathRuntime, self.spawnNodeKey, self.camera)
     local playerStarted, playerError = self.player:Start()
     if not playerStarted then
         self:Stop()

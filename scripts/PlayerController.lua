@@ -11,10 +11,11 @@ local function CopyVector(vector)
     return Vector3(vector.x, vector.y, vector.z)
 end
 
-function PlayerController.New(pathRuntime, spawnNodeKey)
+function PlayerController.New(pathRuntime, spawnNodeKey, camera)
     local self = setmetatable({}, PlayerController)
     self.pathRuntime = pathRuntime
     self.spawnNodeKey = spawnNodeKey
+    self.camera = camera
     self.position = Vector3.ZERO
     self.rotation = Quaternion()
     self.path = nil
@@ -144,6 +145,35 @@ function PlayerController:MoveTo(path, targetKey)
     return true
 end
 
+local function ViewPlaneDistance(camera, fromPoint, toPoint)
+    if not camera then
+        return (toPoint - fromPoint):Length()
+    end
+    local view = camera.view
+    if not view then
+        return (toPoint - fromPoint):Length()
+    end
+    local fromView = view * fromPoint
+    local toView = view * toPoint
+    local dx = toView.x - fromView.x
+    local dy = toView.y - fromView.y
+    return math.sqrt(dx * dx + dy * dy)
+end
+
+function PlayerController:GetStepDistance(fromPoint, toPoint, worldDistance, timeStep)
+    local worldStep = self.speed * timeStep
+    if not self.currentEdgeIsCandidate or not self.camera or worldDistance <= 0.0001 then
+        return math.min(worldDistance, worldStep)
+    end
+    -- 候选边按视平面长度映射速度：屏幕速度对齐普通边，世界步长随深度边拉长。
+    local viewDistance = ViewPlaneDistance(self.camera, fromPoint, toPoint)
+    if viewDistance <= 0.0001 then
+        return math.min(worldDistance, worldStep)
+    end
+    local viewStep = worldStep * (worldDistance / viewDistance)
+    return math.min(worldDistance, viewStep)
+end
+
 function PlayerController:Update(timeStep)
     if not self.walking or not self.path then
         return
@@ -178,7 +208,7 @@ function PlayerController:Update(timeStep)
         return
     end
 
-    local step = math.min(distance, self.speed * timeStep)
+    local step = self:GetStepDistance(self.position, target.worldPoint, distance, timeStep)
     local direction = delta / distance
     self.position = self.position + direction * step
     local normal = target.worldNormal and CopyVector(target.worldNormal) or Vector3.UP
