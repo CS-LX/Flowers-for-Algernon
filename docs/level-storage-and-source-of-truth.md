@@ -164,3 +164,23 @@ LevelDocument.ToTable()
 - 复制目标是引擎 `ui.useSystemClipboard = true` 后的系统剪切板；
 - 禁止写入 `VoxelSandbox.clipboard`，那是项目内体素复制缓冲；
 - 导出失败时不得假装已经复制成功。
+
+导入是同一条用户通道的反向操作，但不能依赖 `ui:GetClipboardText()` 读取浏览器系统剪切板。WASM 下该 API 读到的是引擎内部剪贴板，导出能写出去，导入会读空。
+
+```text
+用户在导入弹窗中 Ctrl+V
+  -> TextField 接收系统粘贴
+  -> 内联 JSON
+  -> 校验 Level + 每个 Part.localVoxelDocument
+  -> 写入 Runtime 的 levels/*.json 与 parts/*.json
+  -> 刷新当前编辑器
+```
+
+规则：
+
+- 导出仍写用户系统剪切板；
+- 导入必须经过输入框粘贴，不调用 `GetClipboardText()`；
+- 不读取 `VoxelSandbox.clipboard`；
+- 必须是带 `localVoxelDocument` 的单文件关卡；
+- 先在临时文档上校验，成功后再覆盖当前关卡；
+- 导入后 Runtime 存档仍保持拆分。

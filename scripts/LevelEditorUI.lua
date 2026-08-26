@@ -422,6 +422,55 @@ function LevelEditorUI:Build()
             editor:ExportInlineLevelToUserClipboard()
         end,
     }
+    self.importButton = UI.Button {
+        text = "从用户剪切板导入 JSON",
+        height = 30,
+        fontSize = 11,
+        variant = "secondary",
+        onClick = function()
+            local jsonField = UI.TextField {
+                placeholder = "在此 Ctrl+V 粘贴导出的关卡 JSON",
+                height = 92,
+                fontSize = 11,
+            }
+            local modal = UI.Modal {
+                title = "导入关卡 JSON",
+                size = "lg",
+                closeOnOverlay = false,
+            }
+            modal:AddContent(UI.Label {
+                text = "WASM 不能直接读取用户系统剪切板。请把导出的 JSON 粘贴到下面，再导入。未导出的当前关卡会被替换。",
+                fontSize = 11,
+                fontColor = MUTED,
+                whiteSpace = "normal",
+            })
+            modal:AddContent(jsonField)
+            local footer = UI.Panel {
+                flexDirection = "row",
+                justifyContent = "flex-end",
+                gap = 10,
+                width = "100%",
+            }
+            footer:AddChild(UI.Button {
+                text = "取消",
+                variant = "secondary",
+                onClick = function()
+                    modal:Close()
+                end,
+            })
+            footer:AddChild(UI.Button {
+                text = "导入",
+                variant = "primary",
+                onClick = function()
+                    local json = jsonField:GetValue()
+                    modal:Close()
+                    editor:ImportInlineLevelJson(json)
+                end,
+            })
+            modal:SetFooter(footer)
+            modal:Open()
+        end,
+    }
 
     self.root = UI.Panel {
         width = "100%",
@@ -618,6 +667,7 @@ function LevelEditorUI:Build()
                             self.previewButton,
                             self.saveButton,
                             self.exportButton,
+                            self.importButton,
                         },
                     },
                 },

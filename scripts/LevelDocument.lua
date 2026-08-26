@@ -358,6 +358,98 @@ function LevelDocument:ExportInlineJson(grid)
     return EncodeLevelJson(data)
 end
 
+local function DecodeLevelJson(json)
+    if type(json) ~= "string" or json == "" then
+        return nil, "level JSON is empty"
+    end
+    json = json:gsub("^\239\187\191", "")
+    json = json:match("^%s*(.-)%s*$") or json
+    local first = nil
+    local last = nil
+    for index = 1, #json do
+        local byte = string.byte(json, index)
+        if byte == 123 and not first then
+            first = index
+        elseif byte == 125 then
+            last = index
+        end
+    end
+    if first and last and last >= first then
+        json = json:sub(first, last)
+    end
+    local ok, data = pcall(cjson.decode, json)
+    if not ok then
+        return nil, "invalid level JSON: " .. tostring(data)
+    end
+    if type(data) ~= "table" then
+        return nil, "invalid level JSON"
+    end
+    return data
+end
+
+-- 把导出的单文件关卡拆回 Runtime 存档：levels/*.json + parts/*.json。
+-- 先在临时文档上校验，成功后再覆盖当前 LevelDocument。
+function LevelDocument:ImportInlineJson(json, grid)
+    if not grid then
+        return false, "inline import requires TriPrismGrid"
+    end
+    local data, decodeError = DecodeLevelJson(json)
+    if not data then
+        return false, decodeError
+    end
+    if type(data.parts) ~= "table" or #data.parts == 0 then
+        return false, "imported level has no Parts"
+    end
+
+    local voxelSessions = {}
+    for _, item in ipairs(data.parts) do
+        if type(item) ~= "table" or type(item.id) ~= "string" or item.id == "" then
+            return false, "imported Part is missing id"
+        end
+        local voxelData = item.localVoxelDocument
+        if type(voxelData) ~= "table" then
+            return false, "imported Part is missing inlined voxel document: " .. item.id
+        end
+        local path = item.localVoxelPath or ("parts/" .. item.id .. ".json")
+        local session = PartEditSession.New(grid, {
+            id = item.id,
+            name = item.name or item.id,
+            path = path,
+        })
+        local loaded, errorMessage = session.document:LoadTable(voxelData)
+        if not loaded then
+            return false, "无法导入 Part " .. item.id .. " 的体素文档：" .. tostring(errorMessage)
+        end
+        voxelSessions[item.id] = session
+    end
+
+    local imported = LevelDocument.New(self.path)
+    local loaded, loadError = imported:LoadTable(data)
+    if not loaded then
+        return false, loadError
+    end
+
+    for _, part in ipairs(imported:GetParts()) do
+        local session = voxelSessions[part.id]
+        if not session then
+            return false, "imported Part is missing voxel session: " .. part.id
+        end
+        session.path = part.localVoxelPath
+        session.document.path = part.localVoxelPath
+        local saved, saveError = session:Save()
+        if not saved then
+            return false, "无法写入 Part 体素存档 " .. part.id .. "：" .. tostring(saveError)
+        end
+    end
+
+    local applied, applyError = self:LoadTable(imported:ToTable())
+    if not applied then
+        return false, applyError
+    end
+    self.path = imported.path
+    return self:Save()
+end
+
 function LevelDocument:LoadTable(data)
     if type(data) ~= "table" or type(data.parts) ~= "table" then
         return false, "invalid level document"

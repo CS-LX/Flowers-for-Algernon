@@ -1162,6 +1162,51 @@ function LevelEditor:ExportInlineLevelToUserClipboard()
     return true
 end
 
+function LevelEditor:ImportInlineLevelJson(json)
+    if self.mode ~= "level" then
+        self:RefreshLevelUI("请先回到 Level View 再导入关卡")
+        return false
+    end
+    if type(json) ~= "string" or json == "" then
+        self:RefreshLevelUI("导入失败：请先把关卡 JSON 粘贴到输入框")
+        return false
+    end
+    local imported, errorMessage = self.levelDocument:ImportInlineJson(json, self.partRenderer.grid)
+    if not imported then
+        self:RefreshLevelUI("关卡导入失败：" .. tostring(errorMessage))
+        return false
+    end
+
+    self.selectedPartId = nil
+    self.pathPickMode = nil
+    self.pathPickedFromKey = nil
+    self.pathPickedToKey = nil
+    self.pathHoveredNodeKey = nil
+    self:ResetEditorCamera()
+    local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+    if not rebuilt then
+        self:RefreshLevelUI("关卡已导入，但显示重建失败：" .. tostring(rebuildError))
+        return false
+    end
+    local parts = self.levelDocument:GetParts()
+    self.selectedPartId = parts[1] and parts[1].id or nil
+    local selectedPart = self:GetSelectedPart()
+    if selectedPart then
+        self:SyncTransformGrid(selectedPart)
+    end
+    local pathRebuilt, pathError = self:RefreshPathRuntime()
+    if not pathRebuilt then
+        self:RefreshLevelUI("关卡已导入，但路径重建失败：" .. tostring(pathError))
+        return false
+    end
+    print(string.format(
+        "Level import: loaded inline JSON parts=%d",
+        #parts
+    ))
+    self:RefreshLevelUI("已导入关卡：" .. self.levelDocument.name)
+    return true
+end
+
 function LevelEditor:RotateSelectedPart(deltaSteps)
     local part = self:GetSelectedPart()
     if not part then
