@@ -8,12 +8,15 @@ local PreviewRotatorController = {}
 PreviewRotatorController.__index = PreviewRotatorController
 
 local STEP_DEGREES = 60.0
-local SNAP_LERP = 12.0
-local SNAP_EPSILON = 0.35
-local DRAG_DEADZONE_PIXELS = 6.0
+local DRAG_FOLLOW = 14.0
+local SNAP_FOLLOW = 16.0
+local SNAP_EPSILON = 0.6
+local DRAG_DEADZONE_PIXELS = 8.0
+local MIN_HANDLE_RADIUS = 0.35
 local HANDLE_PLANE_NORMAL = Vector3.UP
 
 local PHASE_IDLE = "idle"
+local PHASE_PENDING = "pending"
 local PHASE_DRAG = "drag"
 local PHASE_SNAP = "snap"
 
@@ -47,11 +50,15 @@ local function IntersectYawPlane(ray, planePoint)
     return ray.origin + ray.direction * distance
 end
 
+local function FlattenYawVector(vector)
+    return Vector3(vector.x, 0, vector.z)
+end
+
 local function SignedYawDelta(fromVector, toVector)
-    local from = Vector3(fromVector.x, 0, fromVector.z)
-    local to = Vector3(toVector.x, 0, toVector.z)
+    local from = FlattenYawVector(fromVector)
+    local to = FlattenYawVector(toVector)
     if from:Length() < 0.001 or to:Length() < 0.001 then
-        return 0.0
+        return nil
     end
     from = from:Normalized()
     to = to:Normalized()
@@ -61,6 +68,23 @@ local function SignedYawDelta(fromVector, toVector)
         return -angle
     end
     return angle
+end
+
+local function HandleRadiusWeight(vector)
+    local radius = FlattenYawVector(vector):Length()
+    if radius >= MIN_HANDLE_RADIUS then
+        return 1.0
+    end
+    return radius / MIN_HANDLE_RADIUS
+end
+
+local function ApproachAngle(current, target, follow, timeStep)
+    local remaining = ShortestDelta(current, target)
+    local step = remaining * math.min(1.0, follow * timeStep)
+    if math.abs(step) > math.abs(remaining) then
+        return target
+    end
+    return current + step
 end
 
 function PreviewRotatorController.New(levelDocument, partRenderer, pathRuntime, camera, scene, player)
@@ -79,6 +103,9 @@ function PreviewRotatorController.New(levelDocument, partRenderer, pathRuntime, 
     self.dragStartVector = nil
     self.dragStartMouse = nil
     self.dragCommitted = false
+    self.pendingClickConsumed = false
+    self.targetYawDegrees = 0.0
+    self.visualYawDegrees = 0.0
     self.authoredStates = {}
     for _, part in ipairs(self.levelDocument:GetParts()) do
         if part:HasBehavior(PartDefinition.MODE_ROTATOR) then
@@ -98,7 +125,13 @@ function PreviewRotatorController:RestoreAuthoredStates()
 end
 
 function PreviewRotatorController:IsBusy()
-    return self.phase ~= PHASE_IDLE
+    return self.phase == PHASE_DRAG or self.phase == PHASE_SNAP
+end
+
+function PreviewRotatorController:ConsumePendingClick()
+    local consumed = self.pendingClickConsumed
+    self.pendingClickConsumed = false
+    return consumed
 end
 
 function PreviewRotatorController:GetPlayerPartId()
@@ -109,14 +142,36 @@ function PreviewRotatorController:GetPlayerPartId()
     return record and record.partId or nil
 end
 
--- 角色站在该可动 Part 或其子 Part 上时，禁止拖动。
-function PreviewRotatorController:IsOccupiedByPlayer(part)
+function PreviewRotatorController:IsPlayerOnPart(part)
     local playerPartId = self:GetPlayerPartId()
     if not playerPartId then
         return false
     end
     return playerPartId == part.id
         or self.levelDocument:IsDescendant(playerPartId, part.id)
+end
+
+-- 只有角色正在该 Part 上走路时才禁止拖动。静止站在路径节点上允许转，并跟随 Part。
+function PreviewRotatorController:IsWalkingOnPart(part)
+    return self.player
+        and self.player:IsWalking()
+        and self:IsPlayerOnPart(part)
+end
+
+function PreviewRotatorController:SetPlayerLocked(locked)
+    if self.player and self.player.SetMechanismLocked then
+        self.player:SetMechanismLocked(locked)
+    end
+end
+
+function PreviewRotatorController:FollowRider()
+    if not self.player or not self.activePart then
+        return
+    end
+    if not self:IsPlayerOnPart(self.activePart) then
+        return
+    end
+    self.player:FollowCurrentNodeVisual(self.partRenderer)
 end
 
 function PreviewRotatorController:PickRotatorPart(ray)
@@ -164,6 +219,8 @@ function PreviewRotatorController:CommitSnap(part)
         print("Preview Rotator: path refresh failed: " .. tostring(errorMessage))
         return false
     end
+    self:FollowRider()
+    self:SetPlayerLocked(false)
     print(string.format(
         "Preview Rotator: snapped %s to yawSteps=%d (%d deg)",
         part.name,
@@ -186,6 +243,8 @@ function PreviewRotatorController:CaptureDrag(part, ray, mouse, fromYawDegrees)
     self.activePart = part
     self.baseYawDegrees = fromYawDegrees
     self.currentYawDegrees = fromYawDegrees
+    self.targetYawDegrees = fromYawDegrees
+    self.visualYawDegrees = fromYawDegrees
     self.snapYawDegrees = fromYawDegrees
     self.dragStartVector = hit - pivotPosition
     self.dragStartMouse = Vector2(mouse.x, mouse.y)
@@ -193,19 +252,51 @@ function PreviewRotatorController:CaptureDrag(part, ray, mouse, fromYawDegrees)
     return true
 end
 
-function PreviewRotatorController:BeginDrag(part, ray, mouse)
-    if self.player and self.player:IsWalking() then
+function PreviewRotatorController:BeginPending(part, ray, mouse)
+    if self:IsWalkingOnPart(part) then
+        print("Preview Rotator: blocked, player is walking on " .. part.id)
         return false
     end
-    if self:IsOccupiedByPlayer(part) then
-        print("Preview Rotator: blocked, player occupies " .. part.id)
+    local pivotPosition = self.partRenderer:GetPivotWorldPosition(part.id)
+    if not pivotPosition then
         return false
     end
-    if not self:CaptureDrag(part, ray, mouse, part.transform.rotation.yawSteps * STEP_DEGREES) then
+    local hit = IntersectYawPlane(ray, pivotPosition)
+    if not hit then
         return false
     end
+    self.phase = PHASE_PENDING
+    self.activePart = part
+    self.baseYawDegrees = part.transform.rotation.yawSteps * STEP_DEGREES
+    self.currentYawDegrees = self.baseYawDegrees
+    self.targetYawDegrees = self.baseYawDegrees
+    self.visualYawDegrees = self.baseYawDegrees
+    self.snapYawDegrees = self.baseYawDegrees
+    self.dragStartVector = hit - pivotPosition
+    self.dragStartMouse = Vector2(mouse.x, mouse.y)
     self.dragCommitted = false
+    self.pendingClickConsumed = false
+    return true
+end
+
+function PreviewRotatorController:PromotePendingToDrag()
+    local part = self.activePart
+    if not part then
+        return false
+    end
+    self.phase = PHASE_DRAG
+    self.dragCommitted = true
+    self:SetPlayerLocked(true)
+    self:FollowRider()
     print("Preview Rotator: drag start " .. part.id)
+    return true
+end
+
+function PreviewRotatorController:CancelPendingAsClick()
+    self.pendingClickConsumed = true
+    self.phase = PHASE_IDLE
+    self.activePart = nil
+    self.dragCommitted = false
     return true
 end
 
@@ -221,62 +312,100 @@ function PreviewRotatorController:InterruptSnap(ray, mouse)
     return true
 end
 
-function PreviewRotatorController:UpdateDrag()
+function PreviewRotatorController:SampleTargetYaw()
     local part = self.activePart
     local pivotPosition = self.partRenderer:GetPivotWorldPosition(part.id)
     if not pivotPosition then
-        return
-    end
-    local mouse = input:GetMousePosition()
-    if not self.dragCommitted then
-        local dx = mouse.x - self.dragStartMouse.x
-        local dy = mouse.y - self.dragStartMouse.y
-        if dx * dx + dy * dy < DRAG_DEADZONE_PIXELS * DRAG_DEADZONE_PIXELS then
-            return
-        end
-        self.dragCommitted = true
+        return nil
     end
     local hit = IntersectYawPlane(GetScreenRay(self.camera), pivotPosition)
     if not hit then
+        return nil
+    end
+    local handle = hit - pivotPosition
+    local delta = SignedYawDelta(self.dragStartVector, handle)
+    if not delta then
+        return nil
+    end
+    -- 靠近轴心时平面角变化极快，压低灵敏度，避免塔跟着鼠标乱跳。
+    return self.baseYawDegrees + delta * HandleRadiusWeight(handle)
+end
+
+function PreviewRotatorController:ApplyVisualYaw(yawDegrees)
+    local part = self.activePart
+    if not part then
         return
     end
-    self.currentYawDegrees = self.baseYawDegrees - SignedYawDelta(self.dragStartVector, hit - pivotPosition)
-    self.partRenderer:SetVisualYaw(part.id, self.currentYawDegrees)
+    self.visualYawDegrees = yawDegrees
+    self.currentYawDegrees = yawDegrees
+    self.partRenderer:SetVisualYaw(part.id, yawDegrees)
+    self:FollowRider()
+end
+
+function PreviewRotatorController:UpdateDrag(timeStep)
+    local target = self:SampleTargetYaw()
+    if target then
+        self.targetYawDegrees = target
+    end
+    self:ApplyVisualYaw(ApproachAngle(
+        self.visualYawDegrees,
+        self.targetYawDegrees,
+        DRAG_FOLLOW,
+        timeStep
+    ))
 end
 
 function PreviewRotatorController:BeginSnap()
     local part = self.activePart
     if not self.dragCommitted then
-        self.partRenderer:SetVisualYaw(part.id, self.baseYawDegrees)
-        self.phase = PHASE_IDLE
-        self.activePart = nil
+        self:CancelPendingAsClick()
         return false
     end
-    local _, snappedDegrees = self:NearestAllowedYaw(part, self.currentYawDegrees)
-    self.snapYawDegrees = self.currentYawDegrees + ShortestDelta(self.currentYawDegrees, snappedDegrees)
+    local _, snappedDegrees = self:NearestAllowedYaw(part, self.targetYawDegrees)
+    self.snapYawDegrees = self.visualYawDegrees + ShortestDelta(self.visualYawDegrees, snappedDegrees)
+    self.targetYawDegrees = self.snapYawDegrees
     self.phase = PHASE_SNAP
     return true
 end
 
 function PreviewRotatorController:UpdateSnap(timeStep)
     local part = self.activePart
-    local remaining = ShortestDelta(self.currentYawDegrees, self.snapYawDegrees)
+    local remaining = ShortestDelta(self.visualYawDegrees, self.snapYawDegrees)
     if math.abs(remaining) <= SNAP_EPSILON then
-        self.currentYawDegrees = self.snapYawDegrees
+        self:ApplyVisualYaw(self.snapYawDegrees)
         self:CommitSnap(part)
         self.phase = PHASE_IDLE
         self.activePart = nil
         return
     end
-    self.currentYawDegrees = self.currentYawDegrees + remaining * math.min(1.0, SNAP_LERP * timeStep)
-    self.partRenderer:SetVisualYaw(part.id, self.currentYawDegrees)
+    self:ApplyVisualYaw(ApproachAngle(
+        self.visualYawDegrees,
+        self.snapYawDegrees,
+        SNAP_FOLLOW,
+        timeStep
+    ))
 end
 
--- 返回 true 表示本帧已经消费点击，Preview 不要再拿去走角色。
+-- 按手势分流：按下先 pending，拖过死区才旋转，原地松开把点击交还给寻路。
 function PreviewRotatorController:Update(timeStep)
+    if self.phase == PHASE_PENDING then
+        if not input:GetMouseButtonDown(MOUSEB_LEFT) then
+            self:CancelPendingAsClick()
+            return false
+        end
+        local mouse = input:GetMousePosition()
+        local dx = mouse.x - self.dragStartMouse.x
+        local dy = mouse.y - self.dragStartMouse.y
+        if dx * dx + dy * dy >= DRAG_DEADZONE_PIXELS * DRAG_DEADZONE_PIXELS then
+            self:PromotePendingToDrag()
+            self:UpdateDrag(timeStep)
+            return true
+        end
+        return true
+    end
     if self.phase == PHASE_DRAG then
         if input:GetMouseButtonDown(MOUSEB_LEFT) then
-            self:UpdateDrag()
+            self:UpdateDrag(timeStep)
         else
             self:BeginSnap()
         end
@@ -305,8 +434,7 @@ function PreviewRotatorController:Update(timeStep)
     if not part then
         return false
     end
-    print("Preview Rotator: picked " .. part.id)
-    return self:BeginDrag(part, ray, input:GetMousePosition())
+    return self:BeginPending(part, ray, input:GetMousePosition())
 end
 
 return PreviewRotatorController

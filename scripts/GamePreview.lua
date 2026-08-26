@@ -123,7 +123,8 @@ function GamePreview:HandlePointer()
     if self.player:IsWalking() then
         return
     end
-    if not input:GetMouseButtonPress(MOUSEB_LEFT) then
+    local fromPendingClick = self.rotatorController and self.rotatorController:ConsumePendingClick()
+    if not fromPendingClick and not input:GetMouseButtonPress(MOUSEB_LEFT) then
         return
     end
     local target = self:FindClickedNode()

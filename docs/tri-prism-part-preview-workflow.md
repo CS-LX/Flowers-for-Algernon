@@ -72,21 +72,25 @@ Game Preview Camera：固定投影，只服务玩法验证
 Game Preview 的旋转塔遵循纪念碑谷式拖动-Snap，不复用编辑器立刻改 Yaw 的逻辑：
 
 ```text
-按住可动 Part 几何
-  -> 绕 Pivot Y 轴持续转动表现层
+按下可动 Part
+  -> 先进入 pending，不立即旋转也不立即寻路
+拖过死区
+  -> 确认为旋转手势，绕 Pivot Y 轴持续转动表现层
   -> Path Graph 保持上一份合法状态
-松手
+原地松开
+  -> 确认为点击手势，交给 PathNode 寻路
+旋转松手
   -> Snap 到最近 allowedSteps * 60°
   -> 提交 rotator.state / yawSteps
   -> 再刷新当前有效 Path Graph
 
-角色正在走路
+角色正在该可动 Part（或其子 Part）上走路
   -> 禁止开始拖动机关
-角色站在该可动 Part（或其子 Part）上
-  -> 禁止拖动该机关
-  -> 必须先离开这块可动结构
-可走 PathNode 被点中
-  -> 优先走路，不开始转塔
+角色静止站在该可动 Part（或其子 Part）的路径节点上
+  -> 允许拖动该机关
+  -> 拖动和 Snap 过程中角色相对 Part 静止并跟随 Transform
+机关正在运动
+  -> 角色不得开始新的走路
 ```
 
 ### 视觉连接与逻辑连接分离

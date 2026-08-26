@@ -23,6 +23,7 @@ function PlayerController.New(pathRuntime, spawnNodeKey)
     self.targetKey = nil
     self.walking = false
     self.currentEdgeIsCandidate = false
+    self.mechanismLocked = false
     self.speed = WALK_SPEED
     return self
 end
@@ -86,12 +87,46 @@ function PlayerController:GetCurrentPartId()
     return record and record.partId or nil
 end
 
+function PlayerController:SetMechanismLocked(locked)
+    self.mechanismLocked = locked == true
+    if self.mechanismLocked then
+        self.path = nil
+        self.walking = false
+        self.currentEdgeIsCandidate = false
+    end
+end
+
+function PlayerController:FollowCurrentNodeVisual(partRenderer)
+    if self.walking then
+        return false
+    end
+    local record = self.pathRuntime:GetNode(self.currentNodeKey)
+    if not record or not record.node or not partRenderer then
+        return false
+    end
+    local localPoint, localNormal = record.node:GetLocalAnchor(partRenderer.grid, 0.035)
+    if not localPoint then
+        return false
+    end
+    local worldPoint = partRenderer:GetPartWorldPoint(record.partId, localPoint)
+    local worldNormal = localNormal and partRenderer:GetPartWorldNormal(record.partId, localNormal) or nil
+    if not worldPoint then
+        return false
+    end
+    self.position = CopyVector(worldPoint)
+    self:SetNodeOrientation({ worldNormal = worldNormal })
+    return true
+end
+
 function PlayerController:MoveTo(path, targetKey)
     if type(path) ~= "table" or #path == 0 then
         return false, "path is empty"
     end
     if self.walking then
         return false, "player is already walking"
+    end
+    if self.mechanismLocked then
+        return false, "player is locked to a moving part"
     end
     self.path = {}
     for index, key in ipairs(path) do
