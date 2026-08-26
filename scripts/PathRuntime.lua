@@ -1,8 +1,7 @@
 -- 运行时路径节点索引与候选解析。
 -- PathNode 仍由各 Part 的 VoxelDocument 持有；本模块只保存运行时索引和诊断。
--- 当前版本为不稳定原型：局部连接暂用锚点距离 + 法向启发式。
--- 下一版规则已记录在 docs/tri-prism-face-adjacency-spec.md，
--- 必须按面顶点、法线、共面和正长度边重合替换本函数。
+-- 局部固定边：同向法线、共面、正长度边重合。
+-- 跨 Part 视觉边：固定相机投影面边正长度重合，再检查重合接缝是否被更近逻辑面切断。
 
 local PartEditSession = require "PartEditSession"
 
@@ -39,6 +38,8 @@ local function GetWorldNodeData(record, grid, partRenderer)
 end
 
 local FACE_TOLERANCE = 0.0001
+local OCCLUSION_DEPTH_EPSILON = 0.02
+local OCCLUSION_SAMPLE_TS = { 0.15, 0.5, 0.85 }
 
 local function GetNodeFace(record, grid)
     local faces = grid:GetCellFaces(record.node.voxelCell)
@@ -303,34 +304,303 @@ local function FindPositiveOverlapPair(edgesA, edgesB, tolerance)
     return false, 0.0, nil, nil
 end
 
-local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera, options)
+local function ProjectScalar(origin, direction, point)
+    return (point.x - origin.x) * direction.x + (point.y - origin.y) * direction.y
+end
+
+local function ScreenPointOnEdge(edge, scalar)
+    local vector = edge.second - edge.first
+    local length = vector:Length()
+    if length <= FACE_TOLERANCE then
+        return Vector2(edge.first.x, edge.first.y)
+    end
+    local t = scalar / length
+    return Vector2(
+        edge.first.x + vector.x * t,
+        edge.first.y + vector.y * t
+    )
+end
+
+local function GetProjectedOverlapSegment(edgeA, edgeB, tolerance)
+    local vectorA = edgeA.second - edgeA.first
+    local lengthA = vectorA:Length()
+    if lengthA <= tolerance then
+        return nil
+    end
+    local directionA = vectorA / lengthA
+    local first = ProjectScalar(edgeA.first, directionA, edgeB.first)
+    local second = ProjectScalar(edgeA.first, directionA, edgeB.second)
+    local overlapStart = math.max(0.0, math.min(first, second))
+    local overlapEnd = math.min(lengthA, math.max(first, second))
+    if overlapEnd - overlapStart <= tolerance then
+        return nil
+    end
+    return {
+        first = ScreenPointOnEdge(edgeA, overlapStart),
+        second = ScreenPointOnEdge(edgeA, overlapEnd),
+        length = overlapEnd - overlapStart,
+    }
+end
+
+local function FaceIdentity(partId, cell, faceIndex)
+    return tostring(partId) .. ":" .. tostring(cell.hexQ) .. ":" .. tostring(cell.hexR)
+        .. ":" .. tostring(cell.sector) .. ":" .. tostring(cell.layer) .. ":" .. tostring(faceIndex)
+end
+
+local function CopyWorldVertices(partRenderer, partId, vertices)
+    local result = {}
+    for _, vertex in ipairs(vertices) do
+        result[#result + 1] = partRenderer:GetPartWorldPoint(partId, vertex)
+    end
+    return result
+end
+
+local function CollectWorldFaces(partSessions, grid, partRenderer)
+    local faces = {}
+    for partId, session in pairs(partSessions or {}) do
+        if session and session.document then
+            session.document:ForEach(function(cell)
+                local localFaces = grid:GetCellFaces(cell)
+                for faceIndex, face in ipairs(localFaces) do
+                    local vertices = CopyWorldVertices(partRenderer, partId, face.vertices)
+                    local normal = partRenderer:GetPartWorldNormal(partId, face.normal)
+                    if vertices[1] and normal then
+                        faces[#faces + 1] = {
+                            id = FaceIdentity(partId, cell, faceIndex),
+                            partId = partId,
+                            cell = cell,
+                            faceIndex = faceIndex,
+                            kind = face.kind,
+                            vertices = vertices,
+                            normal = normal:Normalized(),
+                        }
+                    end
+                end
+            end)
+        end
+    end
+    return faces
+end
+
+local function IsSameWorldPlane(normalA, verticesA, normalB, verticesB, tolerance)
+    if not normalA or not normalB or not verticesA or not verticesB then
+        return false
+    end
+    if normalA:DotProduct(normalB) < 1.0 - math.max(tolerance, 0.01) then
+        return false
+    end
+    local origin = verticesA[1]
+    for _, vertex in ipairs(verticesB) do
+        if math.abs((vertex - origin):DotProduct(normalA)) > OCCLUSION_DEPTH_EPSILON then
+            return false
+        end
+    end
+    return true
+end
+
+local function IsEndpointCellHit(hit, fromRecord, toRecord)
+    local fromCell = fromRecord.node.voxelCell
+    local toCell = toRecord.node.voxelCell
+    if hit.partId == fromRecord.partId
+        and hit.cell.hexQ == fromCell.hexQ
+        and hit.cell.hexR == fromCell.hexR
+        and hit.cell.sector == fromCell.sector
+        and hit.cell.layer == fromCell.layer then
+        return true
+    end
+    if hit.partId == toRecord.partId
+        and hit.cell.hexQ == toCell.hexQ
+        and hit.cell.hexR == toCell.hexR
+        and hit.cell.sector == toCell.sector
+        and hit.cell.layer == toCell.layer then
+        return true
+    end
+    return false
+end
+
+local function ClassifyOcclusionHit(hit, fromFace, toFace, fromRecord, toRecord)
+    if hit.id == fromFace.id or hit.id == toFace.id or IsEndpointCellHit(hit, fromRecord, toRecord) then
+        return "endpoint"
+    end
+    if IsSameWorldPlane(hit.normal, hit.vertices, fromFace.normal, fromFace.vertices, FACE_TOLERANCE)
+        or IsSameWorldPlane(hit.normal, hit.vertices, toFace.normal, toFace.vertices, FACE_TOLERANCE) then
+        return "supporting"
+    end
+    -- 只拒绝挡在两条可走面之前的几何。三维中切开两端的墙是错视间隙，不是遮挡。
+    if fromFace.distance and toFace.distance
+        and hit.distance + OCCLUSION_DEPTH_EPSILON < math.min(fromFace.distance, toFace.distance) then
+        return "occluder"
+    end
+    return "behind"
+end
+
+local function CollectRayHits(ray, worldFaces)
+    local hits = {}
+    for _, face in ipairs(worldFaces) do
+        local distance = RayFace(ray, face.vertices)
+        if distance then
+            hits[#hits + 1] = {
+                id = face.id,
+                partId = face.partId,
+                cell = face.cell,
+                faceIndex = face.faceIndex,
+                kind = face.kind,
+                vertices = face.vertices,
+                normal = face.normal,
+                distance = distance,
+            }
+        end
+    end
+    table.sort(hits, function(left, right)
+        return left.distance < right.distance
+    end)
+    return hits
+end
+
+local function FindEndpointHit(hits, faceId)
+    for _, hit in ipairs(hits) do
+        if hit.id == faceId then
+            return hit
+        end
+    end
+    return nil
+end
+
+local function EvaluateSeamOcclusion(fromRecord, toRecord, overlapSegment, camera, worldFaces)
+    local fromFace = nil
+    local toFace = nil
+    local fromId = FaceIdentity(fromRecord.partId, fromRecord.node.voxelCell, fromRecord.node:GetFaceIndex())
+    local toId = FaceIdentity(toRecord.partId, toRecord.node.voxelCell, toRecord.node:GetFaceIndex())
+    for _, face in ipairs(worldFaces) do
+        if face.id == fromId then
+            fromFace = face
+        elseif face.id == toId then
+            toFace = face
+        end
+    end
+    if not fromFace or not toFace then
+        return "insufficient-evidence", "missing-endpoint-world-face", {
+            overlapSegment = overlapSegment,
+            samples = {},
+        }
+    end
+
+    local fromCentroid = Vector2(0, 0)
+    local toCentroid = Vector2(0, 0)
+    for _, vertex in ipairs(fromFace.vertices) do
+        local projected = camera:WorldToScreenPoint(vertex)
+        fromCentroid = Vector2(fromCentroid.x + projected.x, fromCentroid.y + projected.y)
+    end
+    fromCentroid = Vector2(fromCentroid.x / #fromFace.vertices, fromCentroid.y / #fromFace.vertices)
+    for _, vertex in ipairs(toFace.vertices) do
+        local projected = camera:WorldToScreenPoint(vertex)
+        toCentroid = Vector2(toCentroid.x + projected.x, toCentroid.y + projected.y)
+    end
+    toCentroid = Vector2(toCentroid.x / #toFace.vertices, toCentroid.y / #toFace.vertices)
+    local insetTarget = Vector2(
+        (fromCentroid.x + toCentroid.x) * 0.5,
+        (fromCentroid.y + toCentroid.y) * 0.5
+    )
+
+    local samples = {}
+    local occluder = nil
+    local missingEndpoint = false
+    for _, t in ipairs(OCCLUSION_SAMPLE_TS) do
+        local screenPoint = Vector2(
+            overlapSegment.first.x + (overlapSegment.second.x - overlapSegment.first.x) * t,
+            overlapSegment.first.y + (overlapSegment.second.y - overlapSegment.first.y) * t
+        )
+        local insetX = insetTarget.x - screenPoint.x
+        local insetY = insetTarget.y - screenPoint.y
+        local insetLength = math.sqrt(insetX * insetX + insetY * insetY)
+        if insetLength > FACE_TOLERANCE then
+            screenPoint = Vector2(
+                screenPoint.x + insetX / insetLength * 0.004,
+                screenPoint.y + insetY / insetLength * 0.004
+            )
+        end
+        local ray = camera:GetScreenRay(screenPoint.x, screenPoint.y)
+        local hits = CollectRayHits(ray, worldFaces)
+        local fromHit = FindEndpointHit(hits, fromFace.id)
+        local toHit = FindEndpointHit(hits, toFace.id)
+        local sample = {
+            t = t,
+            screenPoint = screenPoint,
+            hitCount = #hits,
+            firstHitId = hits[1] and hits[1].id or nil,
+            classification = "insufficient-evidence",
+        }
+        if not fromHit or not toHit then
+            missingEndpoint = true
+            sample.classification = "insufficient-evidence"
+            samples[#samples + 1] = sample
+        else
+            fromFace.distance = fromHit.distance
+            toFace.distance = toHit.distance
+            sample.fromDistance = fromHit.distance
+            sample.toDistance = toHit.distance
+            local sampleClass = "endpoint"
+            for _, hit in ipairs(hits) do
+                local classification = ClassifyOcclusionHit(hit, fromFace, toFace, fromRecord, toRecord)
+                if classification == "occluder" then
+                    sampleClass = "occluder"
+                    sample.occluder = {
+                        id = hit.id,
+                        partId = hit.partId,
+                        faceIndex = hit.faceIndex,
+                        distance = hit.distance,
+                    }
+                    occluder = sample.occluder
+                    break
+                elseif classification == "endpoint" or classification == "supporting" then
+                    sampleClass = classification
+                end
+            end
+            sample.classification = sampleClass
+            samples[#samples + 1] = sample
+        end
+    end
+
+    local occlusion = {
+        overlapSegment = overlapSegment,
+        samples = samples,
+        occluder = occluder,
+    }
+    if occluder then
+        return "rejected", "visual-seam-occluded", occlusion
+    end
+    if missingEndpoint then
+        return "insufficient-evidence", "insufficient-occlusion-evidence", occlusion
+    end
+    return "accepted", "projected-face-edge-overlap", occlusion
+end
+
+local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera, options, worldFaces)
     if not record.from or not record.to then
-        return false, "unresolved"
+        return "rejected", "unresolved"
     end
     if not record.from.node.walkable or not record.to.node.walkable then
-        return false, "endpoint-not-walkable"
+        return "rejected", "endpoint-not-walkable"
     end
 
     local fromData, fromError = GetWorldNodeData(record.from, grid, partRenderer)
     if not fromData then
-        return false, fromError
+        return "rejected", fromError
     end
     local toData, toError = GetWorldNodeData(record.to, grid, partRenderer)
     if not toData then
-        return false, toError
+        return "rejected", toError
     end
 
     local fromLocalEdges = record.from.node:GetLocalFaceEdges(grid)
     local toLocalEdges = record.to.node:GetLocalFaceEdges(grid)
     if not fromLocalEdges or not toLocalEdges then
-        return false, "missing-face-edges"
+        return "rejected", "missing-face-edges"
     end
-    local fromProjectedEdges = ProjectEdges(camera, TransformEdges(
-        partRenderer, record.from.partId, fromLocalEdges
-    ))
-    local toProjectedEdges = ProjectEdges(camera, TransformEdges(
-        partRenderer, record.to.partId, toLocalEdges
-    ))
+    local fromWorldEdges = TransformEdges(partRenderer, record.from.partId, fromLocalEdges)
+    local toWorldEdges = TransformEdges(partRenderer, record.to.partId, toLocalEdges)
+    local fromProjectedEdges = ProjectEdges(camera, fromWorldEdges)
+    local toProjectedEdges = ProjectEdges(camera, toWorldEdges)
     local edgeAccepted, edgeOverlap, fromEdgeIndex, toEdgeIndex = FindPositiveOverlapPair(
         fromProjectedEdges,
         toProjectedEdges,
@@ -349,10 +619,34 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
     }
     if not edgeAccepted then
         result.reason = "projected-face-edge-does-not-overlap"
-        return false, result.reason, result
+        return "rejected", result.reason, result
     end
-    result.reason = "projected-face-edge-overlap"
-    return true, result.reason, result
+
+    local overlapSegment = GetProjectedOverlapSegment(
+        fromProjectedEdges[fromEdgeIndex],
+        toProjectedEdges[toEdgeIndex],
+        FACE_TOLERANCE
+    )
+    result.overlapSegment = overlapSegment
+    if not overlapSegment then
+        result.reason = "projected-face-edge-does-not-overlap"
+        return "rejected", result.reason, result
+    end
+    if not worldFaces then
+        result.reason = "insufficient-occlusion-evidence"
+        return "insufficient-evidence", result.reason, result
+    end
+
+    local occlusionStatus, occlusionReason, occlusion = EvaluateSeamOcclusion(
+        record.from,
+        record.to,
+        overlapSegment,
+        camera,
+        worldFaces
+    )
+    result.occlusion = occlusion
+    result.reason = occlusionReason
+    return occlusionStatus, occlusionReason, result
 end
 
 function PathRuntime.New(levelDocument, grid)
@@ -469,20 +763,28 @@ function PathRuntime:EvaluateCandidates()
         return false, "visual evaluation requires renderer and fixed camera"
     end
     self:UpdateNodeSpatialData()
+    local worldFaces = CollectWorldFaces(self.partSessions, self.grid, self.partRenderer)
     for _, record in ipairs(self.candidateRecords) do
         if record.status == "pending" then
-            local accepted, reason, result = EvaluateCandidate(
+            local status, reason, result = EvaluateCandidate(
                 record,
                 self.grid,
                 self.partRenderer,
                 self.cameraNode,
                 self.camera,
-                self.evaluationOptions
+                self.evaluationOptions,
+                worldFaces
             )
-            record.status = accepted and "accepted" or "rejected"
+            record.status = status
             record.reason = reason
             record.evaluation = result
             AddDiagnostic(self.diagnostics, record.id, record.status, reason)
+            print(string.format(
+                "PathRuntime candidate %s status=%s reason=%s",
+                tostring(record.id),
+                tostring(status),
+                tostring(reason)
+            ))
         end
     end
     return true
@@ -496,7 +798,9 @@ function PathRuntime:RefreshAfterMechanismSnap()
     end
     self.diagnostics = {}
     for _, record in ipairs(self.candidateRecords) do
-        if record.status == "accepted" or record.status == "rejected" then
+        if record.status == "accepted"
+            or record.status == "rejected"
+            or record.status == "insufficient-evidence" then
             record.status = "pending"
             record.reason = "等待视觉评估"
             record.evaluation = nil
@@ -735,6 +1039,7 @@ function PathRuntime:GetSummary()
     local rejected = 0
     local disabled = 0
     local unresolved = 0
+    local insufficient = 0
     for _, record in ipairs(self.candidateRecords) do
         if record.status == "pending" then
             pending = pending + 1
@@ -746,6 +1051,8 @@ function PathRuntime:GetSummary()
             disabled = disabled + 1
         elseif record.status == "unresolved" then
             unresolved = unresolved + 1
+        elseif record.status == "insufficient-evidence" then
+            insufficient = insufficient + 1
         end
     end
     return {
@@ -757,6 +1064,7 @@ function PathRuntime:GetSummary()
         effectiveEdgeCount = #self.effectiveEdges,
         disabledCount = disabled,
         unresolvedCount = unresolved,
+        insufficientCount = insufficient,
         topologyVersion = self.topologyVersion,
     }
 end
