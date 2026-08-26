@@ -81,6 +81,11 @@ function PlayerController:GetViewState()
     return self.currentEdgeIsCandidate and "topmost" or "normal"
 end
 
+function PlayerController:GetCurrentPartId()
+    local record = self.pathRuntime:GetNode(self.currentNodeKey)
+    return record and record.partId or nil
+end
+
 function PlayerController:MoveTo(path, targetKey)
     if type(path) ~= "table" or #path == 0 then
         return false, "path is empty"

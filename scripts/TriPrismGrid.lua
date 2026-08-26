@@ -186,6 +186,43 @@ function TriPrismGrid:GetCellCenter(cell)
     return (vertices[1] + vertices[2] + vertices[3]) / 3.0
 end
 
+local function SnapHalfStep(value)
+    return math.floor((value or 0) * 2.0 + 0.5) / 2.0
+end
+
+-- Pivot 可以停在半格。体素 Cell 仍用整数 NormalizeCell，不要混用。
+function TriPrismGrid:NormalizePivotCell(cell)
+    cell = cell or {}
+    return {
+        hexQ = SnapHalfStep(cell.hexQ or cell.q or 0),
+        hexR = SnapHalfStep(cell.hexR or cell.r or 0),
+        sector = NormalizeIndex(cell.sector or 0, self.sectorCount),
+        layer = math.max(0, SnapHalfStep(cell.layer or 0)),
+    }
+end
+
+function TriPrismGrid:GetPivotCellCenter(cell)
+    local normalized = self:NormalizePivotCell(cell)
+    local baseY = normalized.layer * self.voxelHeight
+    local center = self:GetHexCenter(normalized.hexQ, normalized.hexR, baseY)
+    local angle = normalized.sector * math.pi / 3.0
+    local nextAngle = (normalized.sector + 1) * math.pi / 3.0
+    local a = center
+    local b = center + Vector3(
+        math.cos(angle) * self.edgeLength,
+        0,
+        -math.sin(angle) * self.edgeLength
+    )
+    local c = center + Vector3(
+        math.cos(nextAngle) * self.edgeLength,
+        0,
+        -math.sin(nextAngle) * self.edgeLength
+    )
+    local centroid = (a + b + c) / 3.0
+    centroid.y = centroid.y + self.voxelHeight * 0.5
+    return centroid, normalized
+end
+
 function TriPrismGrid:GetCellTransform(cell)
     local normalized = self:NormalizeCell(cell)
     local center = self:GetCellCenter(normalized)

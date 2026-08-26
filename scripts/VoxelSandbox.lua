@@ -51,12 +51,13 @@ local COLORS = {
     Color(0.62, 0.38, 0.88, 1.0),
 }
 
-function VoxelSandbox.New(scene, cameraNode, camera, edgeLength, voxelHeight, session, overlayRenderer)
+function VoxelSandbox.New(scene, cameraNode, camera, edgeLength, voxelHeight, session, overlayRenderer, part)
     local self = setmetatable({}, VoxelSandbox)
     self.scene = scene
     self.cameraNode = cameraNode
     self.camera = camera
     self.overlayRenderer = overlayRenderer
+    self.part = part
     self.grid = TriPrismGrid.New(edgeLength, voxelHeight)
     self.session = session or PartEditSession.CreateStarter(self.grid)
     self.document = self.session.document
@@ -660,6 +661,14 @@ function VoxelSandbox:UpdateCamera()
     self.camera.fov = self.fov
 end
 
+function VoxelSandbox:GetPartPivotPosition()
+    if self.part and self.part:GetPivotCell() then
+        local position = self.grid:GetPivotCellCenter(self.part:GetPivotCell())
+        return position
+    end
+    return Vector3(0, 0, 0)
+end
+
 function VoxelSandbox:GetSelectionBounds()
     local cells = self.selection:GetCells()
     local minPoint = Vector3(math.huge, math.huge, math.huge)
@@ -710,15 +719,13 @@ function VoxelSandbox:DrawDebug()
         self.document,
         self.selectedPathNodeId
     )
+    self.overlayRenderer:DrawPartOrigin(0.95, self:GetPartPivotPosition())
     if not self.viewportRenderer.showAxes then
-        self.overlayRenderer:ClearTransformGizmo()
         return
     end
     local minPoint, maxPoint, center = self:GetSelectionBounds()
     if minPoint and maxPoint and center then
         self.overlayRenderer:DrawVoxelSelection(minPoint, maxPoint, center)
-    else
-        self.overlayRenderer:ClearTransformGizmo()
     end
 end
 
@@ -789,6 +796,7 @@ function VoxelSandbox:Stop()
     if self.overlayRenderer then
         self.overlayRenderer:ClearVoxelGizmos()
         self.overlayRenderer:ClearTransformGizmo()
+        self.overlayRenderer:ClearPartOrigin()
     end
     for _, node in pairs(self.voxelNodes) do
         node:Remove()

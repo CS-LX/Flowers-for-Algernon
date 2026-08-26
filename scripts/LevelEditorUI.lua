@@ -503,13 +503,19 @@ function LevelEditorUI:Build()
                             self.rotationLabel,
                             UI.Label { text = "Pivot", width = 62, fontSize = 10, fontColor = MUTED },
                             UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.pivotModeDropdown } },
-                            UI.Label { text = "Cell", fontSize = 9, fontColor = MUTED },
+                            UI.Label { text = "Cell  Q / R / Sector / Layer", fontSize = 9, fontColor = MUTED },
                             UI.Panel { flexDirection = "row", gap = 3, children = {
                                 UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.pivotQField } },
                                 UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.pivotRField } },
                                 UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.pivotSectorField } },
                                 UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.pivotLayerField } },
                             } },
+                            UI.Label {
+                                text = "Q / R / Layer 支持 0.5 步进；Sector 仍是 0..5。不必是已有体素。",
+                                fontSize = 9,
+                                fontColor = MUTED,
+                                whiteSpace = "normal",
+                            },
                             UI.Button {
                                 text = "Snap to Tri-Prism Grid",
                                 height = 25,
@@ -757,13 +763,13 @@ function LevelEditorUI:Refresh()
     local usesCellPivot = part:GetPivotMode() == "cell_center"
     self.pivotModeDropdown:SetDisabled(false)
     self.pivotModeDropdown.props.value = part:GetPivotMode()
-    self.pivotQField:SetValue(pivotCell and tostring(pivotCell.hexQ) or "0")
+    self.pivotQField:SetValue(pivotCell and string.format("%.1f", pivotCell.hexQ) or "0.0")
     self.pivotQField:SetDisabled(not usesCellPivot)
-    self.pivotRField:SetValue(pivotCell and tostring(pivotCell.hexR) or "0")
+    self.pivotRField:SetValue(pivotCell and string.format("%.1f", pivotCell.hexR) or "0.0")
     self.pivotRField:SetDisabled(not usesCellPivot)
     self.pivotSectorField:SetValue(pivotCell and tostring(pivotCell.sector) or "0")
     self.pivotSectorField:SetDisabled(not usesCellPivot)
-    self.pivotLayerField:SetValue(pivotCell and tostring(pivotCell.layer) or "0")
+    self.pivotLayerField:SetValue(pivotCell and string.format("%.1f", pivotCell.layer) or "0.0")
     self.pivotLayerField:SetDisabled(not usesCellPivot)
     local editorCamera = self.editor.editorCamera
     self.cameraLabel:SetText(string.format(

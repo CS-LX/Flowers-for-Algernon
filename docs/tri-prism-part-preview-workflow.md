@@ -67,6 +67,28 @@ Game Preview Camera：固定投影，只服务玩法验证
 
 这两个相机可以共享同一个场景中的 Camera 节点，但不能共享或混淆状态数据。
 
+### Game Preview 旋转塔
+
+Game Preview 的旋转塔遵循纪念碑谷式拖动-Snap，不复用编辑器立刻改 Yaw 的逻辑：
+
+```text
+按住可动 Part 几何
+  -> 绕 Pivot Y 轴持续转动表现层
+  -> Path Graph 保持上一份合法状态
+松手
+  -> Snap 到最近 allowedSteps * 60°
+  -> 提交 rotator.state / yawSteps
+  -> 再刷新当前有效 Path Graph
+
+角色正在走路
+  -> 禁止开始拖动机关
+角色站在该可动 Part（或其子 Part）上
+  -> 禁止拖动该机关
+  -> 必须先离开这块可动结构
+可走 PathNode 被点中
+  -> 优先走路，不开始转塔
+```
+
 ### 视觉连接与逻辑连接分离
 
 ```text

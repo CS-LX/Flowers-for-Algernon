@@ -49,13 +49,17 @@ local function AddFaceOutline(geometry, face)
     AddLoop(geometry, face.vertices)
 end
 
-local function AddArrow(geometry, startPoint, endPoint, size)
+local function AddArrow(geometry, startPoint, endPoint, size, viewDirection)
     local direction = endPoint - startPoint
     if direction:Length() < 0.001 then
         return
     end
     direction = direction:Normalized()
-    local side = direction:CrossProduct(Vector3.UP)
+    local view = viewDirection or Vector3.FORWARD
+    local side = direction:CrossProduct(view)
+    if side:Length() < 0.001 then
+        side = direction:CrossProduct(Vector3.UP)
+    end
     if side:Length() < 0.001 then
         side = Vector3.RIGHT
     else
@@ -94,6 +98,7 @@ function OverlayRenderer.New(scene, cameraNode, camera)
     self.cameraNode = cameraNode
     self.camera = camera
     self.gizmoNode = self.scene:CreateChild("LevelEditorOverlayGizmos")
+    self.originNode = self.scene:CreateChild("LevelEditorPartOriginGizmo")
     self.pathNodeNode = self.scene:CreateChild("LevelEditorPathNodeGizmos")
     self.pathConnectionNode = self.scene:CreateChild("LevelEditorPathConnectionGizmos")
     self.voxelNode = self.scene:CreateChild("LevelEditorVoxelGizmos")
@@ -110,6 +115,13 @@ end
 function OverlayRenderer:SyncCamera(cameraNode, camera)
     self.cameraNode = cameraNode or self.cameraNode
     self.camera = camera or self.camera
+end
+
+function OverlayRenderer:GetViewDirection()
+    if not self.cameraNode then
+        return Vector3.FORWARD
+    end
+    return self.cameraNode.worldRotation * Vector3.FORWARD
 end
 
 function OverlayRenderer:EnsureGizmoGeometry()
@@ -187,6 +199,7 @@ end
 function OverlayRenderer:Clear()
     self.enabled = false
     self:ClearTransformGizmo()
+    self:ClearPartOrigin()
     self:ClearPathNodeGizmos()
     self:ClearVoxelGizmos()
 end
@@ -201,6 +214,7 @@ function OverlayRenderer:EnterVoxelMode()
     self:ClearPathNodeGizmos()
     self:ClearVoxelGizmos()
     self:ClearTransformGizmo()
+    self:ClearPartOrigin()
 end
 
 function OverlayRenderer:BindCamera(cameraNode, camera)
@@ -556,7 +570,8 @@ function OverlayRenderer:DrawVoxelPathNodes(grid, document, selectedNodeId)
                 self.pathNodeGeometry,
                 localPosition,
                 localPosition + localNormal * arrowLength,
-                arrowSize
+                arrowSize,
+                self:GetViewDirection()
             )
         end
     end
@@ -675,6 +690,37 @@ function OverlayRenderer:DrawVoxelSelection(minPoint, maxPoint, center)
     self:DrawWorldSelection(corners, center, Quaternion(0.0, Vector3.UP))
 end
 
+-- Part Pivot：cell_center 画在指定三棱柱中心，origin 才是局部 (0,0,0)。
+function OverlayRenderer:DrawPartOrigin(axisLength, origin)
+    self:EnsureGizmoGeometry()
+    self.enabled = true
+    axisLength = axisLength or 0.9
+    origin = origin or Vector3(0, 0, 0)
+    local view = self:GetViewDirection()
+    if not self.originGeometry then
+        self.originGeometry = self.originNode:CreateComponent("CustomGeometry")
+    end
+    self.originNode.enabled = true
+    self.originGeometry:Clear()
+    self.originGeometry:SetNumGeometries(3)
+    self.originGeometry:BeginGeometry(0, LINE_LIST)
+    AddArrow(self.originGeometry, origin, origin + Vector3.RIGHT * axisLength, 0.12, view)
+    self.originGeometry:Commit()
+    self.originGeometry:SetMaterial(0, self.materials.red)
+    self.originGeometry:BeginGeometry(1, LINE_LIST)
+    AddArrow(self.originGeometry, origin, origin + Vector3.UP * axisLength, 0.12, view)
+    self.originGeometry:Commit()
+    self.originGeometry:SetMaterial(1, self.materials.green)
+    self.originGeometry:BeginGeometry(2, LINE_LIST)
+    AddArrow(self.originGeometry, origin, origin + Vector3.FORWARD * axisLength, 0.12, view)
+    self.originGeometry:Commit()
+    self.originGeometry:SetMaterial(2, self.materials.blue)
+end
+
+function OverlayRenderer:ClearPartOrigin()
+    self.originNode.enabled = false
+end
+
 function OverlayRenderer:DrawSelection(root, minPoint, maxPoint, pivotPosition)
     if not root or not minPoint or not maxPoint then
         self:Clear()
@@ -691,6 +737,8 @@ end
 function OverlayRenderer:Stop()
     self.scene = nil
     self.gizmoGeometry = nil
+    self.originNode = nil
+    self.originGeometry = nil
     self.pathNodeGeometry = nil
     self.pathNodeMarkers = {}
     self.voxelGeometry = nil

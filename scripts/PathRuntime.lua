@@ -488,6 +488,28 @@ function PathRuntime:EvaluateCandidates()
     return true
 end
 
+-- Snap 后只刷新世界锚点和视觉候选，不重载 Part 文档。
+-- 编辑器立刻改 Yaw 仍走 Rebuild()；Preview 机关到达合法状态后走这里。
+function PathRuntime:RefreshAfterMechanismSnap()
+    if not self.partRenderer or not self.cameraNode or not self.camera then
+        return false, "visual evaluation requires renderer and fixed camera"
+    end
+    self.diagnostics = {}
+    for _, record in ipairs(self.candidateRecords) do
+        if record.status == "accepted" or record.status == "rejected" then
+            record.status = "pending"
+            record.reason = "等待视觉评估"
+            record.evaluation = nil
+        end
+    end
+    local evaluated, errorMessage = self:EvaluateCandidates()
+    if not evaluated then
+        return false, errorMessage
+    end
+    self:BuildEffectiveGraph()
+    return true
+end
+
 function PathRuntime:AddDirectedEdge(adjacency, fromKey, toKey, candidateId, kind)
     local neighbors = adjacency[fromKey]
     if not neighbors then

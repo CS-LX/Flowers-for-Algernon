@@ -5,6 +5,7 @@ local PartRootRenderer = require "PartRootRenderer"
 local FixedGameCamera = require "FixedGameCamera"
 local PathRuntime = require "PathRuntime"
 local PlayerController = require "PlayerController"
+local PreviewRotatorController = require "PreviewRotatorController"
 
 local GamePreview = {}
 GamePreview.__index = GamePreview
@@ -44,6 +45,7 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight, overlayViewMana
     self.feedbackElapsed = 0.0
     self.feedbackDuration = 0.55
     self.feedbackOriginScale = 0.12
+    self.rotatorController = nil
     return self
 end
 
@@ -115,10 +117,13 @@ function GamePreview:FindClickedNode()
 end
 
 function GamePreview:HandlePointer()
-    if not input:GetMouseButtonPress(MOUSEB_LEFT) or not self.player then
+    if not self.player then
         return
     end
     if self.player:IsWalking() then
+        return
+    end
+    if not input:GetMouseButtonPress(MOUSEB_LEFT) then
         return
     end
     local target = self:FindClickedNode()
@@ -189,12 +194,23 @@ function GamePreview:Start()
         return false, playerError
     end
 
-    print("Game Preview: started with player model only")
+    self.rotatorController = PreviewRotatorController.New(
+        self.levelDocument,
+        self.partRenderer,
+        self.pathRuntime,
+        self.camera,
+        self.scene,
+        self.player
+    )
+    print("Game Preview: started with player and rotator drag")
     return true
 end
 
 function GamePreview:Update(timeStep)
-    self:HandlePointer()
+    local rotatorBusy = self.rotatorController and self.rotatorController:Update(timeStep)
+    if not rotatorBusy then
+        self:HandlePointer()
+    end
     if self.player then
         self.player:Update(timeStep)
         self.overlayViewManager:PresentPlayer(self.player)
@@ -203,6 +219,10 @@ function GamePreview:Update(timeStep)
 end
 
 function GamePreview:Stop()
+    if self.rotatorController then
+        self.rotatorController:RestoreAuthoredStates()
+        self.rotatorController = nil
+    end
     if self.player then
         self.player:Stop()
         self.player = nil

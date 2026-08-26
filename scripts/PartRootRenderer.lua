@@ -33,11 +33,11 @@ end
 
 function PartRootRenderer:GetPivotPosition(part)
     local pivotCell = part:GetPivotCell()
-    if pivotCell then
-        local pivotPosition = self.grid:GetCellTransform(pivotCell)
-        return pivotPosition
+    if not pivotCell then
+        return Vector3(0, 0, 0)
     end
-    return Vector3(0, 0, 0)
+    local pivotPosition = self.grid:GetPivotCellCenter(pivotCell)
+    return pivotPosition
 end
 
 function PartRootRenderer:ApplyTransform(root, part)
@@ -59,6 +59,10 @@ function PartRootRenderer:ApplyTransform(root, part)
     pivot.position = pivotPosition
     pivot.rotation = Quaternion(transform.rotation.yawSteps * 60.0, Vector3.UP)
     contentRoot.position = -pivotPosition
+    local entry = self.partRoots[part.id]
+    if entry then
+        entry.pivotPosition = pivotPosition
+    end
 end
 
 function PartRootRenderer:BuildPart(part)
@@ -155,12 +159,38 @@ function PartRootRenderer:GetPivotWorldPosition(partId)
     return entry and entry.pivotNode and entry.pivotNode.worldPosition or nil
 end
 
+-- Preview 拖动中的表现层 yaw，不改 PartDefinition。
+function PartRootRenderer:SetVisualYaw(partId, yawDegrees)
+    local entry = self.partRoots[partId]
+    if not entry or not entry.pivotNode then
+        return false
+    end
+    entry.pivotNode.rotation = Quaternion(yawDegrees, Vector3.UP)
+    return true
+end
+
 function PartRootRenderer:GetLocalBounds(partId)
     local entry = self.partRoots[partId]
     if not entry then
         return nil
     end
     return entry.minPoint, entry.maxPoint
+end
+
+-- 用 PartContent 局部包围盒拾取，不依赖 CustomGeometry 的 Octree 三角形射线。
+function PartRootRenderer:RaycastPart(partId, ray)
+    local entry = self.partRoots[partId]
+    if not entry or not entry.contentRoot or not entry.minPoint or not entry.maxPoint then
+        return nil
+    end
+    local inverse = entry.contentRoot.worldTransform:Inverse()
+    local localRay = ray:Transformed(inverse)
+    local box = BoundingBox(entry.minPoint, entry.maxPoint)
+    local distance = localRay:HitDistance(box)
+    if not distance or distance < 0 or distance == M_INFINITY then
+        return nil
+    end
+    return distance
 end
 
 function PartRootRenderer:Clear()

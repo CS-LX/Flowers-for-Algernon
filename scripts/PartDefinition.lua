@@ -96,16 +96,20 @@ local function HasMode(modes, wanted)
     return false
 end
 
+local function SnapHalfStep(value)
+    return math.floor((value or 0) * 2.0 + 0.5) / 2.0
+end
+
 local function CopyPivot(source)
     source = source or {}
     local cell = source.cell or {}
     return {
         mode = source.mode == "cell_center" and "cell_center" or "origin",
         cell = {
-            hexQ = math.floor(cell.hexQ or 0),
-            hexR = math.floor(cell.hexR or 0),
+            hexQ = SnapHalfStep(cell.hexQ or 0),
+            hexR = SnapHalfStep(cell.hexR or 0),
             sector = NormalizeSteps(cell.sector),
-            layer = math.max(0, math.floor(cell.layer or 0)),
+            layer = math.max(0, SnapHalfStep(cell.layer or 0)),
         },
     }
 end

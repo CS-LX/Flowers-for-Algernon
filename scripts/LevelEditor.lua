@@ -587,20 +587,21 @@ function LevelEditor:SetSelectedPivotCoordinate(axis, value)
         sector = pivotCell.sector,
         layer = pivotCell.layer,
     }
-    if axis == "hexQ" or axis == "hexR" or axis == "sector" or axis == "layer" then
-        cell[axis] = math.floor(numeric)
+    if axis == "hexQ" or axis == "hexR" or axis == "layer" then
+        cell[axis] = SnapToStep(numeric, 0.5)
+    elseif axis == "sector" then
+        cell.sector = math.floor(numeric)
     else
         return false
     end
-    local candidate = {
+    local _, candidate = self.partRenderer.grid:GetPivotCellCenter({
         hexQ = cell.hexQ,
         hexR = cell.hexR,
         sector = cell.sector,
-        layer = cell.layer,
-    }
-    local session, errorMessage = PartEditSession.Open(self.partRenderer.grid, part)
-    if not session or not session.document:Get(candidate) then
-        self:RefreshLevelUI("Pivot 必须指向当前 Part 的已有三棱柱 Cell")
+        layer = math.max(0, cell.layer),
+    })
+    if candidate.sector < 0 or candidate.sector > 5 or candidate.layer < 0 then
+        self:RefreshLevelUI("Pivot Cell 非法：Q/R/Layer 0.5 步进，Sector 0..5")
         return false
     end
     if not part:SetPivotCell(candidate) then
@@ -616,7 +617,17 @@ function LevelEditor:SetSelectedPivotCoordinate(axis, value)
         self:RefreshLevelUI("路径刷新失败：" .. tostring(rebuildError))
         return false
     end
-    self:RefreshLevelUI("已更新 Pivot Cell")
+    local pivotPosition = self.partRenderer:GetPivotPosition(part)
+    self:RefreshLevelUI(string.format(
+        "Pivot Cell Q=%.1f R=%.1f S=%d L=%.1f  -> 中心 (%.3f, %.3f, %.3f)",
+        candidate.hexQ,
+        candidate.hexR,
+        candidate.sector,
+        candidate.layer,
+        pivotPosition.x,
+        pivotPosition.y,
+        pivotPosition.z
+    ))
     return true
 end
 
@@ -1019,7 +1030,8 @@ function LevelEditor:OpenSelectedPart()
         self.edgeLength,
         self.voxelHeight,
         session,
-        self.overlayRenderer
+        self.overlayRenderer,
+        part
     )
     self.partEditor.onBackToLevel = function()
         self:BackToLevel()
@@ -1151,7 +1163,11 @@ function LevelEditor:Refresh(timeStep)
             self.ui and self.ui.selectedPathCandidateId or nil
         )
     elseif self.partEditor then
-        self.overlayRenderer:SyncCamera()
+        self.overlayViewManager:SyncCamera(self.cameraNode, self.camera)
+        self.overlayRenderer:SyncCamera(
+            self.overlayViewManager:GetEditorCameraNode(),
+            self.overlayViewManager:GetEditorCamera()
+        )
         self.partEditor:Refresh()
     elseif self.mode == "preview" then
         if input:GetKeyPress(KEY_ESCAPE) then
