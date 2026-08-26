@@ -5,7 +5,7 @@
     "id": "771520039"
   },
   "entry": "main.lua",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "taptap_publish": {
     "title": "Hexagon Visual Challenge",
     "description": "六边形体素关卡编辑与创作工具",

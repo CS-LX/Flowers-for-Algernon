@@ -98,12 +98,17 @@ function OverlayViewManager:PresentPlayer(model)
         self:ClearPlayer()
         return
     end
+    -- 置顶不再切 Overlay 相机：Clone RenderPath 会丢掉 Tonemap，颜色会变。
+    -- 角色始终留在主场景，用 depth_test_disabled shader + RenderOrder 255 画在最上层。
     local topmost = model:GetViewState() == "topmost"
-    local targetScene = topmost and self.previewScene or self.mainScene
     if not self.playerView or self.playerView.topmost ~= topmost
-        or self.playerView.scene ~= targetScene then
+        or self.playerView.scene ~= self.mainScene then
+        print(string.format(
+            "OverlayViewManager: recreate player viewState=%s scene=main",
+            topmost and "topmost" or "normal"
+        ))
         self:ClearPlayer()
-        self.playerView = PlayerView.New(targetScene, topmost)
+        self.playerView = PlayerView.New(self.mainScene, topmost)
     end
     self.playerView:Apply(model:GetPosition(), model:GetRotation())
 end
