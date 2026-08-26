@@ -2,7 +2,7 @@
 
 ## 落地状态
 
-阶段一、阶段二和运行时 Graph 基础已闭环：Part 局部 PathNode、Level 候选配置、固定相机投影边评估、编辑器 Gizmo、BFS 消费当前有效 Graph、Preview 拖动-Snap 后刷新 Graph。尚未闭环的是 Preview Debug HUD、遮挡评估，以及一次正式的“转前不可达 / 转后可达”玩法验收。下文旧段落若仍写距离启发式或 Snap 未完成，以本节为准。
+阶段一、阶段二和运行时 Graph 基础已闭环：Part 局部 PathNode、Level 候选配置、固定相机投影边评估、编辑器 Gizmo、BFS 消费当前有效 Graph、Preview 拖动-Snap 后刷新 Graph。用户已预览验收“转前不可达 / 转后可达”。尚未闭环的是 Preview Debug HUD 和遮挡评估。下文旧段落若仍写距离启发式或 Snap 未完成，以本节为准。
 
 ## 计划定位
 
@@ -307,7 +307,7 @@ docs/level-storage-and-source-of-truth.md
 - 跨 Part 视觉连接使用固定游戏相机下的投影面边正长度重合；
 - Preview 旋转塔松手 Snap 后调用 `PathRuntime:RefreshAfterMechanismSnap()` 原子替换当前有效 Graph。
 
-仍未闭环：Preview Debug HUD、遮挡评估、正式玩法验收关卡。不得把已删除的距离启发式重新扩大使用。
+仍未闭环：Preview Debug HUD、遮挡评估。玩法验收关卡的“转前不可达 / 转后可达”已由用户预览确认。不得把已删除的距离启发式重新扩大使用。
 
 
 

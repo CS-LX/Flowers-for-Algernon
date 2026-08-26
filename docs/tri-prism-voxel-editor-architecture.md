@@ -2,7 +2,7 @@
 
 ## 落地状态
 
-工具层已闭环。`LevelDocument` / `PartDefinition` / `VoxelSandbox` / `PartRootRenderer` 按本文职责运行：局部体素编辑服务关卡制作，不是最终产品。玩法验收仍以 `docs/plans/hexagonal-monument-valley-technical-validation.md` 为准。
+工具层已闭环。`LevelDocument` / `PartDefinition` / `VoxelSandbox` / `PartRootRenderer` 按本文职责运行：局部体素编辑服务关卡制作，不是最终产品。“转前不可达 / 转后可达”已由用户预览验收；Preview Debug HUD 仍未闭环。其余玩法细节仍以 `docs/plans/hexagonal-monument-valley-technical-validation.md` 为准。
 
 
 > **项目总目标：我们正在制作“六边形纪念碑谷”错视解谜游戏。**
