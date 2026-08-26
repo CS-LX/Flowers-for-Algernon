@@ -147,7 +147,6 @@ local function CreateDefaultLevel(grid)
         behaviors = {
             rotator = {
                 state = 0,
-                duration = 0.45,
                 allowedSteps = { 0, 1, 2, 3, 4, 5 },
             },
         },

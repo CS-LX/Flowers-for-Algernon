@@ -307,13 +307,6 @@ function LevelEditorUI:Build()
         fontSize = 10,
         onChange = function(_, checked) editor:SetSelectedBehaviorMode("triggerable", checked) end,
     }
-    self.rotatorDurationField = UI.TextField {
-        value = "0.45",
-        placeholder = "Duration",
-        height = 28,
-        fontSize = 11,
-        onSubmit = function(_, value) editor:SetSelectedRotatorDuration(value) end,
-    }
     self.triggerIdField = UI.TextField {
         value = "",
         placeholder = "Trigger ID",
@@ -591,7 +584,6 @@ function LevelEditorUI:Build()
                         borderBottomColor = BORDER,
                         children = {
                             UI.Panel { flexDirection = "row", gap = 10, children = { self.rotatorToggle, self.triggerableToggle } },
-                            InspectorFieldRow("Duration", self.rotatorDurationField),
                             InspectorFieldRow("Trigger ID", self.triggerIdField),
                             self.modeLabel,
                             self.capabilityLabel,
@@ -747,7 +739,6 @@ function LevelEditorUI:Refresh()
         self.modeLabel:SetText("—")
         self.rotatorToggle:SetChecked(false)
         self.triggerableToggle:SetChecked(false)
-        self.rotatorDurationField:SetValue("")
         self.triggerIdField:SetValue("")
         self.pivotModeDropdown.props.value = "origin"
         self.pivotModeDropdown:SetDisabled(true)
@@ -817,7 +808,6 @@ function LevelEditorUI:Refresh()
     self.modeLabel:SetText(ModeText(part))
     self.rotatorToggle:SetChecked(part:HasBehavior("rotator"))
     self.triggerableToggle:SetChecked(part:HasBehavior("triggerable"))
-    self.rotatorDurationField:SetValue(part.behaviors.rotator and tostring(part.behaviors.rotator.duration) or "")
     self.triggerIdField:SetValue(part.behaviors.triggerable and part.behaviors.triggerable.triggerId or "")
     local pivotCell = part:GetPivotCell()
     local usesCellPivot = part:GetPivotMode() == "cell_center"

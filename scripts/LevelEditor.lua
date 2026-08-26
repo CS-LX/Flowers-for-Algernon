@@ -721,17 +721,6 @@ function LevelEditor:SetSelectedBehaviorMode(mode, enabled)
     return true
 end
 
-function LevelEditor:SetSelectedRotatorDuration(value)
-    local part = self:GetSelectedPart()
-    if not part or not part:SetRotatorDuration(value) then
-        self:RefreshLevelUI("Rotator 时长必须是非负数字")
-        return false
-    end
-    self.levelDocument.dirty = true
-    self:RefreshLevelUI("已更新 Rotator 时长")
-    return true
-end
-
 function LevelEditor:SetSelectedTriggerId(value)
     local part = self:GetSelectedPart()
     if not part or not part:SetTriggerId(value) then

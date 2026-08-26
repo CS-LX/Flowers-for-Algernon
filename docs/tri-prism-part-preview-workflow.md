@@ -176,7 +176,6 @@ Part
             stepDegrees = 60,
             allowedSteps = { 0, 1, 2, 3, 4, 5 },
             state = 0,
-            duration = 0.45,
         },
     },
 }

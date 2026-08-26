@@ -157,7 +157,6 @@ function PartDefinition:Init(data)
             stepDegrees = 60,
             allowedSteps = NormalizeAllowedSteps(source.allowedSteps),
             state = NormalizeSteps(source.state or self.transform.rotation.yawSteps),
-            duration = source.duration or 0.45,
         }
         self.transformCapabilities.scale = false
         self.transform.scale = { x = 1, y = 1, z = 1 }
@@ -315,7 +314,6 @@ function PartDefinition:SetBehaviorMode(mode, enabled)
             stepDegrees = 60,
             allowedSteps = { 0, 1, 2, 3, 4, 5 },
             state = self.transform.rotation.yawSteps,
-            duration = 0.45,
         }
     elseif mode == PartDefinition.MODE_TRIGGERABLE and enabled then
         self.behaviors.triggerable = self.behaviors.triggerable or { triggerId = "" }
@@ -329,18 +327,6 @@ function PartDefinition:SetRotatorState(state)
         return false
     end
     return self:SetYawSteps(state)
-end
-
-function PartDefinition:SetRotatorDuration(duration)
-    if not self:HasBehavior(PartDefinition.MODE_ROTATOR) then
-        return false
-    end
-    local value = tonumber(duration)
-    if not value or value < 0 then
-        return false
-    end
-    self.behaviors.rotator.duration = value
-    return true
 end
 
 function PartDefinition:SetTriggerId(triggerId)
@@ -360,7 +346,6 @@ function PartDefinition:ToTable()
             stepDegrees = rotator.stepDegrees,
             allowedSteps = CopySteps(rotator.allowedSteps),
             state = rotator.state,
-            duration = rotator.duration,
         }
     end
     if self:HasBehavior(PartDefinition.MODE_TRIGGERABLE) then
