@@ -89,6 +89,7 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
     self.partEditor = nil
     self.gamePreview = nil
     self.ui = nil
+    self.pendingLoadWarning = levelDocument.loadWarning
     self.transformGrid = {
         snapStep = 0.5,
         hexQ = 0,
@@ -108,8 +109,23 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
     return self
 end
 
+function LevelEditor:ShowLoadWarning()
+    local warning = self.pendingLoadWarning
+    if not warning then
+        return
+    end
+    self.pendingLoadWarning = nil
+    UI.Modal.Alert({
+        title = warning.title or "关卡已损坏",
+        message = warning.message or "已恢复默认关卡。",
+        buttonText = "知道了",
+    })
+    self:RefreshLevelUI(warning.title or "关卡已损坏，已恢复默认关卡")
+end
+
 function LevelEditor:Start()
     self:EnterLevelMode()
+    self:ShowLoadWarning()
     self.pathRuntime:ConfigureEvaluation(
         self.partRenderer,
         self.evaluationCameraNode,
@@ -135,9 +151,9 @@ end
 
 function LevelEditor:ResetEditorCamera()
     local settings = self.levelDocument.fixedCamera
-    self.editorCamera.projection = "orthographic"
+    self.editorCamera.projection = FixedGameCamera.PROJECTION
     self.editorCamera.focus = Vector3(settings.target.x, settings.target.y, settings.target.z)
-    self.editorCamera.yaw = settings.yaw
+    self.editorCamera.yaw = FixedGameCamera.YAW
     self.editorCamera.pitch = settings.pitch
     self.editorCamera.distance = settings.orthoSize * 1.5
     self.editorCamera.orthoSize = settings.orthoSize

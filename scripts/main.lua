@@ -43,9 +43,10 @@ function Start()
     SetupCamera()
 
     local grid = TriPrismGrid.New(CONFIG.voxelEdge, CONFIG.voxelHeight)
-    levelDocument_ = StarterLevel.LoadOrCreate(grid)
+    local levelDocument, loadWarning = StarterLevel.LoadOrCreate(grid)
+    levelDocument_ = levelDocument
     if not levelDocument_ then
-        error("无法创建或加载初始关卡")
+        error("无法创建默认关卡：" .. tostring(loadWarning))
     end
 
     levelEditor_ = LevelEditor.New(

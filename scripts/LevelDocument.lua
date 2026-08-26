@@ -23,9 +23,7 @@ end
 local function CopyCamera(camera)
     camera = camera or {}
     return {
-        projection = "orthographic",
         pitch = camera.pitch or 30,
-        yaw = camera.yaw or 30,
         orthoSize = camera.orthoSize or 10.0,
         nearClip = camera.nearClip or 0.1,
         farClip = camera.farClip or 100.0,
@@ -326,7 +324,8 @@ end
 
 local function EncodeLevelJson(data)
     local json = cjson.encode(data)
-    return json:gsub('"behaviorModes":%{%}', '"behaviorModes":[]')
+    json = json:gsub('"behaviorModes":%{%}', '"behaviorModes":[]')
+    return json
 end
 
 -- 工作区存档继续拆成 Level + parts/*.json。

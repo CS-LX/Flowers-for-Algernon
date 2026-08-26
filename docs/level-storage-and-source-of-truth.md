@@ -122,7 +122,7 @@ PathRuntime 总节点数、边数和 topologyVersion
 
 ## StarterLevel 回退边界
 
-`StarterLevel` 只在 Runtime 相对路径下找不到 Level 存档时创建初始关卡。它不应覆盖已存在的 Runtime 存档，也不应被用来重置用户通过 UI 创建的关卡。
+`StarterLevel` 在 Runtime 相对路径下找不到 Level 存档时创建初始关卡。如果现有关卡 JSON 损坏、无法解析，则先把坏档备份为 `levels/default-level.json.corrupt-*.bak`，再重建默认关卡，并用弹窗提示用户；不得因此中断启动。完好的用户关卡仍不得被默认关卡覆盖。
 
 工作区的 `/workspace/levels` 和 `/workspace/parts` 只作为初始资源基线；删除它们或强制覆盖它们都可能触发错误回退，不能作为清理幽灵存档的办法。
 

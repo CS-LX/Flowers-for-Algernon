@@ -1,6 +1,6 @@
 -- B 方案初始关卡工厂。
--- 只在关卡文件不存在时生成一个静态基座 Part 和一个 Rotator 塔 Part；
--- 已保存的关卡与局部体素资源永不由本模块覆盖。
+-- 关卡文件不存在时生成静态基座 + Rotator 塔。
+-- 关卡 JSON 损坏时备份坏档并重建默认关卡，不阻塞启动。
 
 local LevelDocument = require "LevelDocument"
 local PartDefinition = require "PartDefinition"
@@ -64,16 +64,24 @@ local function SaveStarterPart(session)
     return session:Save()
 end
 
-function StarterLevel.LoadOrCreate(grid)
-    local level = LevelDocument.New(LEVEL_PATH)
-    if fileSystem:FileExists(LEVEL_PATH) then
-        local loaded, errorMessage = level:Load()
-        if loaded then
-            return level
-        end
-        return nil, errorMessage
+local function BackupCorruptFile(path)
+    if not fileSystem:FileExists(path) then
+        return nil
     end
+    local stamp = os.date("%Y%m%d-%H%M%S")
+    local backupPath = path .. ".corrupt-" .. stamp .. ".bak"
+    if fileSystem:Copy(path, backupPath) then
+        fileSystem:Delete(path)
+        return backupPath
+    end
+    if fileSystem:Rename(path, backupPath) then
+        return backupPath
+    end
+    return nil
+end
 
+local function CreateDefaultLevel(grid)
+    local level = LevelDocument.New(LEVEL_PATH)
     local baseSession = CreateStaticBaseSession(grid)
     local towerSession = CreateRotatorTowerSession(grid)
     local baseSaved, baseError = SaveStarterPart(baseSession)
@@ -87,9 +95,7 @@ function StarterLevel.LoadOrCreate(grid)
 
     level.name = "静态基座与旋转塔"
     level.fixedCamera = {
-        projection = "orthographic",
         pitch = 30,
-        yaw = 30,
         orthoSize = 12.0,
         nearClip = 0.1,
         farClip = 100.0,
@@ -181,6 +187,33 @@ function StarterLevel.LoadOrCreate(grid)
     end
     print("Created starter level B: StaticBase + RotatorTower")
     return level
+end
+
+function StarterLevel.LoadOrCreate(grid)
+    if fileSystem:FileExists(LEVEL_PATH) then
+        local level = LevelDocument.New(LEVEL_PATH)
+        local loaded, errorMessage = level:Load()
+        if loaded then
+            return level
+        end
+
+        local backupPath = BackupCorruptFile(LEVEL_PATH)
+        local recovered, recoverError = CreateDefaultLevel(grid)
+        if not recovered then
+            return nil, recoverError
+        end
+        recovered.loadWarning = {
+            title = "关卡已损坏，已恢复默认关卡",
+            message = "当前关卡 JSON 无法加载：" .. tostring(errorMessage)
+                .. "\n已恢复为默认关卡，坏档备份为："
+                .. tostring(backupPath or "备份失败，原文件未能移走"),
+        }
+        print("StarterLevel: corrupt level recovered from " .. tostring(errorMessage)
+            .. " backup=" .. tostring(backupPath))
+        return recovered, recovered.loadWarning.message
+    end
+
+    return CreateDefaultLevel(grid)
 end
 
 return StarterLevel

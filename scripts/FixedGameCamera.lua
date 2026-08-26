@@ -3,11 +3,14 @@
 
 local FixedGameCamera = {}
 
+FixedGameCamera.YAW = 30.0
+FixedGameCamera.PROJECTION = "orthographic"
+
 function FixedGameCamera.GetWorldPosition(config)
     local target = Vector3(config.target.x, config.target.y, config.target.z)
     local pitch = math.rad(config.pitch)
     local distance = config.orthoSize * 1.5
-    local yaw = math.rad(30.0)
+    local yaw = math.rad(FixedGameCamera.YAW)
     local horizontal = math.cos(pitch) * distance
     return target, target + Vector3(
         math.sin(yaw) * horizontal,
@@ -22,7 +25,7 @@ function FixedGameCamera.Create(scene, name, config)
     node.position = position
     node:LookAt(target)
     local camera = node:CreateComponent("Camera")
-    camera.orthographic = true
+    camera.orthographic = FixedGameCamera.PROJECTION == "orthographic"
     camera.orthoSize = config.orthoSize
     camera.nearClip = config.nearClip
     camera.farClip = config.farClip
