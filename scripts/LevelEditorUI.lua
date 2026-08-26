@@ -299,6 +299,38 @@ function LevelEditorUI:Build()
         fontSize = 10,
         onChange = function(_, checked) editor:SetSelectedBehaviorMode("rotator", checked) end,
     }
+    self.moverToggle = UI.Checkbox {
+        checked = false,
+        label = "Mover",
+        size = 16,
+        height = 24,
+        fontSize = 10,
+        onChange = function(_, checked) editor:SetSelectedBehaviorMode("mover", checked) end,
+    }
+    self.moverQToggle = UI.Checkbox {
+        checked = true,
+        label = "Q",
+        size = 16,
+        height = 24,
+        fontSize = 10,
+        onChange = function(_, checked) editor:SetSelectedMoverAxis("q", checked) end,
+    }
+    self.moverRToggle = UI.Checkbox {
+        checked = true,
+        label = "R",
+        size = 16,
+        height = 24,
+        fontSize = 10,
+        onChange = function(_, checked) editor:SetSelectedMoverAxis("r", checked) end,
+    }
+    self.moverLayerToggle = UI.Checkbox {
+        checked = true,
+        label = "Layer",
+        size = 16,
+        height = 24,
+        fontSize = 10,
+        onChange = function(_, checked) editor:SetSelectedMoverAxis("layer", checked) end,
+    }
     self.triggerableToggle = UI.Checkbox {
         checked = false,
         label = "Triggerable",
@@ -583,7 +615,8 @@ function LevelEditorUI:Build()
                         borderBottomWidth = 1,
                         borderBottomColor = BORDER,
                         children = {
-                            UI.Panel { flexDirection = "row", gap = 10, children = { self.rotatorToggle, self.triggerableToggle } },
+                            UI.Panel { flexDirection = "row", gap = 10, children = { self.rotatorToggle, self.moverToggle, self.triggerableToggle } },
+                            UI.Panel { flexDirection = "row", gap = 10, children = { self.moverQToggle, self.moverRToggle, self.moverLayerToggle } },
                             InspectorFieldRow("Trigger ID", self.triggerIdField),
                             self.modeLabel,
                             self.capabilityLabel,
@@ -738,6 +771,13 @@ function LevelEditorUI:Refresh()
         self.capabilityLabel:SetText("—")
         self.modeLabel:SetText("—")
         self.rotatorToggle:SetChecked(false)
+        self.moverToggle:SetChecked(false)
+        self.moverQToggle:SetChecked(false)
+        self.moverRToggle:SetChecked(false)
+        self.moverLayerToggle:SetChecked(false)
+        self.moverQToggle:SetDisabled(true)
+        self.moverRToggle:SetDisabled(true)
+        self.moverLayerToggle:SetDisabled(true)
         self.triggerableToggle:SetChecked(false)
         self.triggerIdField:SetValue("")
         self.pivotModeDropdown.props.value = "origin"
@@ -807,6 +847,15 @@ function LevelEditorUI:Refresh()
     ))
     self.modeLabel:SetText(ModeText(part))
     self.rotatorToggle:SetChecked(part:HasBehavior("rotator"))
+    self.moverToggle:SetChecked(part:HasBehavior("mover"))
+    local hasMover = part:HasBehavior("mover")
+    local moverAxes = part.behaviors.mover and part.behaviors.mover.axes or {}
+    self.moverQToggle:SetDisabled(not hasMover)
+    self.moverRToggle:SetDisabled(not hasMover)
+    self.moverLayerToggle:SetDisabled(not hasMover)
+    self.moverQToggle:SetChecked(hasMover and moverAxes.q == true)
+    self.moverRToggle:SetChecked(hasMover and moverAxes.r == true)
+    self.moverLayerToggle:SetChecked(hasMover and moverAxes.layer == true)
     self.triggerableToggle:SetChecked(part:HasBehavior("triggerable"))
     self.triggerIdField:SetValue(part.behaviors.triggerable and part.behaviors.triggerable.triggerId or "")
     local pivotCell = part:GetPivotCell()

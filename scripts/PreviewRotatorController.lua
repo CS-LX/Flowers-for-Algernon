@@ -104,6 +104,7 @@ function PreviewRotatorController.New(levelDocument, partRenderer, pathRuntime, 
     self.dragStartMouse = nil
     self.dragCommitted = false
     self.pendingClickConsumed = false
+    self.autoPick = true
     self.targetYawDegrees = 0.0
     self.visualYawDegrees = 0.0
     self.authoredStates = {}
@@ -300,6 +301,44 @@ function PreviewRotatorController:CancelPendingAsClick()
     return true
 end
 
+function PreviewRotatorController:CancelPendingQuietly()
+    self.pendingClickConsumed = false
+    self.phase = PHASE_IDLE
+    self.activePart = nil
+    self.dragCommitted = false
+    return true
+end
+
+function PreviewRotatorController:HasPendingPart(part)
+    return self.phase == PHASE_PENDING and self.activePart and part and self.activePart.id == part.id
+end
+
+function PreviewRotatorController:GetPendingDragScore()
+    if self.phase ~= PHASE_PENDING or not self.activePart or not self.dragStartMouse then
+        return 0.0
+    end
+    local mouse = input:GetMousePosition()
+    local dx = mouse.x - self.dragStartMouse.x
+    local dy = mouse.y - self.dragStartMouse.y
+    if dx * dx + dy * dy < DRAG_DEADZONE_PIXELS * DRAG_DEADZONE_PIXELS then
+        return 0.0
+    end
+    local pivotPosition = self.partRenderer:GetPivotWorldPosition(self.activePart.id)
+    if not pivotPosition or not self.dragStartVector then
+        return 0.0
+    end
+    local hit = IntersectYawPlane(GetScreenRay(self.camera), pivotPosition)
+    if not hit then
+        return 0.0
+    end
+    local handle = hit - pivotPosition
+    local angle = math.abs(SignedYawDelta(self.dragStartVector, handle) or 0.0)
+    local startRadius = FlattenYawVector(self.dragStartVector):Length()
+    local currentRadius = FlattenYawVector(handle):Length()
+    local radial = math.abs(currentRadius - startRadius)
+    return angle * math.max(0.25, HandleRadiusWeight(handle)) - radial * 18.0
+end
+
 function PreviewRotatorController:InterruptSnap(ray, mouse)
     local part = self.activePart
     if not part then
@@ -423,7 +462,7 @@ function PreviewRotatorController:Update(timeStep)
         self:UpdateSnap(timeStep)
         return true
     end
-    if not input:GetMouseButtonPress(MOUSEB_LEFT) then
+    if not self.autoPick or not input:GetMouseButtonPress(MOUSEB_LEFT) then
         return false
     end
     if self.player and self.player:IsWalking() then

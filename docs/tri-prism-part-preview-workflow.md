@@ -2,7 +2,7 @@
 
 ## 落地状态
 
-工作流已闭环。Level Object Tree、Part 局部编辑、Editor Camera 与 Game Preview 固定相机分离、Preview 旋转塔拖动-Snap、点击/拖动手势分流、角色跟随可动 Part，均已按本文实现。Mesh Bake 仍未做，不影响当前白盒工作流。
+工作流已闭环。Level Object Tree、Part 局部编辑、Editor Camera 与 Game Preview 固定相机分离、Preview 旋转塔拖动-Snap、Preview 移动机关拖动-Snap、点击/拖动手势分流、角色跟随可动 Part，均已按本文实现。Mesh Bake 仍未做，不影响当前白盒工作流。
 
 
 ## 目标
@@ -176,6 +176,9 @@ Part
             stepDegrees = 60,
             allowedSteps = { 0, 1, 2, 3, 4, 5 },
             state = 0,
+        },
+        mover = {
+            axes = { q = true, r = true, layer = true },
         },
     },
 }

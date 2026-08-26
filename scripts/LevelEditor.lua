@@ -721,6 +721,27 @@ function LevelEditor:SetSelectedBehaviorMode(mode, enabled)
     return true
 end
 
+function LevelEditor:SetSelectedMoverAxis(axis, enabled)
+    local part = self:GetSelectedPart()
+    if not part or not part:HasBehavior("mover") then
+        self:RefreshLevelUI("当前 Part 未启用 Mover")
+        return false
+    end
+    if not part:SetMoverAxis(axis, enabled) then
+        self:RefreshLevelUI("Mover 至少要保留一条 Q / R / Layer 轴")
+        return false
+    end
+    self.levelDocument.dirty = true
+    self:RefreshLevelUI(string.format(
+        "已更新 %s Mover 轴：Q=%s R=%s Layer=%s",
+        part.name,
+        tostring(part.behaviors.mover.axes.q),
+        tostring(part.behaviors.mover.axes.r),
+        tostring(part.behaviors.mover.axes.layer)
+    ))
+    return true
+end
+
 function LevelEditor:SetSelectedTriggerId(value)
     local part = self:GetSelectedPart()
     if not part or not part:SetTriggerId(value) then

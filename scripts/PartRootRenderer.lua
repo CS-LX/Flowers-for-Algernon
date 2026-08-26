@@ -169,6 +169,16 @@ function PartRootRenderer:SetVisualYaw(partId, yawDegrees)
     return true
 end
 
+-- Preview 拖动中的表现层位移，不改 PartDefinition。
+function PartRootRenderer:SetVisualPosition(partId, position)
+    local entry = self.partRoots[partId]
+    if not entry or not entry.node then
+        return false
+    end
+    entry.node.position = Vector3(position.x, position.y, position.z)
+    return true
+end
+
 function PartRootRenderer:GetLocalBounds(partId)
     local entry = self.partRoots[partId]
     if not entry then

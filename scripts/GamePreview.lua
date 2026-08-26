@@ -6,6 +6,7 @@ local FixedGameCamera = require "FixedGameCamera"
 local PathRuntime = require "PathRuntime"
 local PlayerController = require "PlayerController"
 local PreviewRotatorController = require "PreviewRotatorController"
+local PreviewMoverController = require "PreviewMoverController"
 
 local GamePreview = {}
 GamePreview.__index = GamePreview
@@ -46,6 +47,7 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight, overlayViewMana
     self.feedbackDuration = 0.55
     self.feedbackOriginScale = 0.12
     self.rotatorController = nil
+    self.moverController = nil
     return self
 end
 
@@ -123,7 +125,8 @@ function GamePreview:HandlePointer()
     if self.player:IsWalking() then
         return
     end
-    local fromPendingClick = self.rotatorController and self.rotatorController:ConsumePendingClick()
+    local fromPendingClick = (self.rotatorController and self.rotatorController:ConsumePendingClick())
+        or (self.moverController and self.moverController:ConsumePendingClick())
     if not fromPendingClick and not input:GetMouseButtonPress(MOUSEB_LEFT) then
         return
     end
@@ -203,14 +206,94 @@ function GamePreview:Start()
         self.scene,
         self.player
     )
-    print("Game Preview: started with player and rotator drag")
+    self.rotatorController.autoPick = false
+    self.moverController = PreviewMoverController.New(
+        self.levelDocument,
+        self.partRenderer,
+        self.pathRuntime,
+        self.camera,
+        self.player
+    )
+    self.moverController.autoPick = false
+    print("Game Preview: started with player, rotator and mover drag")
     return true
 end
 
+function GamePreview:BeginMechanismPending()
+    if not input:GetMouseButtonPress(MOUSEB_LEFT) then
+        return false
+    end
+    if self.player and self.player:IsWalking() then
+        return false
+    end
+    local mouse = input:GetMousePosition()
+    local width = math.max(1, graphics:GetWidth())
+    local height = math.max(1, graphics:GetHeight())
+    local ray = self.camera:GetScreenRay(mouse.x / width, mouse.y / height)
+    local rotatorPart, rotatorDistance = nil, math.huge
+    local moverPart, moverDistance = nil, math.huge
+    if self.rotatorController then
+        rotatorPart = self.rotatorController:PickRotatorPart(ray)
+        if rotatorPart then
+            rotatorDistance = self.partRenderer:RaycastPart(rotatorPart.id, ray) or math.huge
+        end
+    end
+    if self.moverController then
+        moverPart, moverDistance = self.moverController:PickMoverPart(ray)
+        moverDistance = moverDistance or math.huge
+    end
+    if rotatorPart and moverPart and rotatorPart.id == moverPart.id then
+        local startedRotator = self.rotatorController:BeginPending(rotatorPart, ray, mouse)
+        local startedMover = self.moverController:BeginPending(moverPart, ray, mouse)
+        return startedRotator or startedMover
+    end
+    if rotatorPart and rotatorDistance <= moverDistance then
+        return self.rotatorController:BeginPending(rotatorPart, ray, mouse)
+    end
+    if moverPart then
+        return self.moverController:BeginPending(moverPart, ray, mouse)
+    end
+    return false
+end
+
+function GamePreview:ResolveSharedPending()
+    local rotator = self.rotatorController
+    local mover = self.moverController
+    if not rotator or not mover then
+        return
+    end
+    local part = rotator.activePart
+    if not part or not rotator:HasPendingPart(part) or not mover:HasPendingPart(part) then
+        return
+    end
+    local rotatorScore = rotator:GetPendingDragScore()
+    local moverScore = mover:GetPendingDragScore()
+    if rotatorScore <= 0 and moverScore <= 0 then
+        return
+    end
+    if rotatorScore >= moverScore then
+        mover:CancelPendingQuietly()
+    else
+        rotator:CancelPendingQuietly()
+    end
+end
+
 function GamePreview:Update(timeStep)
-    local rotatorBusy = self.rotatorController and self.rotatorController:Update(timeStep)
-    if not rotatorBusy then
-        self:HandlePointer()
+    self:ResolveSharedPending()
+    ---@type boolean
+    local rotatorBusy = false
+    ---@type boolean
+    local moverBusy = false
+    if self.rotatorController then
+        rotatorBusy = self.rotatorController:Update(timeStep) and true or false
+    end
+    if self.moverController then
+        moverBusy = self.moverController:Update(timeStep) and true or false
+    end
+    if not rotatorBusy and not moverBusy then
+        if not self:BeginMechanismPending() then
+            self:HandlePointer()
+        end
     end
     if self.player then
         self.player:Update(timeStep)
@@ -223,6 +306,10 @@ function GamePreview:Stop()
     if self.rotatorController then
         self.rotatorController:RestoreAuthoredStates()
         self.rotatorController = nil
+    end
+    if self.moverController then
+        self.moverController:RestoreAuthoredStates()
+        self.moverController = nil
     end
     if self.player then
         self.player:Stop()

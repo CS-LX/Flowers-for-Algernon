@@ -6,6 +6,7 @@ local PartDefinition = {}
 PartDefinition.__index = PartDefinition
 
 PartDefinition.MODE_ROTATOR = "rotator"
+PartDefinition.MODE_MOVER = "mover"
 PartDefinition.MODE_TRIGGERABLE = "triggerable"
 
 local function CopyVector(value, fallback)
@@ -100,6 +101,21 @@ local function SnapHalfStep(value)
     return math.floor((value or 0) * 2.0 + 0.5) / 2.0
 end
 
+local function CopyMoverAxes(source)
+    source = source or {}
+    local axes = {
+        q = source.q ~= false,
+        r = source.r ~= false,
+        layer = source.layer ~= false,
+    }
+    if not axes.q and not axes.r and not axes.layer then
+        axes.q = true
+        axes.r = true
+        axes.layer = true
+    end
+    return axes
+end
+
 local function CopyPivot(source)
     source = source or {}
     local cell = source.cell or {}
@@ -160,6 +176,13 @@ function PartDefinition:Init(data)
         }
         self.transformCapabilities.scale = false
         self.transform.scale = { x = 1, y = 1, z = 1 }
+    end
+
+    if HasMode(self.behaviorModes, PartDefinition.MODE_MOVER) then
+        local source = sourceBehaviors.mover or {}
+        self.behaviors.mover = {
+            axes = CopyMoverAxes(source.axes),
+        }
     end
 
     if HasMode(self.behaviorModes, PartDefinition.MODE_TRIGGERABLE) then
@@ -315,6 +338,10 @@ function PartDefinition:SetBehaviorMode(mode, enabled)
             allowedSteps = { 0, 1, 2, 3, 4, 5 },
             state = self.transform.rotation.yawSteps,
         }
+    elseif mode == PartDefinition.MODE_MOVER and enabled then
+        self.behaviors.mover = self.behaviors.mover or {
+            axes = CopyMoverAxes(),
+        }
     elseif mode == PartDefinition.MODE_TRIGGERABLE and enabled then
         self.behaviors.triggerable = self.behaviors.triggerable or { triggerId = "" }
     end
@@ -327,6 +354,22 @@ function PartDefinition:SetRotatorState(state)
         return false
     end
     return self:SetYawSteps(state)
+end
+
+function PartDefinition:SetMoverAxis(axis, enabled)
+    if not self:HasBehavior(PartDefinition.MODE_MOVER) then
+        return false
+    end
+    if axis ~= "q" and axis ~= "r" and axis ~= "layer" then
+        return false
+    end
+    local axes = CopyMoverAxes(self.behaviors.mover.axes)
+    axes[axis] = enabled == true
+    if not axes.q and not axes.r and not axes.layer then
+        return false
+    end
+    self.behaviors.mover.axes = axes
+    return true
 end
 
 function PartDefinition:SetTriggerId(triggerId)
@@ -346,6 +389,12 @@ function PartDefinition:ToTable()
             stepDegrees = rotator.stepDegrees,
             allowedSteps = CopySteps(rotator.allowedSteps),
             state = rotator.state,
+        }
+    end
+    if self:HasBehavior(PartDefinition.MODE_MOVER) then
+        local mover = self.behaviors.mover
+        behaviors.mover = {
+            axes = CopyMoverAxes(mover.axes),
         }
     end
     if self:HasBehavior(PartDefinition.MODE_TRIGGERABLE) then
