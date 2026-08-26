@@ -1109,6 +1109,43 @@ function LevelEditor:SaveLevel()
     return true
 end
 
+-- 用户系统剪切板，不是 VoxelSandbox 的项目体素复制缓冲。
+function LevelEditor:CopyTextToUserClipboard(text)
+    if type(text) ~= "string" or text == "" then
+        return false, "clipboard text is empty"
+    end
+    if not ui then
+        return false, "engine UI clipboard is unavailable"
+    end
+    ui.useSystemClipboard = true
+    ui:SetClipboardText(text)
+    local copied = ui:GetClipboardText()
+    if copied ~= text then
+        return false, "system clipboard rejected the export"
+    end
+    return true
+end
+
+function LevelEditor:ExportInlineLevelToUserClipboard()
+    local json, errorMessage = self.levelDocument:ExportInlineJson(self.partRenderer.grid)
+    if not json then
+        self:RefreshLevelUI("关卡导出失败：" .. tostring(errorMessage))
+        return false
+    end
+    local copied, copyError = self:CopyTextToUserClipboard(json)
+    if not copied then
+        self:RefreshLevelUI("无法复制到用户剪切板：" .. tostring(copyError))
+        return false
+    end
+    print(string.format(
+        "Level export: copied inline JSON to user clipboard chars=%d parts=%d",
+        #json,
+        #self.levelDocument:GetParts()
+    ))
+    self:RefreshLevelUI("已复制内联关卡 JSON 到用户剪切板")
+    return true
+end
+
 function LevelEditor:RotateSelectedPart(deltaSteps)
     local part = self:GetSelectedPart()
     if not part then

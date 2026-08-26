@@ -3,6 +3,7 @@
 
 local PartDefinition = require "PartDefinition"
 local PathConnectionCandidate = require "PathConnectionCandidate"
+local PartEditSession = require "PartEditSession"
 
 local LevelDocument = {}
 LevelDocument.__index = LevelDocument
@@ -308,7 +309,7 @@ function LevelDocument:ToTable()
         name = self.name,
         fixedCamera = CopyCamera(self.fixedCamera),
         parts = parts,
-        ["出生点"] = self.spawnNodeKey,
+        spawnNodeKey = self.spawnNodeKey,
     }
     if #self.pathCandidateOrder > 0 then
         local candidates = {}
@@ -321,6 +322,41 @@ function LevelDocument:ToTable()
         result.pathCandidates = candidates
     end
     return result
+end
+
+local function EncodeLevelJson(data)
+    local json = cjson.encode(data)
+    return json:gsub('"behaviorModes":%{%}', '"behaviorModes":[]')
+end
+
+-- 工作区存档继续拆成 Level + parts/*.json。
+-- 导出给用户时把每个 Part 的体素文档内联进同一份 JSON。
+function LevelDocument:ExportInlineTable(grid)
+    if not grid then
+        return nil, "inline export requires TriPrismGrid"
+    end
+    local data = self:ToTable()
+    data.inlineParts = true
+    for _, partData in ipairs(data.parts) do
+        local part = self:GetPart(partData.id)
+        if not part then
+            return nil, "inline export missing Part: " .. tostring(partData.id)
+        end
+        local session, errorMessage = PartEditSession.Open(grid, part)
+        if not session then
+            return nil, "无法内联 Part " .. part.id .. "：" .. tostring(errorMessage)
+        end
+        partData.localVoxelDocument = session.document:ToTable()
+    end
+    return data
+end
+
+function LevelDocument:ExportInlineJson(grid)
+    local data, errorMessage = self:ExportInlineTable(grid)
+    if not data then
+        return nil, errorMessage
+    end
+    return EncodeLevelJson(data)
 end
 
 function LevelDocument:LoadTable(data)
@@ -337,8 +373,8 @@ function LevelDocument:LoadTable(data)
     self.partOrder = {}
     self.pathCandidates = {}
     self.pathCandidateOrder = {}
-    self.spawnNodeKey = type(data["出生点"]) == "string" and data["出生点"]
-        or (type(data.spawnNodeKey) == "string" and data.spawnNodeKey or nil)
+    self.spawnNodeKey = type(data.spawnNodeKey) == "string" and data.spawnNodeKey
+        or (type(data["出生点"]) == "string" and data["出生点"] or nil)
 
     for _, item in ipairs(data.parts) do
         local part, errorMessage = PartDefinition.FromTable(item)
@@ -375,9 +411,7 @@ function LevelDocument:Save(path)
     if not file:IsOpen() then
         return false, "cannot open level save file"
     end
-    local json = cjson.encode(self:ToTable())
-    json = json:gsub('"behaviorModes":%{%}', '"behaviorModes":[]')
-    file:WriteLine(json)
+    file:WriteLine(EncodeLevelJson(self:ToTable()))
     file:Close()
     self.path = path
     self.dirty = false

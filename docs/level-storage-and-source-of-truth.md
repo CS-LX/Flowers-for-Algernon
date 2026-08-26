@@ -4,6 +4,8 @@
 
 已闭环为存储职责规范。用户只通过 Editor UI 改关卡；工作区 `levels/` `parts/` 是 Git 基线，Preview 使用 Runtime 相对存档。三者不能混称为“当前关卡”。本规范不证明某次 Preview 一定读到了工作区文件。
 
+用户导出是第四条通道：把当前内存关卡连同内联 Part 体素文档复制到**用户系统剪切板**。它不改 Runtime 存档，也不使用 VoxelSandbox 的项目体素复制缓冲。
+
 
 ## 目的
 
@@ -139,6 +141,26 @@ PathRuntime 总节点数、边数和 topologyVersion
 workspace baseline
 Runtime current save
 in-memory unsaved editor state
+user clipboard export
 ```
 
-三者不能混为一个“当前关卡”。
+前三者不能混为一个“当前关卡”。导出只复制当前内存关卡的内联 JSON，不写回 Runtime 存档。
+
+## 用户导出
+
+Editor UI 的“导出 JSON 到用户剪切板”生成一份单文件关卡：
+
+```text
+LevelDocument.ToTable()
+  + 每个 Part.localVoxelDocument
+  -> inline JSON
+  -> 用户系统剪切板
+```
+
+规则：
+
+- Runtime 保存仍拆成 `levels/*.json` + `parts/*.json`；
+- 导出才把 Part 体素文档内联进 `parts[].localVoxelDocument`，并标记 `inlineParts = true`；
+- 复制目标是引擎 `ui.useSystemClipboard = true` 后的系统剪切板；
+- 禁止写入 `VoxelSandbox.clipboard`，那是项目内体素复制缓冲；
+- 导出失败时不得假装已经复制成功。

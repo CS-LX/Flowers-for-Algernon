@@ -413,6 +413,15 @@ function LevelEditorUI:Build()
             editor:SaveLevel()
         end,
     }
+    self.exportButton = UI.Button {
+        text = "导出 JSON 到用户剪切板",
+        height = 30,
+        fontSize = 11,
+        variant = "secondary",
+        onClick = function()
+            editor:ExportInlineLevelToUserClipboard()
+        end,
+    }
 
     self.root = UI.Panel {
         width = "100%",
@@ -608,6 +617,7 @@ function LevelEditorUI:Build()
                             self.openButton,
                             self.previewButton,
                             self.saveButton,
+                            self.exportButton,
                         },
                     },
                 },
