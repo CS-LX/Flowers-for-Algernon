@@ -71,9 +71,7 @@ function PartRootRenderer:BuildPart(part)
         return false, errorMessage
     end
 
-    local parentRoot = part.parentId and self.partRoots[part.parentId]
-    local parentNode = parentRoot and parentRoot.node or self.scene
-    local root = parentNode:CreateChild("PartRoot_" .. part.id)
+    local root = self:GetParentNode(part.parentId):CreateChild("PartRoot_" .. part.id)
     root:SetVar("partId", Variant(part.id))
     local pivot = root:CreateChild("RotationPivot")
     local contentRoot = pivot:CreateChild("PartContent")
@@ -122,15 +120,80 @@ function PartRootRenderer:BuildPart(part)
     return true, root
 end
 
+function PartRootRenderer:GetParentNode(parentId)
+    if not parentId then
+        return self.scene
+    end
+    local parent = self.partRoots[parentId]
+    if not parent then
+        return self.scene
+    end
+    return parent.contentRoot or parent.node
+end
+
+function PartRootRenderer:ApplyStillTransform(root, object)
+    local transform = object.transform
+    root.position = Vector3(transform.position.x, transform.position.y, transform.position.z)
+    root.rotation = Quaternion(transform.rotation.y or 0, Vector3.UP) * Quaternion(transform.rotation.x or 0, Vector3.RIGHT) * Quaternion(transform.rotation.z or 0, Vector3.FORWARD)
+    root.scale = Vector3(transform.scale.x, transform.scale.y, transform.scale.z)
+end
+
+function PartRootRenderer:CreatePlaceholderModel(parent)
+    local node = parent:CreateChild("StillPlaceholder")
+    local model = node:CreateComponent("StaticModel")
+    model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+    local material = Material:new()
+    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
+    material:SetShaderParameter("MatDiffColor", Variant(Vector4(0.62, 0.72, 0.82, 1)))
+    material:SetShaderParameter("Metallic", Variant(0.05))
+    material:SetShaderParameter("Roughness", Variant(0.55))
+    model:SetMaterial(material)
+    local size = model.boundingBox.size
+    node.position = Vector3(0, size.y * 0.5, 0)
+    return node, Vector3(-0.5, 0, -0.5), Vector3(0.5, 1, 0.5)
+end
+
+function PartRootRenderer:BuildStillObject(object)
+    local root = self:GetParentNode(object.parentId):CreateChild("StillRoot_" .. object.id)
+    root:SetVar("stillObjectId", Variant(object.id))
+    self:ApplyStillTransform(root, object)
+    local _, minPoint, maxPoint = self:CreatePlaceholderModel(root)
+    self.partRoots[object.id] = {
+        node = root,
+        contentRoot = root,
+        pivotNode = root,
+        pivotPosition = Vector3(0, 0, 0),
+        minPoint = minPoint,
+        maxPoint = maxPoint,
+        kind = "stillObject",
+    }
+    return true, root
+end
+
 function PartRootRenderer:Rebuild(levelDocument)
     self:Clear()
-    for _, part in ipairs(levelDocument:GetParts()) do
-        local built, errorMessage = self:BuildPart(part)
-        if not built then
-            return false, "无法显示 Part " .. part.name .. "：" .. tostring(errorMessage)
+    local function BuildNodes(parentId)
+        for _, object in ipairs(levelDocument:GetChildren(parentId)) do
+            local built, errorMessage
+            if levelDocument:GetPart(object.id) then
+                built, errorMessage = self:BuildPart(object)
+                if not built then
+                    return false, "无法显示 Part " .. object.name .. "：" .. tostring(errorMessage)
+                end
+            else
+                built, errorMessage = self:BuildStillObject(object)
+                if not built then
+                    return false, "无法显示静物 " .. object.name .. "：" .. tostring(errorMessage)
+                end
+            end
+            local ok, childError = BuildNodes(object.id)
+            if not ok then
+                return false, childError
+            end
         end
+        return true
     end
-    return true
+    return BuildNodes(nil)
 end
 
 function PartRootRenderer:GetRoot(partId)

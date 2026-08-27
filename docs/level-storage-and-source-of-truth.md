@@ -181,6 +181,6 @@ LevelDocument.ToTable()
 - 导出仍写用户系统剪切板；
 - 导入必须经过输入框粘贴，不调用 `GetClipboardText()`；
 - 不读取 `VoxelSandbox.clipboard`；
-- 必须是带 `localVoxelDocument` 的单文件关卡；
+- Part 必须带 `localVoxelDocument`；静物走 `stillObjects[]`，不要求体素文档；
 - 先在临时文档上校验，成功后再覆盖当前关卡；
 - 导入后 Runtime 存档仍保持拆分。

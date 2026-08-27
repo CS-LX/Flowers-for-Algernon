@@ -5,6 +5,7 @@ local UI = require("urhox-libs/UI")
 local Shared = require "InspectorShared"
 local LevelInspector = require "LevelInspector"
 local PartInspector = require "PartInspector"
+local StillObjectInspector = require "StillObjectInspector"
 
 local LevelEditorUI = {}
 LevelEditorUI.__index = LevelEditorUI
@@ -15,11 +16,13 @@ function LevelEditorUI.New(editor)
     self.root = nil
     self.levelInspector = LevelInspector.New(editor)
     self.partInspector = PartInspector.New(editor)
+    self.stillInspector = StillObjectInspector.New(editor)
     self.inspectorTabs = nil
     self.tree = nil
     self.titleLabel = nil
     self.statusLabel = nil
     self.createButton = nil
+    self.createStillButton = nil
     self.duplicateButton = nil
     self.deleteButton = nil
     return self
@@ -55,7 +58,7 @@ function LevelEditorUI:Build()
         selectedBgColor = Shared.COMPONENT_ACCENT,
         onSelect = function(_, _, node)
             if node and node.id then
-                editor:SelectPart(node.id)
+                editor:SelectObject(node.id)
             end
         end,
     }
@@ -65,6 +68,13 @@ function LevelEditorUI:Build()
         fontSize = 11,
         variant = "primary",
         onClick = function() editor:CreateEmptyPart() end,
+    }
+    self.createStillButton = UI.Button {
+        text = "+ 新建静物",
+        height = 28,
+        fontSize = 11,
+        variant = "secondary",
+        onClick = function() editor:CreateStillObject() end,
     }
     self.duplicateButton = UI.Button {
         text = "复制",
@@ -81,24 +91,18 @@ function LevelEditorUI:Build()
         fontSize = 10,
         variant = "danger",
         onClick = function()
-            local part = editor:GetSelectedPart()
-            if not part then return end
-            UI.Modal.Confirm({
-                title = "从关卡移除 Part",
-                message = "确定移除“" .. part.name .. "”吗？局部体素 JSON 会保留，不会物理删除。",
-                confirmText = "移除",
-                cancelText = "取消",
-                onConfirm = function() editor:DeleteSelectedPart() end,
-            })
+            editor:ConfirmDeleteSelectedObject()
         end,
     }
 
     local levelContent = self.levelInspector:Build()
     local partContent = self.partInspector:Build()
+    local stillContent = self.stillInspector:Build()
     self.inspectorTabs = UI.Tabs {
         tabs = {
             { id = "level", label = "关卡" },
             { id = "part", label = "Part" },
+            { id = "still", label = "静物" },
         },
         activeTab = "level",
         variant = "enclosed",
@@ -110,11 +114,14 @@ function LevelEditorUI:Build()
         onChange = function(_, tabId)
             if tabId == "part" and not editor:GetSelectedPart() then
                 editor:RefreshLevelUI("未选择 Part，Part Inspector 为空")
+            elseif tabId == "still" and not editor:GetSelectedStillObject() then
+                editor:RefreshLevelUI("未选择静物，静物 Inspector 为空")
             end
         end,
     }
     self.inspectorTabs:SetTabContent("level", levelContent)
     self.inspectorTabs:SetTabContent("part", partContent)
+    self.inspectorTabs:SetTabContent("still", stillContent)
 
     self.root = UI.Panel {
         width = "100%",
@@ -141,6 +148,7 @@ function LevelEditorUI:Build()
                     UI.Label { text = "LevelRoot", fontSize = 12, fontWeight = "bold", fontColor = { 180, 201, 226, 255 } },
                     self.tree,
                     self.createButton,
+                    self.createStillButton,
                     UI.Panel { flexDirection = "row", gap = 4, children = {
                         self.duplicateButton,
                         self.deleteButton,
@@ -178,12 +186,16 @@ function LevelEditorUI:Refresh()
     self.tree:ExpandAll()
     self.levelInspector:Refresh()
     self.partInspector:Refresh()
+    self.stillInspector:Refresh()
 
     local part = self.editor:GetSelectedPart()
-    local hasPart = part ~= nil
-    self.duplicateButton:SetDisabled(not hasPart)
-    self.deleteButton:SetDisabled(not hasPart)
-    if hasPart then
+    local still = self.editor:GetSelectedStillObject()
+    local hasObject = part ~= nil or still ~= nil
+    self.duplicateButton:SetDisabled(part == nil)
+    self.deleteButton:SetDisabled(not hasObject)
+    if still then
+        self.inspectorTabs:SetActiveTab("still")
+    elseif part then
         self.inspectorTabs:SetActiveTab("part")
     end
 end

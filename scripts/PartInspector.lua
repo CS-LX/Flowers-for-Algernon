@@ -90,11 +90,11 @@ function PartInspector:Build()
     }
     self.parentDropdown = UI.Dropdown {
         options = {},
-        value = "__root__",
+        value = "",
         placeholder = "父级",
         height = 28,
         fontSize = 11,
-        onChange = function(_, value) editor:SetSelectedParent(value == "__root__" and nil or value) end,
+        onChange = function(_, value) editor:SetSelectedParent(value == "" and nil or value) end,
     }
     self.scaleField = UI.TextField {
         value = "1.0",
@@ -312,8 +312,8 @@ function PartInspector:Clear()
     self.rotationLabel:SetText("Rotation：—")
     self.scaleLabel:SetText("Scale：—")
     self.nameField:SetValue("")
-    self.parentDropdown:SetOptions({ { value = "__root__", label = "LevelRoot" } })
-    self.parentDropdown:SetValue("__root__")
+    self.parentDropdown:SetOptions({ { value = "", label = "LevelRoot" } })
+    self.parentDropdown.props.value = ""
     self.gridQField:SetValue("")
     self.gridRField:SetValue("")
     self.layerField:SetValue("")
@@ -352,14 +352,14 @@ function PartInspector:Refresh()
         return
     end
 
-    local parentOptions = { { value = "__root__", label = "LevelRoot" } }
+    local parentOptions = { { value = "", label = "LevelRoot" } }
     for _, candidate in ipairs(editor.levelDocument:GetParts()) do
         if candidate.id ~= part.id and not editor.levelDocument:IsDescendant(candidate.id, part.id) then
             parentOptions[#parentOptions + 1] = { value = candidate.id, label = candidate.name }
         end
     end
     self.parentDropdown:SetOptions(parentOptions)
-    self.parentDropdown:SetValue(part.parentId or "__root__")
+    self.parentDropdown.props.value = part.parentId or ""
     self.nameField:SetValue(part.name)
 
     local transform = part.transform

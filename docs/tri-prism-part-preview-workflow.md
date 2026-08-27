@@ -116,6 +116,24 @@ Game Preview 的旋转塔遵循纪念碑谷式拖动-Snap，不复用编辑器�
 
 设计者配置候选范围，不手写每个 Snap 状态的错视边。显式条件边只作固定连接、白盒兜底或设计者覆盖。
 
+## StillObject 是装饰边界
+
+静物不是没有体素的 Part。它没有 VoxelDocument、PathNode 和机关，不能打开体素编辑器。
+
+```text
+StillObject
+  ├── parentId：Part 或另一件静物
+  ├── local Transform：任意米制坐标，不吸附 Q/R/Layer
+  └── modelPath：后续导入；当前用 Box 占位
+```
+
+规则：
+
+- 自己不会移动，只跟随父级 Transform；
+- 不进入 PathRuntime / 寻路 / 出生点；
+- 导出保存在 `stillObjects[]`，不内联体素文档；
+- Inspector 使用独立静物 Tab，不复用 Part 字段。
+
 ## Part 是编辑与运行时边界
 
 ### 为什么不能只有全局体素文档

@@ -1,7 +1,8 @@
 -- 关卡级 JSON 文档。
--- 只管理 Part 定义、关卡级固定相机和保存路径；不持有局部体素、Scene Node 或 Bake 缓存。
+-- 管理 Part、StillObject、固定相机和保存路径；不持有局部体素、Scene Node 或 Bake 缓存。
 
 local PartDefinition = require "PartDefinition"
+local StillObject = require "StillObject"
 local PathConnectionCandidate = require "PathConnectionCandidate"
 local PartEditSession = require "PartEditSession"
 
@@ -31,18 +32,30 @@ local function CopyCamera(camera)
     }
 end
 
-local function IsDescendant(parts, candidateId, ancestorId)
-    local current = parts[candidateId]
-    local visited = {}
+local function GetParentLookup(self)
+    local lookup = {}
+    for _, part in pairs(self.parts) do
+        lookup[part.id] = part
+    end
+    for _, object in pairs(self.stillObjects) do
+        lookup[object.id] = object
+    end
+    return lookup
+end
+
+local function IsDescendant(self, candidateId, ancestorId)
+    local lookup = GetParentLookup(self)
+    local current = lookup[candidateId]
+    local vis = {}
     while current and current.parentId do
-        if visited[current.id] then
+        if vis[current.id] then
             return true
         end
-        visited[current.id] = true
+        vis[current.id] = true
         if current.parentId == ancestorId then
             return true
         end
-        current = parts[current.parentId]
+        current = lookup[current.parentId]
     end
     return false
 end
@@ -54,6 +67,8 @@ function LevelDocument.New(path)
     self.fixedCamera = CopyCamera()
     self.parts = {}
     self.partOrder = {}
+    self.stillObjects = {}
+    self.stillObjectOrder = {}
     self.pathCandidates = {}
     self.pathCandidateOrder = {}
     self.spawnNodeKey = nil
@@ -65,8 +80,8 @@ function LevelDocument:AddPart(part)
     if getmetatable(part) ~= PartDefinition then
         part = PartDefinition.New(part)
     end
-    if self.parts[part.id] then
-        return false, "duplicate Part id: " .. part.id
+    if self:HasId(part.id) then
+        return false, "duplicate object id: " .. part.id
     end
     self.parts[part.id] = part
     self.partOrder[#self.partOrder + 1] = part.id
@@ -87,6 +102,52 @@ function LevelDocument:GetParts()
         end
     end
     return result
+end
+
+function LevelDocument:HasId(id)
+    return self.parts[id] ~= nil or self.stillObjects[id] ~= nil
+end
+
+function LevelDocument:AddStillObject(object)
+    if getmetatable(object) ~= StillObject then
+        object = StillObject.New(object)
+    end
+    if self:HasId(object.id) then
+        return false, "duplicate object id: " .. object.id
+    end
+    self.stillObjects[object.id] = object
+    self.stillObjectOrder[#self.stillObjectOrder + 1] = object.id
+    self.dirty = true
+    return true, object
+end
+
+function LevelDocument:GetStillObject(id)
+    return self.stillObjects[id]
+end
+
+function LevelDocument:GetStillObjects()
+    local result = {}
+    for _, id in ipairs(self.stillObjectOrder) do
+        local object = self.stillObjects[id]
+        if object then
+            result[#result + 1] = object
+        end
+    end
+    return result
+end
+
+function LevelDocument:GetObject(id)
+    return self.parts[id] or self.stillObjects[id]
+end
+
+function LevelDocument:GetObjectKind(id)
+    if self.parts[id] then
+        return "part"
+    end
+    if self.stillObjects[id] then
+        return "stillObject"
+    end
+    return nil
 end
 
 function LevelDocument:GetPathCandidate(id)
@@ -217,17 +278,20 @@ function LevelDocument:ClearSpawnNodeIf(nodeKey)
 end
 
 function LevelDocument:SetParent(childId, parentId)
-    local child = self.parts[childId]
+    local child = self:GetObject(childId)
     if not child then
-        return false, "child Part does not exist: " .. tostring(childId)
+        return false, "child object does not exist: " .. tostring(childId)
     end
     if parentId == childId then
-        return false, "a Part cannot parent itself"
+        return false, "an object cannot parent itself"
     end
-    if parentId ~= nil and not self.parts[parentId] then
-        return false, "parent Part does not exist: " .. tostring(parentId)
+    if parentId ~= nil and not self:GetObject(parentId) then
+        return false, "parent object does not exist: " .. tostring(parentId)
     end
-    if parentId and IsDescendant(self.parts, parentId, childId) then
+    if self.parts[childId] and parentId and self.stillObjects[parentId] then
+        return false, "Part cannot parent under StillObject"
+    end
+    if parentId and IsDescendant(self, parentId, childId) then
         return false, "cannot create a parent cycle"
     end
     child:SetParentId(parentId)
@@ -236,7 +300,7 @@ function LevelDocument:SetParent(childId, parentId)
 end
 
 function LevelDocument:IsDescendant(candidateId, ancestorId)
-    return IsDescendant(self.parts, candidateId, ancestorId)
+    return IsDescendant(self, candidateId, ancestorId)
 end
 
 function LevelDocument:GetChildren(parentId)
@@ -246,32 +310,58 @@ function LevelDocument:GetChildren(parentId)
             result[#result + 1] = part
         end
     end
+    for _, object in ipairs(self:GetStillObjects()) do
+        if object.parentId == parentId then
+            result[#result + 1] = object
+        end
+    end
     return result
 end
 
 function LevelDocument:GetTreeNodes()
     local function Build(parentId, visiting)
         local nodes = {}
-        for _, part in ipairs(self:GetChildren(parentId)) do
-            if not visiting[part.id] then
+        for _, object in ipairs(self:GetChildren(parentId)) do
+            if not visiting[object.id] then
                 local nextVisiting = {}
                 for id, value in pairs(visiting) do
                     nextVisiting[id] = value
                 end
-                nextVisiting[part.id] = true
+                nextVisiting[object.id] = true
+                local secondary = nil
+                if self.parts[object.id] then
+                    if #object.behaviorModes > 0 then
+                        secondary = table.concat(object.behaviorModes, " + ")
+                    end
+                else
+                    secondary = "StillObject"
+                end
                 nodes[#nodes + 1] = {
-                    key = part.id,
-                    id = part.id,
-                    label = part.name,
-                    secondary = #part.behaviorModes > 0 and table.concat(part.behaviorModes, " + ") or nil,
-                    children = Build(part.id, nextVisiting),
-                    data = part,
+                    key = object.id,
+                    id = object.id,
+                    label = object.name,
+                    secondary = secondary,
+                    children = Build(object.id, nextVisiting),
+                    data = object,
                 }
             end
         end
         return nodes
     end
     return Build(nil, {})
+end
+
+function LevelDocument:DetachChildren(parentId)
+    for _, part in pairs(self.parts) do
+        if part.parentId == parentId then
+            part.parentId = nil
+        end
+    end
+    for _, object in pairs(self.stillObjects) do
+        if object.parentId == parentId then
+            object.parentId = nil
+        end
+    end
 end
 
 function LevelDocument:RemovePart(id)
@@ -287,11 +377,23 @@ function LevelDocument:RemovePart(id)
             break
         end
     end
-    for _, part in pairs(self.parts) do
-        if part.parentId == id then
-            part.parentId = nil
+    self:DetachChildren(id)
+    self.dirty = true
+    return true
+end
+
+function LevelDocument:RemoveStillObject(id)
+    if not self.stillObjects[id] then
+        return false, "StillObject does not exist: " .. tostring(id)
+    end
+    self.stillObjects[id] = nil
+    for index, objectId in ipairs(self.stillObjectOrder) do
+        if objectId == id then
+            table.remove(self.stillObjectOrder, index)
+            break
         end
     end
+    self:DetachChildren(id)
     self.dirty = true
     return true
 end
@@ -301,12 +403,17 @@ function LevelDocument:ToTable()
     for _, part in ipairs(self:GetParts()) do
         parts[#parts + 1] = part:ToTable()
     end
+    local stillObjects = {}
+    for _, object in ipairs(self:GetStillObjects()) do
+        stillObjects[#stillObjects + 1] = object:ToTable()
+    end
     local result = {
         format = FORMAT,
         version = FORMAT_VERSION,
         name = self.name,
         fixedCamera = CopyCamera(self.fixedCamera),
         parts = parts,
+        stillObjects = stillObjects,
         spawnNodeKey = self.spawnNodeKey,
     }
     if #self.pathCandidateOrder > 0 then
@@ -462,6 +569,8 @@ function LevelDocument:LoadTable(data)
     self.fixedCamera = CopyCamera(data.fixedCamera)
     self.parts = {}
     self.partOrder = {}
+    self.stillObjects = {}
+    self.stillObjectOrder = {}
     self.pathCandidates = {}
     self.pathCandidateOrder = {}
     self.spawnNodeKey = type(data.spawnNodeKey) == "string" and data.spawnNodeKey
@@ -473,6 +582,16 @@ function LevelDocument:LoadTable(data)
             return false, errorMessage
         end
         local added, addError = self:AddPart(part)
+        if not added then
+            return false, addError
+        end
+    end
+    for _, item in ipairs(data.stillObjects or {}) do
+        local object, errorMessage = StillObject.FromTable(item)
+        if not object then
+            return false, errorMessage
+        end
+        local added, addError = self:AddStillObject(object)
         if not added then
             return false, addError
         end

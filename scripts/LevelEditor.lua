@@ -4,6 +4,7 @@
 
 local PartEditSession = require "PartEditSession"
 local PartDefinition = require "PartDefinition"
+local StillObject = require "StillObject"
 local UI = require("urhox-libs/UI")
 local PartRootRenderer = require "PartRootRenderer"
 local LevelEditorUI = require "LevelEditorUI"
@@ -85,6 +86,7 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
     self.pathPickedFromKey = nil
     self.pathPickedToKey = nil
     self.selectedPartId = nil
+    self.selectedStillObjectId = nil
     self.mode = "level"
     self.partEditor = nil
     self.gamePreview = nil
@@ -147,6 +149,25 @@ end
 
 function LevelEditor:GetSelectedPart()
     return self.selectedPartId and self.levelDocument:GetPart(self.selectedPartId) or nil
+end
+
+function LevelEditor:GetSelectedStillObject()
+    return self.selectedStillObjectId and self.levelDocument:GetStillObject(self.selectedStillObjectId) or nil
+end
+
+function LevelEditor:ClearSelection()
+    self.selectedPartId = nil
+    self.selectedStillObjectId = nil
+end
+
+function LevelEditor:SelectObject(objectId)
+    if self.levelDocument:GetPart(objectId) then
+        return self:SelectPart(objectId)
+    end
+    if self.levelDocument:GetStillObject(objectId) then
+        return self:SelectStillObject(objectId)
+    end
+    return false
 end
 
 function LevelEditor:ResetEditorCamera()
@@ -286,7 +307,7 @@ function LevelEditor:AllocatePartId(baseName)
     local base = SanitizePartId(baseName)
     local index = 1
     local id = "part_" .. base
-    while self.levelDocument:GetPart(id) or fileSystem:FileExists("parts/" .. id .. ".json") do
+    while self.levelDocument:HasId(id) or fileSystem:FileExists("parts/" .. id .. ".json") do
         index = index + 1
         id = "part_" .. base .. "_" .. tostring(index)
     end
@@ -358,6 +379,38 @@ function LevelEditor:CreateEmptyPart(name)
         return false
     end
     self:RefreshLevelUI("已新建空 Part：" .. partName)
+    return true
+end
+
+function LevelEditor:AllocateStillObjectId(baseName)
+    local base = SanitizePartId(baseName)
+    local index = 1
+    local id = "still_" .. base
+    while self.levelDocument:HasId(id) do
+        index = index + 1
+        id = "still_" .. base .. "_" .. tostring(index)
+    end
+    return id
+end
+
+function LevelEditor:CreateStillObject()
+    local displayName = "新静物"
+    local id = self:AllocateStillObjectId(displayName)
+    local object = StillObject.New({ id = id })
+    object:SetName(displayName)
+    object:SetParentId(self.selectedPartId or self.selectedStillObjectId)
+    local added, addError = self.levelDocument:AddStillObject(object)
+    if not added then
+        self:RefreshLevelUI(tostring(addError))
+        return false
+    end
+    self:SelectStillObject(id)
+    local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+    if not rebuilt then
+        self:RefreshLevelUI(tostring(rebuildError))
+        return false
+    end
+    self:RefreshLevelUI("已新建静物")
     return true
 end
 
@@ -448,6 +501,136 @@ function LevelEditor:DeleteSelectedPart()
     end
     self:RefreshLevelUI("已从关卡移除 Part：" .. part.name .. "（局部资源保留）")
     return true
+end
+
+function LevelEditor:ConfirmDeleteSelectedObject()
+    local still = self:GetSelectedStillObject()
+    if still then
+        UI.Modal.Confirm({
+            title = "移除静物",
+            message = "确定移除静物吗？",
+            confirmText = "移除",
+            cancelText = "取消",
+            onConfirm = function() self:DeleteSelectedStillObject() end,
+        })
+    elseif self:GetSelectedPart() then
+        self:DeleteSelectedPartPrompt()
+    end
+end
+
+function LevelEditor:DeleteSelectedPartPrompt()
+    local part = self:GetSelectedPart()
+    if not part then
+        return
+    end
+    UI.Modal.Confirm({
+        title = "从关卡移除 Part",
+        message = "确定移除选中 Part 吗？局部体素 JSON 会保留。",
+        confirmText = "移除",
+        cancelText = "取消",
+        onConfirm = function() self:DeleteSelectedPart() end,
+    })
+end
+
+function LevelEditor:DeleteSelectedStillObject()
+    local object = self:GetSelectedStillObject()
+    if not object then
+        return false
+    end
+    local removed, errorMessage = self.levelDocument:RemoveStillObject(object.id)
+    if not removed then
+        self:RefreshLevelUI(tostring(errorMessage))
+        return false
+    end
+    self:ClearSelection()
+    local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+    if not rebuilt then
+        self:RefreshLevelUI(tostring(rebuildError))
+        return false
+    end
+    self:RefreshLevelUI("已移除静物")
+    return true
+end
+
+function LevelEditor:RebuildAfterStillEdit(status)
+    self.levelDocument.dirty = true
+    local object = self:GetSelectedStillObject()
+    local root = object and self.partRenderer:GetRoot(object.id)
+    if root and object then
+        self.partRenderer:ApplyStillTransform(root, object)
+    end
+    self:RefreshLevelUI(status)
+    return true
+end
+
+function LevelEditor:SetSelectedStillName(value)
+    local object = self:GetSelectedStillObject()
+    if not object or not object:SetName(value) then
+        return false
+    end
+    return self:RebuildAfterStillEdit("已更新静物名称")
+end
+
+function LevelEditor:SetSelectedStillParent(parentId)
+    local object = self:GetSelectedStillObject()
+    if not object then
+        return false
+    end
+    if parentId == "" then
+        parentId = nil
+    end
+    local root = self.partRenderer:GetRoot(object.id)
+    local worldPosition = root and root.worldPosition or nil
+    local ok, err = self.levelDocument:SetParent(object.id, parentId)
+    if not ok then
+        self:RefreshLevelUI(tostring(err))
+        return false
+    end
+    if parentId == nil and worldPosition then
+        object:SetPosition({ x = worldPosition.x, y = worldPosition.y, z = worldPosition.z })
+    end
+    local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+    if not rebuilt then
+        self:RefreshLevelUI(tostring(rebuildError))
+        return false
+    end
+    self:RefreshLevelUI("已更新静物父级")
+    return true
+end
+
+function LevelEditor:SetSelectedStillCoordinate(axis, value)
+    local object = self:GetSelectedStillObject()
+    local number = tonumber(value)
+    if not object or not number then
+        return false
+    end
+    local position = {
+        x = object.transform.position.x,
+        y = object.transform.position.y,
+        z = object.transform.position.z,
+    }
+    position[axis] = number
+    object:SetPosition(position)
+    return self:RebuildAfterStillEdit("已更新静物坐标")
+end
+
+function LevelEditor:SetSelectedStillYaw(value)
+    local object = self:GetSelectedStillObject()
+    local number = tonumber(value)
+    if not object or not number then
+        return false
+    end
+    object:SetRotation({ x = 0, y = number, z = 0 })
+    return self:RebuildAfterStillEdit("已更新静物朝向")
+end
+
+function LevelEditor:SetSelectedStillScale(value)
+    local object = self:GetSelectedStillObject()
+    local number = tonumber(value)
+    if not object or not object:SetScale(number) then
+        return false
+    end
+    return self:RebuildAfterStillEdit("已更新静物缩放")
 end
 
 function LevelEditor:SyncTransformGrid(part)
@@ -760,8 +943,20 @@ function LevelEditor:SelectPart(partId)
         return false
     end
     self.selectedPartId = partId
+    self.selectedStillObjectId = nil
     self:SyncTransformGrid(self:GetSelectedPart())
     self:RefreshLevelUI("已选择 Part：" .. self:GetSelectedPart().name)
+    return true
+end
+
+function LevelEditor:SelectStillObject(objectId)
+    local object = self.levelDocument:GetStillObject(objectId)
+    if not object then
+        return false
+    end
+    self.selectedStillObjectId = objectId
+    self.selectedPartId = nil
+    self:RefreshLevelUI("已选择静物：" .. object.name)
     return true
 end
 
@@ -1035,6 +1230,10 @@ function LevelEditor:RefreshLevelUI(status)
 end
 
 function LevelEditor:OpenSelectedPart()
+    if self:GetSelectedStillObject() then
+        self:RefreshLevelUI("静物不能打开体素编辑器")
+        return false
+    end
     local part = self:GetSelectedPart()
     if not part then
         return false
