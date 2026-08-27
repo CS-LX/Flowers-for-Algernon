@@ -132,7 +132,8 @@ StillObject
 - 自己不会移动，只跟随父级 Transform；
 - 不进入 PathRuntime / 寻路 / 出生点；
 - 导出保存在 `stillObjects[]`，不内联体素文档；
-- Inspector 使用独立静物 Tab，不复用 Part 字段。
+- Inspector 使用独立静物 Tab，不复用 Part 字段；
+- 交互组件白名单只有 triggerable，不能挂 rotator / mover。
 
 ## Part 是编辑与运行时边界
 

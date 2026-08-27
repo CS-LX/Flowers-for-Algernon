@@ -5,6 +5,12 @@ local StillObject = {}
 StillObject.__index = StillObject
 
 local KIND = "stillObject"
+local MODE_TRIGGERABLE = "triggerable"
+
+local ALLOWED_MODES = {
+    triggerable = true,
+}
+
 
 local function CopyVector(value, fallback)
     value = value or {}
@@ -14,6 +20,27 @@ local function CopyVector(value, fallback)
         y = value.y ~= nil and value.y or (fallback.y or 0),
         z = value.z ~= nil and value.z or (fallback.z or 0),
     }
+end
+
+local function CopyBehaviorModes(source)
+    local result = {}
+    local known = {}
+    for _, mode in ipairs(source or {}) do
+        if ALLOWED_MODES[mode] and not known[mode] then
+            known[mode] = true
+            result[#result + 1] = mode
+        end
+    end
+    return result
+end
+
+local function HasMode(modes, wanted)
+    for _, mode in ipairs(modes) do
+        if mode == wanted then
+            return true
+        end
+    end
+    return false
 end
 
 function StillObject.New(data)
@@ -35,6 +62,14 @@ function StillObject:Init(data)
         rotation = CopyVector(transform.rotation),
         scale = CopyVector(transform.scale, { x = 1, y = 1, z = 1 }),
     }
+    self.behaviorModes = CopyBehaviorModes(data.behaviorModes)
+    self.behaviors = {}
+    if HasMode(self.behaviorModes, MODE_TRIGGERABLE) then
+        local source = (data.behaviors or {}).triggerable or {}
+        self.behaviors.triggerable = {
+            triggerId = type(source.triggerId) == "string" and source.triggerId or "",
+        }
+    end
 end
 
 function StillObject:SetName(name)
@@ -85,8 +120,44 @@ function StillObject:HasModel()
     return self.modelPath ~= ""
 end
 
+function StillObject:HasBehavior(mode)
+    return HasMode(self.behaviorModes, mode)
+end
+
+function StillObject:SetInteraction(mode, enabled)
+    if not ALLOWED_MODES[mode] then
+        return false
+    end
+    local hasMode = self:HasBehavior(mode)
+    if enabled and not hasMode then
+        self.behaviorModes[#self.behaviorModes + 1] = mode
+    elseif (not enabled) and hasMode then
+        local nextModes = {}
+        for _, current in ipairs(self.behaviorModes) do
+            if current ~= mode then
+                nextModes[#nextModes + 1] = current
+            end
+        end
+        self.behaviorModes = nextModes
+        self.behaviors[mode] = nil
+    end
+    if enabled and mode == MODE_TRIGGERABLE then
+        self.behaviors.triggerable = self.behaviors.triggerable or { triggerId = "" }
+    end
+    return true
+end
+
+function StillObject:SetTriggerId(triggerId)
+    if not self:HasBehavior(MODE_TRIGGERABLE) then
+        return false
+    end
+    self.behaviors.triggerable.triggerId = tostring(triggerId or "")
+    return true
+end
+
+
 function StillObject:ToTable()
-    return {
+    local data = {
         kind = KIND,
         id = self.id,
         name = self.name,
@@ -98,6 +169,20 @@ function StillObject:ToTable()
             scale = CopyVector(self.transform.scale, { x = 1, y = 1, z = 1 }),
         },
     }
+    if #self.behaviorModes > 0 then
+        data.behaviorModes = {}
+        for index, mode in ipairs(self.behaviorModes) do
+            data.behaviorModes[index] = mode
+        end
+    end
+    if self:HasBehavior(MODE_TRIGGERABLE) then
+        data.behaviors = {
+            triggerable = {
+                triggerId = self.behaviors.triggerable.triggerId,
+            },
+        }
+    end
+    return data
 end
 
 function StillObject.FromTable(data)

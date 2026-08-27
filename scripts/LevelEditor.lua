@@ -209,19 +209,19 @@ function LevelEditor:ToggleEditorProjection()
 end
 
 function LevelEditor:FocusSelectedPart()
-    local part = self:GetSelectedPart()
-    if not part then
+    local object = self:GetSelectedStillObject() or self:GetSelectedPart()
+    if not object then
         return false
     end
-    local root = self.partRenderer:GetRoot(part.id)
-    local minPoint, maxPoint = self.partRenderer:GetLocalBounds(part.id)
+    local root = self.partRenderer:GetRoot(object.id)
+    local minPoint, maxPoint = self.partRenderer:GetLocalBounds(object.id)
     if not root or not minPoint or not maxPoint then
         return false
     end
     local localCenter = (minPoint + maxPoint) * 0.5
     self.editorCamera.focus = root.worldTransform * localCenter
     self:ApplyEditorCamera()
-    self:RefreshLevelUI("编辑预览已聚焦：" .. part.name)
+    self:RefreshLevelUI("编辑预览已聚焦：" .. object.name)
     return true
 end
 
@@ -927,6 +927,28 @@ function LevelEditor:SetSelectedMoverAxis(axis, enabled)
     return true
 end
 
+function LevelEditor:SetSelectedStillInteraction(mode, enabled)
+    local object = self:GetSelectedStillObject()
+    if not object or not object:SetInteraction(mode, enabled) then
+        self:RefreshLevelUI("静物只能挂交互组件")
+        return false
+    end
+    self.levelDocument.dirty = true
+    self:RefreshLevelUI("已更新静物交互")
+    return true
+end
+
+function LevelEditor:SetSelectedStillTriggerId(value)
+    local object = self:GetSelectedStillObject()
+    if not object or not object:SetTriggerId(value) then
+        self:RefreshLevelUI("当前静物未启用 Triggerable")
+        return false
+    end
+    self.levelDocument.dirty = true
+    self:RefreshLevelUI("已更新静物 Trigger ID")
+    return true
+end
+
 function LevelEditor:SetSelectedTriggerId(value)
     local part = self:GetSelectedPart()
     if not part or not part:SetTriggerId(value) then
@@ -1459,9 +1481,9 @@ function LevelEditor:Refresh(timeStep)
                 return
             end
         end
-        local root = self.partRenderer:GetRoot(self.selectedPartId)
-        local minPoint, maxPoint = self.partRenderer:GetLocalBounds(self.selectedPartId)
-        local pivotPosition = self.partRenderer:GetPivotWorldPosition(self.selectedPartId)
+        local root = self.partRenderer:GetRoot(self.selectedStillObjectId or self.selectedPartId)
+        local minPoint, maxPoint = self.partRenderer:GetLocalBounds(self.selectedStillObjectId or self.selectedPartId)
+        local pivotPosition = self.partRenderer:GetPivotWorldPosition(self.selectedStillObjectId or self.selectedPartId)
         self.overlayRenderer:DrawSelection(root, minPoint, maxPoint, pivotPosition)
         self.overlayRenderer:DrawLevelHexGrid(self.partRenderer.grid, self.levelDocument, 0, 6)
         self.overlayRenderer:DrawLevelPathNodes(

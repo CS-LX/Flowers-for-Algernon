@@ -150,7 +150,8 @@ function PartRootRenderer:CreatePlaceholderModel(parent)
     model:SetMaterial(material)
     local size = model.boundingBox.size
     node.position = Vector3(0, size.y * 0.5, 0)
-    return node, Vector3(-0.5, 0, -0.5), Vector3(0.5, 1, 0.5)
+    local half = Vector3(size.x * 0.5, size.y * 0.5, size.z * 0.5)
+    return node, Vector3(-half.x, 0, -half.z), Vector3(half.x, size.y, half.z)
 end
 
 function PartRootRenderer:BuildStillObject(object)

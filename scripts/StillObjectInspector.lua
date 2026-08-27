@@ -20,6 +20,9 @@ function StillObjectInspector.New(editor)
     self.rotYField = nil
     self.scaleField = nil
     self.modelLabel = nil
+    self.triggerableToggle = nil
+    self.triggerIdField = nil
+    self.interactionLabel = nil
     return self
 end
 
@@ -72,6 +75,27 @@ function StillObjectInspector:Build()
         fontColor = Shared.MUTED,
         whiteSpace = "normal",
     }
+    self.triggerableToggle = UI.Checkbox {
+        checked = false,
+        label = "Triggerable",
+        size = 16,
+        height = 24,
+        fontSize = 10,
+        onChange = function(_, checked) editor:SetSelectedStillInteraction("triggerable", checked) end,
+    }
+    self.triggerIdField = UI.TextField {
+        value = "",
+        placeholder = "Trigger ID",
+        height = 28,
+        fontSize = 11,
+        onSubmit = function(_, value) editor:SetSelectedStillTriggerId(value) end,
+    }
+    self.interactionLabel = UI.Label {
+        text = "静物只能挂交互组件，不能挂 rotator / mover。",
+        fontSize = 9,
+        fontColor = Shared.MUTED,
+        whiteSpace = "normal",
+    }
 
     self.scroll = UI.ScrollView {
         width = "100%",
@@ -119,6 +143,18 @@ function StillObjectInspector:Build()
                     Shared.FieldRow("Scale", self.scaleField),
                 },
             },
+            Shared.ComponentHeader("⌁", "Interaction"),
+            UI.Panel {
+                padding = 8,
+                gap = 4,
+                borderBottomWidth = 1,
+                borderBottomColor = Shared.BORDER,
+                children = {
+                    self.triggerableToggle,
+                    Shared.FieldRow("Trigger ID", self.triggerIdField),
+                    self.interactionLabel,
+                },
+            },
             Shared.ComponentHeader("▣", "Presentation"),
             UI.Panel {
                 padding = 8,
@@ -150,6 +186,9 @@ function StillObjectInspector:Clear()
     self.rotYField:SetValue("")
     self.scaleField:SetValue("")
     self.modelLabel:SetText("占位模型：Box")
+    self.triggerableToggle:SetChecked(false)
+    self.triggerIdField:SetValue("")
+    self.triggerIdField:SetDisabled(true)
 end
 
 function StillObjectInspector:Refresh()
@@ -183,6 +222,10 @@ function StillObjectInspector:Refresh()
     self.rotYField:SetValue(string.format("%.1f", rotation.y or 0))
     self.scaleField:SetValue(string.format("%.2f", scale.x))
     self.modelLabel:SetText(object:HasModel() and ("模型：" .. object.modelPath) or "占位模型：Box（尚未导入正式模型）")
+    local hasTrigger = object:HasBehavior("triggerable")
+    self.triggerableToggle:SetChecked(hasTrigger)
+    self.triggerIdField:SetDisabled(not hasTrigger)
+    self.triggerIdField:SetValue(hasTrigger and object.behaviors.triggerable.triggerId or "")
 end
 
 return StillObjectInspector
