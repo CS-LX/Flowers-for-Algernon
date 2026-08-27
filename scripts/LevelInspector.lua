@@ -464,6 +464,7 @@ function LevelInspector:Build()
                     self.importButton,
                 },
             },
+            Shared.ColorPopupSpacer(),
         },
     }
     Shared.BindSlowWheel(self.scroll)

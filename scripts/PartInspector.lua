@@ -372,6 +372,7 @@ function PartInspector:Build()
                     self.openButton,
                 },
             },
+            Shared.ColorPopupSpacer(),
         },
     }
     Shared.BindSlowWheel(self.scroll)

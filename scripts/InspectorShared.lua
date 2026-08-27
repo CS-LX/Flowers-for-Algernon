@@ -13,6 +13,16 @@ Shared.COMPONENT_HEADER = { 29, 36, 50, 255 }
 Shared.COMPONENT_ACCENT = { 78, 132, 194, 255 }
 -- 原 Inspector 滚轮倍率为 40，按 0.01 降低灵敏度。
 Shared.WHEEL_SCALE = 0.4
+-- ColorPicker 弹层固定画在字段下方，底部留空才能滚进视口。
+Shared.COLOR_POPUP_SPACER = 280
+
+function Shared.ColorPopupSpacer()
+    return UI.Panel {
+        width = "100%",
+        height = Shared.COLOR_POPUP_SPACER,
+        flexShrink = 0,
+    }
+end
 
 function Shared.ModeText(part)
     if not part or #part.behaviorModes == 0 then
