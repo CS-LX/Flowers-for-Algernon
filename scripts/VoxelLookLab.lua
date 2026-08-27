@@ -1,4 +1,4 @@
--- 隔离实验：CustomGeometry / StaticModel × PBR / 已知 Unlit / TriPrismLook。
+-- 隔离实验：正式世界法线 shader，直立 vs 躺倒对照。
 -- 主玩法入口已暂时切到这里；实验稳定前不回到关卡编辑器开发。
 
 local VoxelRenderer = require "VoxelRenderer"
@@ -17,8 +17,9 @@ local pitch_ = 30.0
 local distance_ = 12.0
 local statusLabel_ = nil
 
-local PLAYER_SHADER = "Shaders/BLGL/PlayerSolid.shader"
-local LOOK_SHADER = "Shaders/BLGL/TriPrismLook.shader"
+local WORLD_SHADER = "Shaders/BLGL/LabLookWorld.shader"
+local VERTEX_SHADER = "Shaders/BLGL/LabLookVertex.shader"
+local OFFICIAL_SHADER = "Shaders/BLGL/TriPrismLook.shader"
 
 local function CreatePbrMaterial(color)
     local material = Material:new()
@@ -29,28 +30,17 @@ local function CreatePbrMaterial(color)
     return material
 end
 
-local function CreatePlayerUnlitMaterial(color)
+local function CreateLookMaterial(shaderPath, label)
     local material = Material:new()
-    local ok = material:SetSurfaceShader(PLAYER_SHADER)
-    print("VoxelLookLab: PlayerSolid SetSurfaceShader=" .. tostring(ok))
+    local ok = material:SetSurfaceShader(shaderPath)
+    print("VoxelLookLab: " .. label .. " SetSurfaceShader=" .. tostring(ok) .. " path=" .. shaderPath)
     if not ok then
-        return CreatePbrMaterial(color)
+        return CreatePbrMaterial(Color(1.0, 0.0, 1.0, 1.0))
     end
-    material:SetShaderParameter("base_color", Variant(color))
-    return material
-end
-
-local function CreateLookMaterial()
-    local material = Material:new()
-    local ok = material:SetSurfaceShader(LOOK_SHADER)
-    print("VoxelLookLab: TriPrismLook SetSurfaceShader=" .. tostring(ok))
-    if not ok then
-        return CreatePbrMaterial(Color(0.95, 0.29, 0.33, 1.0))
-    end
-    material:SetShaderParameter("color_neg", Variant(Color(0.56, 0.52, 0.47, 1.0)))
-    material:SetShaderParameter("color_mid", Variant(Color(0.77, 0.71, 0.65, 1.0)))
-    material:SetShaderParameter("color_pos", Variant(Color(0.95, 0.90, 0.84, 1.0)))
-    material:SetShaderParameter("light_axis", Variant(Vector3(0.35, 1.0, 0.25)))
+    material:SetShaderParameter("color_neg", Variant(Color(1.0, 0.12, 0.12, 1.0)))
+    material:SetShaderParameter("color_mid", Variant(Color(0.12, 0.86, 0.22, 1.0)))
+    material:SetShaderParameter("color_pos", Variant(Color(0.18, 0.42, 1.0, 1.0)))
+    material:SetShaderParameter("light_axis", Variant(Vector3(0.0, 1.0, 0.0)))
     return material
 end
 
@@ -64,18 +54,19 @@ local function CreateBox(parent, name, position, material)
     return node
 end
 
-local function CreatePrism(parent, name, position, material)
+local function CreatePrism(parent, name, position, material, writeNormalColor)
     return VoxelRenderer.CreateVoxel(parent, position, Color(1, 0, 0, 1), {
         parent = parent,
         name = name,
         material = material,
         rotation = Quaternion(),
+        writeNormalColor = writeNormalColor == true,
     })
 end
 
-local function PlaceCase(root, x, z, name, material)
-    CreateBox(root, name .. "_Box", Vector3(x, 0.4, z), material)
-    CreatePrism(root, name .. "_Prism", Vector3(x, 0.3, z + 1.6), material)
+local function PlaceCase(root, x, z, name, boxMaterial, prismMaterial, writeNormalColor)
+    CreateBox(root, name .. "_Box", Vector3(x, 0.4, z), boxMaterial)
+    CreatePrism(root, name .. "_Prism", Vector3(x, 0.3, z + 1.6), prismMaterial or boxMaterial, writeNormalColor)
 end
 
 local function ApplyCamera()
@@ -114,21 +105,26 @@ function VoxelLookLab.Start()
     renderer.hdrRendering = true
     ApplyCamera()
 
-    local pbr = CreatePbrMaterial(Color(0.95, 0.29, 0.33, 1.0))
-    local playerUnlit = CreatePlayerUnlitMaterial(Color(0.96, 0.86, 0.36, 1.0))
-    local look = CreateLookMaterial()
+    local worldLook = CreateLookMaterial(WORLD_SHADER, "LabLookWorld")
+    local vertexLook = CreateLookMaterial(VERTEX_SHADER, "LabLookVertex")
+    local officialLook = CreateLookMaterial(OFFICIAL_SHADER, "TriPrismLook")
 
     local root = scene_:CreateChild("LabRoot")
-    PlaceCase(root, -3.2, 0, "PBR", pbr)
-    PlaceCase(root, 0.0, 0, "PlayerUnlit", playerUnlit)
-    PlaceCase(root, 3.2, 0, "TriPrismLook", look)
+    PlaceCase(root, -3.2, 0, "WorldBox", worldLook, vertexLook)
+    PlaceCase(root, 0.0, 0, "OfficialUpright", officialLook, officialLook)
+    PlaceCase(root, 3.2, 0, "OfficialTilted", officialLook, officialLook)
+    local tilted = root:GetChild("OfficialTilted_Prism", true)
+    if tilted then
+        tilted.rotation = Quaternion(90.0, Vector3.RIGHT)
+        print("VoxelLookLab: tilted official world-normal prism 90 deg around X")
+    end
 
     UI.Init({
         theme = "default-dark",
         scale = UI.Scale.DEFAULT,
     })
     statusLabel_ = UI.Label {
-        text = "左 PBR / 中 PlayerSolid Unlit / 右 TriPrismLook\n上排 Box StaticModel，下排 CustomGeometry 三棱柱\nRMB 旋转  Wheel 缩放  观察哪一列消失",
+        text = "正式 shader 已改世界法线。左对照 / 中直立正式shader / 右同一shader棱柱躺90°\n两列朝上的面都应蓝。红=朝下 绿=侧面 蓝=朝上",
         fontSize = 16,
         fontColor = { 240, 240, 245, 255 },
         whiteSpace = "normal",
@@ -142,8 +138,8 @@ function VoxelLookLab.Start()
     })
 
     SubscribeToEvent("Update", "HandleVoxelLookLabUpdate")
-    print("VoxelLookLab: started. Expect 3 boxes + 3 prisms.")
-    print("VoxelLookLab: if only boxes remain, Surface Shader fails on CustomGeometry.")
+    print("VoxelLookLab: RGB face test. axis=(0,1,0) neg=red mid=green pos=blue")
+    print("VoxelLookLab: official TriPrismLook uses transpose(MODEL_MATRIX)*N; mid upright, right tilted")
 end
 
 ---@param eventType string

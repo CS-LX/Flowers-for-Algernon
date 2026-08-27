@@ -1,15 +1,15 @@
 shader_type spatial;
 render_mode shading_model_unlit, cull_back;
 
-uniform vec4 color_neg : source_color = vec4(0.561, 0.518, 0.471, 1.0);
-uniform vec4 color_mid : source_color = vec4(0.769, 0.714, 0.651, 1.0);
-uniform vec4 color_pos : source_color = vec4(0.945, 0.902, 0.835, 1.0);
-uniform vec3 light_axis = vec3(0.35, 1.0, 0.25);
+uniform vec4 color_neg : source_color = vec4(1.0, 0.12, 0.12, 1.0);
+uniform vec4 color_mid : source_color = vec4(0.12, 0.86, 0.22, 1.0);
+uniform vec4 color_pos : source_color = vec4(0.18, 0.42, 1.0, 1.0);
+uniform vec3 light_axis = vec3(0.0, 1.0, 0.0);
 
 varying vec3 world_n;
 
 void vertex() {
-    world_n = transpose(mat3(MODEL_MATRIX)) * NORMAL;
+    world_n = mat3(MODEL_MATRIX) * NORMAL;
 }
 
 void fragment() {

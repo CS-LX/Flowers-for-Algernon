@@ -18,9 +18,19 @@ local function CreateMaterial(color)
     return material
 end
 
+local writeNormalColor_ = false
+
 local function AddVertex(geometry, position, normal, uv)
     geometry:DefineVertex(position)
     geometry:DefineNormal(normal)
+    if writeNormalColor_ then
+        geometry:DefineColor(Color(
+            normal.x * 0.5 + 0.5,
+            normal.y * 0.5 + 0.5,
+            normal.z * 0.5 + 0.5,
+            1.0
+        ))
+    end
     geometry:DefineTexCoord(uv)
 end
 
@@ -97,7 +107,9 @@ function VoxelRenderer.CreateVoxel(scene, gridPosition, color, options)
     node.rotation = options.rotation or Quaternion()
 
     local customGeometry = node:CreateComponent("CustomGeometry")
+    writeNormalColor_ = options.writeNormalColor == true
     PopulatePrismGeometry(customGeometry, edgeLength, height)
+    writeNormalColor_ = false
     customGeometry:SetMaterial(options.material or CreateMaterial(color))
 
     return node
