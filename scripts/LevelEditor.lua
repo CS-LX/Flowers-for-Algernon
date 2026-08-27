@@ -441,7 +441,9 @@ function LevelEditor:DeleteSelectedPart()
         return false
     end
     if self.ui then
-        self.ui.selectedPathCandidateId = nil
+        if self.ui.levelInspector then
+            self.ui.levelInspector.selectedPathCandidateId = nil
+        end
         self.ui:Refresh()
     end
     self:RefreshLevelUI("已从关卡移除 Part：" .. part.name .. "（局部资源保留）")
@@ -1271,7 +1273,7 @@ function LevelEditor:Refresh(timeStep)
         )
         self.overlayRenderer:DrawPathConnectionCandidates(
             self.pathRuntime,
-            self.ui and self.ui.selectedPathCandidateId or nil
+            self.ui and self.ui.levelInspector and self.ui.levelInspector.selectedPathCandidateId or nil
         )
     elseif self.partEditor then
         self.overlayViewManager:SyncCamera(self.cameraNode, self.camera)
