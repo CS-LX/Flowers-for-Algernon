@@ -6,6 +6,8 @@
 
 关卡 Tab 的 Atmosphere 覆盖 LightGroup Zone（不新建 Zone，AutoExposure 关闭）。Part Tab 的 Look 使用 Unlit `dot(世界法线, lightAxis)` 分面渐变，写入 `Part.look`。灰色地面已从关卡编辑、体素编辑和 Preview 移除。
 
+体素 Surface Shader 的法线空间、`world_vertex_coords` 禁令和世界变换公式，以 `docs/voxel-surface-shader-lab.md` 为准。关卡编辑器里石膏色“像没画”不能当成 CustomGeometry 失败。
+
 
 ## 目标
 

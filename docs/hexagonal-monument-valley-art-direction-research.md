@@ -313,6 +313,8 @@ LevelDocument.atmosphere
 
 体素不再走 PBR 彩虹白盒色。shader 必须是 Unlit：分面颜色已经编码了明暗，再走 Lit 会二次乘光、把面色冲掉。
 
+隔离实验室已验证的公式与踩坑见 `docs/voxel-surface-shader-lab.md`。不要在 fragment 里对 CustomGeometry 使用 `NORMAL`，不要给棱柱加 `world_vertex_coords`，世界法线必须用 `transpose(mat3(MODEL_MATRIX)) * NORMAL`。
+
 #### 层级 1：自定义分面色彩 Surface Shader
 
 当层级 0 已经证明色板有效后，可尝试一个非常窄的 Surface Shader：

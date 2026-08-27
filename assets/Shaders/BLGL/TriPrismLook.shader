@@ -6,9 +6,15 @@ uniform vec4 color_mid : source_color = vec4(0.769, 0.714, 0.651, 1.0);
 uniform vec4 color_pos : source_color = vec4(0.945, 0.902, 0.835, 1.0);
 uniform vec3 light_axis = vec3(0.35, 1.0, 0.25);
 
+varying vec3 world_n;
+
+void vertex() {
+    world_n = transpose(mat3(MODEL_MATRIX)) * NORMAL;
+}
+
 void fragment() {
     vec3 axis = normalize(light_axis);
-    float t = clamp(dot(normalize(NORMAL), axis), -1.0, 1.0);
+    float t = clamp(dot(normalize(world_n), axis), -1.0, 1.0);
     vec3 color;
     if (t < 0.0) {
         color = mix(color_neg.rgb, color_mid.rgb, t + 1.0);
