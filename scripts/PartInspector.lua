@@ -37,6 +37,12 @@ function PartInspector.New(editor)
     self.pivotSectorField = nil
     self.pivotLayerField = nil
     self.openButton = nil
+    self.lookNegPicker = nil
+    self.lookMidPicker = nil
+    self.lookPosPicker = nil
+    self.lookAxisXField = nil
+    self.lookAxisYField = nil
+    self.lookAxisZField = nil
     return self
 end
 
@@ -198,6 +204,48 @@ function PartInspector:Build()
             editor:OpenSelectedPart()
         end,
     }
+    self.lookNegPicker = Shared.ColorField {
+        color = "#8F8478",
+        onClose = function(picker)
+            editor:SetSelectedPartLookColor("colorNeg", picker:GetHex())
+        end,
+    }
+    self.lookMidPicker = Shared.ColorField {
+        color = "#C4B6A6",
+        onClose = function(picker)
+            editor:SetSelectedPartLookColor("colorMid", picker:GetHex())
+        end,
+    }
+    self.lookPosPicker = Shared.ColorField {
+        color = "#F1E6D5",
+        onClose = function(picker)
+            editor:SetSelectedPartLookColor("colorPos", picker:GetHex())
+        end,
+    }
+    self.lookAxisXField = UI.TextField {
+        value = "0.35",
+        placeholder = "X",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPartLookAxis("x", value) end,
+        onBlur = function(field) editor:SetSelectedPartLookAxis("x", field:GetValue()) end,
+    }
+    self.lookAxisYField = UI.TextField {
+        value = "1.0",
+        placeholder = "Y",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPartLookAxis("y", value) end,
+        onBlur = function(field) editor:SetSelectedPartLookAxis("y", field:GetValue()) end,
+    }
+    self.lookAxisZField = UI.TextField {
+        value = "0.25",
+        placeholder = "Z",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPartLookAxis("z", value) end,
+        onBlur = function(field) editor:SetSelectedPartLookAxis("z", field:GetValue()) end,
+    }
 
     self.scroll = UI.ScrollView {
         width = "100%",
@@ -293,6 +341,30 @@ function PartInspector:Build()
                     self.capabilityLabel,
                 },
             },
+            Shared.ComponentHeader("◐", "Part Look"),
+            UI.Panel {
+                padding = 8,
+                gap = 4,
+                borderBottomWidth = 1,
+                borderBottomColor = Shared.BORDER,
+                children = {
+                    UI.Label {
+                        text = "Unlit 分面：dot(世界法线, lightAxis) 从 -1 到 1 在 Neg / Mid / Pos 间渐变。",
+                        fontSize = 9,
+                        fontColor = Shared.MUTED,
+                        whiteSpace = "normal",
+                    },
+                    Shared.FieldRow("Neg", self.lookNegPicker),
+                    Shared.FieldRow("Mid", self.lookMidPicker),
+                    Shared.FieldRow("Pos", self.lookPosPicker),
+                    UI.Label { text = "Light Axis  X / Y / Z", fontSize = 9, fontColor = Shared.MUTED },
+                    UI.Panel { flexDirection = "row", gap = 3, children = {
+                        UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.lookAxisXField } },
+                        UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.lookAxisYField } },
+                        UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.lookAxisZField } },
+                    } },
+                },
+            },
             UI.Panel {
                 padding = 10,
                 gap = 6,
@@ -342,6 +414,12 @@ function PartInspector:Clear()
     self.pivotLayerField:SetValue("")
     self.pivotLayerField:SetDisabled(true)
     self.openButton:SetDisabled(true)
+    self.lookNegPicker:SetHex("#8F8478")
+    self.lookMidPicker:SetHex("#C4B6A6")
+    self.lookPosPicker:SetHex("#F1E6D5")
+    self.lookAxisXField:SetValue("")
+    self.lookAxisYField:SetValue("")
+    self.lookAxisZField:SetValue("")
 end
 
 function PartInspector:Refresh()
@@ -420,6 +498,13 @@ function PartInspector:Refresh()
     self.pivotLayerField:SetValue(pivotCell and string.format("%.1f", pivotCell.layer) or "0.0")
     self.pivotLayerField:SetDisabled(not usesCellPivot)
     self.openButton:SetDisabled(false)
+    local look = part.look
+    self.lookNegPicker:SetHex(look.colorNeg)
+    self.lookMidPicker:SetHex(look.colorMid)
+    self.lookPosPicker:SetHex(look.colorPos)
+    self.lookAxisXField:SetValue(string.format("%.2f", look.lightAxis.x))
+    self.lookAxisYField:SetValue(string.format("%.2f", look.lightAxis.y))
+    self.lookAxisZField:SetValue(string.format("%.2f", look.lightAxis.z))
 end
 
 return PartInspector

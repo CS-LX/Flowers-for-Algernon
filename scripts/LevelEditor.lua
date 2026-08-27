@@ -14,6 +14,7 @@ local OverlayViewManager = require "OverlayViewManager"
 local GamePreview = require "GamePreview"
 local FixedGameCamera = require "FixedGameCamera"
 local PathRuntime = require "PathRuntime"
+local LookApplier = require "LookApplier"
 
 local LevelEditor = {}
 
@@ -283,6 +284,7 @@ function LevelEditor:EnterLevelMode()
     self.overlayViewManager:SyncCamera(self.cameraNode, self.camera)
     self.overlayRenderer:SyncCamera()
 
+    LookApplier.ApplyAtmosphere(self.scene, self.levelDocument.atmosphere)
     local built, errorMessage = self.partRenderer:Rebuild(self.levelDocument)
     if not built then
         error(errorMessage)
@@ -960,6 +962,160 @@ function LevelEditor:SetSelectedTriggerId(value)
     return true
 end
 
+function LevelEditor:ApplyCurrentAtmosphere()
+    LookApplier.ApplyAtmosphere(self.scene, self.levelDocument.atmosphere)
+    return true
+end
+
+function LevelEditor:SetAtmosphereLightGroup(value)
+    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
+    atmosphere.lightGroup = value
+    self.levelDocument.atmosphere = LookApplier.CopyAtmosphere(atmosphere)
+    self.levelDocument.dirty = true
+    self:ApplyCurrentAtmosphere()
+    self:RefreshLevelUI("已更新 LightGroup：" .. tostring(value))
+    return true
+end
+
+function LevelEditor:SetAtmosphereFogColor(hex)
+    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
+    atmosphere.fog.color = LookApplier.NormalizeHex(hex, atmosphere.fog.color)
+    self.levelDocument.atmosphere = LookApplier.CopyAtmosphere(atmosphere)
+    self.levelDocument.dirty = true
+    self:ApplyCurrentAtmosphere()
+    self:RefreshLevelUI("已更新雾色")
+    return true
+end
+
+function LevelEditor:SetAtmosphereFogNumber(field, value)
+    if field ~= "start" and field ~= "finish" and field ~= "density" then
+        return false
+    end
+    local number = tonumber(value)
+    if not number then
+        self:RefreshLevelUI("雾参数必须是数字")
+        return false
+    end
+    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
+    atmosphere.fog[field] = number
+    self.levelDocument.atmosphere = LookApplier.CopyAtmosphere(atmosphere)
+    self.levelDocument.dirty = true
+    self:ApplyCurrentAtmosphere()
+    self:RefreshLevelUI("已更新雾参数")
+    return true
+end
+
+function LevelEditor:SetAtmosphereHeightFog(enabled)
+    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
+    atmosphere.fog.heightFog = enabled == true
+    self.levelDocument.atmosphere = LookApplier.CopyAtmosphere(atmosphere)
+    self.levelDocument.dirty = true
+    self:ApplyCurrentAtmosphere()
+    self:RefreshLevelUI(enabled and "已开启高度雾" or "已关闭高度雾")
+    return true
+end
+
+function LevelEditor:SetAtmosphereBloomEnabled(enabled)
+    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
+    atmosphere.bloom.enabled = enabled == true
+    self.levelDocument.atmosphere = LookApplier.CopyAtmosphere(atmosphere)
+    self.levelDocument.dirty = true
+    self:ApplyCurrentAtmosphere()
+    self:RefreshLevelUI(enabled and "已开启 Bloom" or "已关闭 Bloom")
+    return true
+end
+
+function LevelEditor:SetAtmosphereBloomNumber(field, value)
+    if field ~= "threshold" and field ~= "intensity" then
+        return false
+    end
+    local number = tonumber(value)
+    if not number then
+        self:RefreshLevelUI("Bloom 参数必须是数字")
+        return false
+    end
+    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
+    atmosphere.bloom[field] = number
+    self.levelDocument.atmosphere = LookApplier.CopyAtmosphere(atmosphere)
+    self.levelDocument.dirty = true
+    self:ApplyCurrentAtmosphere()
+    self:RefreshLevelUI("已更新 Bloom")
+    return true
+end
+
+function LevelEditor:SetAtmosphereVignetteEnabled(enabled)
+    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
+    atmosphere.vignette.enabled = enabled == true
+    self.levelDocument.atmosphere = LookApplier.CopyAtmosphere(atmosphere)
+    self.levelDocument.dirty = true
+    self:ApplyCurrentAtmosphere()
+    self:RefreshLevelUI(enabled and "已开启 Vignette" or "已关闭 Vignette")
+    return true
+end
+
+function LevelEditor:SetAtmosphereVignetteIntensity(value)
+    local number = tonumber(value)
+    if not number then
+        self:RefreshLevelUI("Vignette 强度必须是数字")
+        return false
+    end
+    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
+    atmosphere.vignette.intensity = number
+    self.levelDocument.atmosphere = LookApplier.CopyAtmosphere(atmosphere)
+    self.levelDocument.dirty = true
+    self:ApplyCurrentAtmosphere()
+    self:RefreshLevelUI("已更新 Vignette")
+    return true
+end
+
+function LevelEditor:RebuildSelectedPartLook()
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    self.levelDocument.dirty = true
+    local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+    if not rebuilt then
+        self:RefreshLevelUI("Look 重建失败：" .. tostring(rebuildError))
+        return false
+    end
+    self:RefreshLevelUI("已更新 " .. part.name .. " Look")
+    return true
+end
+
+function LevelEditor:SetSelectedPartLookColor(field, hex)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    if field ~= "colorNeg" and field ~= "colorMid" and field ~= "colorPos" then
+        return false
+    end
+    local look = LookApplier.CopyPartLook(part.look)
+    look[field] = LookApplier.NormalizeHex(hex, look[field])
+    part:SetLook(look)
+    return self:RebuildSelectedPartLook()
+end
+
+function LevelEditor:SetSelectedPartLookAxis(axis, value)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    if axis ~= "x" and axis ~= "y" and axis ~= "z" then
+        return false
+    end
+    local number = tonumber(value)
+    if not number then
+        self:RefreshLevelUI("光照轴必须是数字")
+        return false
+    end
+    local look = LookApplier.CopyPartLook(part.look)
+    look.lightAxis[axis] = number
+    part:SetLook(look)
+    return self:RebuildSelectedPartLook()
+end
+
 function LevelEditor:SelectPart(partId)
     if not self.levelDocument:GetPart(partId) then
         return false
@@ -1416,6 +1572,7 @@ function LevelEditor:ImportInlineLevelJson(json)
     self.pathPickedToKey = nil
     self.pathHoveredNodeKey = nil
     self:ResetEditorCamera()
+    LookApplier.ApplyAtmosphere(self.scene, self.levelDocument.atmosphere)
     local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
     if not rebuilt then
         self:RefreshLevelUI("关卡已导入，但显示重建失败：" .. tostring(rebuildError))

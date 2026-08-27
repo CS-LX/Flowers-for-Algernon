@@ -2,6 +2,8 @@
 -- Part 由局部体素资产、共同 Transform、可编辑能力和可组合行为组成。
 -- 行为不再由互斥的 Part 类型表达。
 
+local LookApplier = require "LookApplier"
+
 local PartDefinition = {}
 PartDefinition.__index = PartDefinition
 
@@ -143,6 +145,7 @@ function PartDefinition:Init(data)
     self.parentId = data.parentId
     self.localVoxelPath = data.localVoxelPath or ("parts/" .. self.id .. ".json")
     self.pivot = CopyPivot(data.pivot)
+    self.look = LookApplier.CopyPartLook(data.look)
 
     local legacyRotator = data.type == "rotator"
     local transform = data.transform or {}
@@ -303,6 +306,11 @@ function PartDefinition:SetName(name)
     return true
 end
 
+function PartDefinition:SetLook(look)
+    self.look = LookApplier.CopyPartLook(look)
+    return true
+end
+
 function PartDefinition:SetScale(scale)
     if not self:CanTransform("scale") then
         return false
@@ -421,6 +429,7 @@ function PartDefinition:ToTable()
         transformCapabilities = CopyCapabilities(self.transformCapabilities),
         behaviorModes = CopyBehaviorModes(self.behaviorModes),
         behaviors = behaviors,
+        look = LookApplier.CopyPartLook(self.look),
     }
 end
 

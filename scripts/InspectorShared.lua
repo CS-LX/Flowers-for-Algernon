@@ -42,6 +42,34 @@ function Shared.ComponentHeader(icon, title)
     }
 end
 
+function Shared.HexToRgb(hex)
+    hex = tostring(hex or ""):gsub("#", "")
+    if #hex < 6 then
+        return { r = 255, g = 255, b = 255, a = 255 }
+    end
+    return {
+        r = tonumber(hex:sub(1, 2), 16) or 255,
+        g = tonumber(hex:sub(3, 4), 16) or 255,
+        b = tonumber(hex:sub(5, 6), 16) or 255,
+        a = 255,
+    }
+end
+
+function Shared.ColorField(opts)
+    opts = opts or {}
+    return UI.ColorPicker {
+        size = "sm",
+        height = 26,
+        fontSize = 10,
+        width = "100%",
+        showAlpha = false,
+        showPresets = true,
+        value = Shared.HexToRgb(opts.color or "#FFFFFF"),
+        onChange = opts.onChange,
+        onClose = opts.onClose,
+    }
+end
+
 function Shared.FieldRow(label, content)
     return UI.Panel {
         minHeight = 28,

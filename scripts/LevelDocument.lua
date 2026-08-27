@@ -5,6 +5,7 @@ local PartDefinition = require "PartDefinition"
 local StillObject = require "StillObject"
 local PathConnectionCandidate = require "PathConnectionCandidate"
 local PartEditSession = require "PartEditSession"
+local LookApplier = require "LookApplier"
 
 local LevelDocument = {}
 LevelDocument.__index = LevelDocument
@@ -72,6 +73,7 @@ function LevelDocument.New(path)
     self.pathCandidates = {}
     self.pathCandidateOrder = {}
     self.spawnNodeKey = nil
+    self.atmosphere = LookApplier.CopyAtmosphere()
     self.dirty = false
     return self
 end
@@ -415,6 +417,7 @@ function LevelDocument:ToTable()
         parts = parts,
         stillObjects = stillObjects,
         spawnNodeKey = self.spawnNodeKey,
+        atmosphere = LookApplier.CopyAtmosphere(self.atmosphere),
     }
     if #self.pathCandidateOrder > 0 then
         local candidates = {}
@@ -575,6 +578,7 @@ function LevelDocument:LoadTable(data)
     self.pathCandidateOrder = {}
     self.spawnNodeKey = type(data.spawnNodeKey) == "string" and data.spawnNodeKey
         or (type(data["出生点"]) == "string" and data["出生点"] or nil)
+    self.atmosphere = LookApplier.CopyAtmosphere(data.atmosphere)
 
     for _, item in ipairs(data.parts) do
         local part, errorMessage = PartDefinition.FromTable(item)

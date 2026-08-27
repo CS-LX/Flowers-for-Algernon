@@ -4,6 +4,7 @@
 local TriPrismGrid = require "TriPrismGrid"
 local PartEditSession = require "PartEditSession"
 local VoxelRenderer = require "VoxelRenderer"
+local LookApplier = require "LookApplier"
 
 local PartRootRenderer = {}
 PartRootRenderer.__index = PartRootRenderer
@@ -80,6 +81,7 @@ function PartRootRenderer:BuildPart(part)
     local minPoint = Vector3(math.huge, math.huge, math.huge)
     local maxPoint = Vector3(-math.huge, -math.huge, -math.huge)
     local hasCells = false
+    local lookMaterial = LookApplier.CreatePartMaterial(part.look)
     session.document:ForEach(function(cell)
         hasCells = true
         local position, rotation = self.grid:GetVoxelTransform(cell)
@@ -100,6 +102,7 @@ function PartRootRenderer:BuildPart(part)
             height = self.voxelHeight,
             rotation = rotation,
             name = "Voxel_" .. self.grid:CellKey(cell),
+            material = lookMaterial,
         })
     end)
 

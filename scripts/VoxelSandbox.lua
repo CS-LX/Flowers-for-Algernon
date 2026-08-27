@@ -14,6 +14,7 @@ local PartEditSession = require "PartEditSession"
 local VoxelHistory = require "VoxelHistory"
 local PathNode = require "PathNode"
 local VoxelRenderer = require "VoxelRenderer"
+local LookApplier = require "LookApplier"
 
 local VoxelSandbox = {}
 ---@class VoxelSandbox
@@ -89,6 +90,7 @@ function VoxelSandbox.New(scene, cameraNode, camera, edgeLength, voxelHeight, se
     self.hoverCell = nil
     self.hoverExisting = nil
     self.voxelNodes = {}
+    self.lookMaterial = LookApplier.CreatePartMaterial(self.part and self.part.look or nil)
     self.clipboard = {}
     self.dragActive = false
     self.boxSelectionActive = false
@@ -134,6 +136,7 @@ function VoxelSandbox:CreateVoxelNode(cell)
         height = self.voxelHeight,
         rotation = rotation,
         name = "Voxel_" .. CellKey(self.grid, cell),
+        material = self.lookMaterial,
     })
     self.voxelNodes[CellKey(self.grid, cell)] = node
 end
@@ -143,6 +146,7 @@ function VoxelSandbox:RebuildDocumentScene()
         node:Remove()
     end
     self.voxelNodes = {}
+    self.lookMaterial = LookApplier.CreatePartMaterial(self.part and self.part.look or nil)
     self.document:ForEach(function(cell)
         self:CreateVoxelNode(cell)
     end)

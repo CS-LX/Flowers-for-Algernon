@@ -7,19 +7,10 @@ local PathRuntime = require "PathRuntime"
 local PlayerController = require "PlayerController"
 local PreviewRotatorController = require "PreviewRotatorController"
 local PreviewMoverController = require "PreviewMoverController"
+local LookApplier = require "LookApplier"
 
 local GamePreview = {}
 GamePreview.__index = GamePreview
-
-local function CreatePreviewMaterial(color, metallic, roughness)
-    local material = Material:new()
-    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-    material:SetShaderParameter("MatDiffColor", Variant(color))
-    material:SetShaderParameter("MatSpecColor", Variant(Color(0.5, 0.5, 0.5, 1.0)))
-    material:SetShaderParameter("Metallic", Variant(metallic))
-    material:SetShaderParameter("Roughness", Variant(roughness))
-    return material
-end
 
 local function CreateUnlitMaterial(color)
     local material = Material:new()
@@ -54,17 +45,7 @@ end
 function GamePreview:CreateScene()
     self.scene = Scene()
     self.scene:CreateComponent("Octree")
-
-    local lightGroupFile = cache:GetResource("XMLFile", "LightGroup/Daytime.xml")
-    local lightGroup = self.scene:CreateChild("LightGroup")
-    lightGroup:LoadXML(lightGroupFile:GetRoot())
-
-    local floorNode = self.scene:CreateChild("PreviewFloor")
-    floorNode.position = Vector3(0, -0.15, 0)
-    local floorModel = floorNode:CreateComponent("StaticModel")
-    floorModel.model = BoxGeometry(24.0, 0.3, 24.0):ToModel()
-    floorModel.material = CreatePreviewMaterial(Color(0.055, 0.075, 0.11, 1.0), 0.15, 0.82)
-    floorModel.castShadows = false
+    LookApplier.ApplyAtmosphere(self.scene, self.levelDocument.atmosphere)
 end
 
 function GamePreview:CreateFeedback(record, reachable)

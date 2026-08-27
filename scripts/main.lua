@@ -4,6 +4,7 @@ local VoxelRenderer = require "VoxelRenderer"
 local TriPrismGrid = require "TriPrismGrid"
 local LevelEditor = require "LevelEditor"
 local StarterLevel = require "StarterLevel"
+local LookApplier = require "LookApplier"
 
 ---@type Scene|nil
 local scene_ = nil
@@ -27,16 +28,6 @@ local CONFIG = {
     voxelHeight = VoxelRenderer.DEFAULT_HEIGHT,
 }
 
-local function CreateMaterial(color, metallic, roughness)
-    local material = Material:new()
-    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-    material:SetShaderParameter("MatDiffColor", Variant(color))
-    material:SetShaderParameter("MatSpecColor", Variant(Color(0.5, 0.5, 0.5, 1.0)))
-    material:SetShaderParameter("Metallic", Variant(metallic))
-    material:SetShaderParameter("Roughness", Variant(roughness))
-    return material
-end
-
 function Start()
     graphics.windowTitle = CONFIG.title
     CreateScene()
@@ -48,6 +39,7 @@ function Start()
     if not levelDocument_ then
         error("无法创建默认关卡：" .. tostring(loadWarning))
     end
+    LookApplier.ApplyAtmosphere(scene_, levelDocument_.atmosphere)
 
     levelEditor_ = LevelEditor.New(
         scene_,
@@ -89,22 +81,7 @@ end
 function CreateScene()
     scene_ = Scene()
     scene_:CreateComponent("Octree")
-
-    local lightGroupFile = cache:GetResource("XMLFile", "LightGroup/Daytime.xml")
-    local lightGroup = scene_:CreateChild("LightGroup")
-    lightGroup:LoadXML(lightGroupFile:GetRoot())
-
-    local floorNode = scene_:CreateChild("Floor")
-    floorNode.position = Vector3(0, -0.15, 0)
-
-    local floorModel = floorNode:CreateComponent("StaticModel")
-    floorModel.model = BoxGeometry(24.0, 0.3, 24.0):ToModel()
-    floorModel.material = CreateMaterial(
-        Color(0.055, 0.075, 0.11, 1.0),
-        0.15,
-        0.82
-    )
-    floorModel.castShadows = false
+    LookApplier.ApplyAtmosphere(scene_, LookApplier.DefaultAtmosphere())
 end
 
 function SetupCamera()

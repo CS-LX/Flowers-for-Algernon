@@ -33,6 +33,17 @@ function LevelInspector.New(editor)
     self.saveButton = nil
     self.exportButton = nil
     self.importButton = nil
+    self.lightGroupDropdown = nil
+    self.fogColorPicker = nil
+    self.fogStartField = nil
+    self.fogFinishField = nil
+    self.fogDensityField = nil
+    self.heightFogToggle = nil
+    self.bloomToggle = nil
+    self.bloomThresholdField = nil
+    self.bloomIntensityField = nil
+    self.vignetteToggle = nil
+    self.vignetteIntensityField = nil
     return self
 end
 
@@ -232,6 +243,99 @@ function LevelInspector:Build()
             modal:Open()
         end,
     }
+    self.lightGroupDropdown = UI.Dropdown {
+        options = {
+            { value = "LightGroup/Daytime.xml", label = "Daytime" },
+            { value = "LightGroup/Dusk.xml", label = "Dusk" },
+            { value = "LightGroup/Sandstorm.xml", label = "Sandstorm" },
+            { value = "LightGroup/Night.xml", label = "Night" },
+            { value = "LightGroup/Midnight.xml", label = "Midnight" },
+            { value = "LightGroup/DarkNight.xml", label = "DarkNight" },
+            { value = "LightGroup/BloodNight.xml", label = "BloodNight" },
+        },
+        value = "LightGroup/Daytime.xml",
+        height = 26,
+        fontSize = 10,
+        onChange = function(_, value) editor:SetAtmosphereLightGroup(value) end,
+    }
+    self.fogColorPicker = Shared.ColorField {
+        color = "#C9C2B4",
+        onClose = function(picker)
+            editor:SetAtmosphereFogColor(picker:GetHex())
+        end,
+    }
+    self.fogStartField = UI.TextField {
+        value = "8",
+        placeholder = "Start",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetAtmosphereFogNumber("start", value) end,
+        onBlur = function(field) editor:SetAtmosphereFogNumber("start", field:GetValue()) end,
+    }
+    self.fogFinishField = UI.TextField {
+        value = "42",
+        placeholder = "Finish",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetAtmosphereFogNumber("finish", value) end,
+        onBlur = function(field) editor:SetAtmosphereFogNumber("finish", field:GetValue()) end,
+    }
+    self.fogDensityField = UI.TextField {
+        value = "0.85",
+        placeholder = "Density",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetAtmosphereFogNumber("density", value) end,
+        onBlur = function(field) editor:SetAtmosphereFogNumber("density", field:GetValue()) end,
+    }
+    self.heightFogToggle = UI.Checkbox {
+        checked = false,
+        label = "Height Fog",
+        size = 16,
+        height = 24,
+        fontSize = 10,
+        onChange = function(_, checked) editor:SetAtmosphereHeightFog(checked) end,
+    }
+    self.bloomToggle = UI.Checkbox {
+        checked = false,
+        label = "Bloom",
+        size = 16,
+        height = 24,
+        fontSize = 10,
+        onChange = function(_, checked) editor:SetAtmosphereBloomEnabled(checked) end,
+    }
+    self.bloomThresholdField = UI.TextField {
+        value = "1.1",
+        placeholder = "Threshold",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetAtmosphereBloomNumber("threshold", value) end,
+        onBlur = function(field) editor:SetAtmosphereBloomNumber("threshold", field:GetValue()) end,
+    }
+    self.bloomIntensityField = UI.TextField {
+        value = "0.15",
+        placeholder = "Intensity",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetAtmosphereBloomNumber("intensity", value) end,
+        onBlur = function(field) editor:SetAtmosphereBloomNumber("intensity", field:GetValue()) end,
+    }
+    self.vignetteToggle = UI.Checkbox {
+        checked = false,
+        label = "Vignette",
+        size = 16,
+        height = 24,
+        fontSize = 10,
+        onChange = function(_, checked) editor:SetAtmosphereVignetteEnabled(checked) end,
+    }
+    self.vignetteIntensityField = UI.TextField {
+        value = "0.08",
+        placeholder = "Intensity",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetAtmosphereVignetteIntensity(value) end,
+        onBlur = function(field) editor:SetAtmosphereVignetteIntensity(field:GetValue()) end,
+    }
 
     self.scroll = UI.ScrollView {
         width = "100%",
@@ -321,6 +425,35 @@ function LevelInspector:Build()
                     UI.Label { text = "RMB 旋转 · MMB 平移 · Wheel 缩放", fontSize = 9, fontColor = Shared.MUTED },
                 },
             },
+            Shared.ComponentHeader("☁", "Atmosphere"),
+            UI.Panel {
+                padding = 8,
+                gap = 4,
+                borderBottomWidth = 1,
+                borderBottomColor = Shared.BORDER,
+                children = {
+                    UI.Label {
+                        text = "覆盖 LightGroup 的 Zone，不新建 Zone。AutoExposure 固定关闭。",
+                        fontSize = 9,
+                        fontColor = Shared.MUTED,
+                        whiteSpace = "normal",
+                    },
+                    Shared.FieldRow("LightGroup", self.lightGroupDropdown),
+                    Shared.FieldRow("Fog Color", self.fogColorPicker),
+                    UI.Panel { flexDirection = "row", gap = 4, children = {
+                        UI.Panel { flexGrow = 1, flexShrink = 1, children = { self.fogStartField } },
+                        UI.Panel { flexGrow = 1, flexShrink = 1, children = { self.fogFinishField } },
+                        UI.Panel { flexGrow = 1, flexShrink = 1, children = { self.fogDensityField } },
+                    } },
+                    self.heightFogToggle,
+                    UI.Panel { flexDirection = "row", gap = 8, children = { self.bloomToggle, self.vignetteToggle } },
+                    UI.Panel { flexDirection = "row", gap = 4, children = {
+                        UI.Panel { flexGrow = 1, flexShrink = 1, children = { self.bloomThresholdField } },
+                        UI.Panel { flexGrow = 1, flexShrink = 1, children = { self.bloomIntensityField } },
+                        UI.Panel { flexGrow = 1, flexShrink = 1, children = { self.vignetteIntensityField } },
+                    } },
+                },
+            },
             UI.Panel {
                 padding = 10,
                 gap = 6,
@@ -365,6 +498,18 @@ function LevelInspector:Refresh()
     self.spawnNodeDropdown:SetOptions(editor:GetPathNodeOptions())
     self.spawnNodeDropdown.props.value = editor:GetSpawnNodeKey() or ""
     self:SetCameraState(editor.editorCamera)
+    local atmosphere = editor.levelDocument.atmosphere
+    self.lightGroupDropdown.props.value = atmosphere.lightGroup
+    self.fogColorPicker:SetHex(atmosphere.fog.color)
+    self.fogStartField:SetValue(tostring(atmosphere.fog.start))
+    self.fogFinishField:SetValue(tostring(atmosphere.fog.finish))
+    self.fogDensityField:SetValue(tostring(atmosphere.fog.density))
+    self.heightFogToggle:SetChecked(atmosphere.fog.heightFog == true)
+    self.bloomToggle:SetChecked(atmosphere.bloom.enabled == true)
+    self.bloomThresholdField:SetValue(tostring(atmosphere.bloom.threshold))
+    self.bloomIntensityField:SetValue(tostring(atmosphere.bloom.intensity))
+    self.vignetteToggle:SetChecked(atmosphere.vignette.enabled == true)
+    self.vignetteIntensityField:SetValue(tostring(atmosphere.vignette.intensity))
 end
 
 function LevelInspector:RefreshSpawnPicker()

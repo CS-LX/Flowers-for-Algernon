@@ -298,6 +298,21 @@
 
 这一层最重要，因为它能证明：**颜色和构图本身是否成立**，而不是把问题推给 shader。
 
+当前第一版已落地为：
+
+```text
+Part.look
+  -> Unlit Surface Shader
+  -> dot(世界法线, lightAxis) ∈ [-1, 1]
+  -> colorNeg / colorMid / colorPos
+
+LevelDocument.atmosphere
+  -> 覆盖 LightGroup Zone 的雾 / Bloom / Vignette
+  -> 不新建 Zone，AutoExposure 关闭
+```
+
+体素不再走 PBR 彩虹白盒色。shader 必须是 Unlit：分面颜色已经编码了明暗，再走 Lit 会二次乘光、把面色冲掉。
+
 #### 层级 1：自定义分面色彩 Surface Shader
 
 当层级 0 已经证明色板有效后，可尝试一个非常窄的 Surface Shader：

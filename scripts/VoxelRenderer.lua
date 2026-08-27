@@ -1,5 +1,6 @@
--- 三棱柱体素绘制器
+-- 三棱柱体素绘制器。
 -- 第一版规范：等边三角形边长 a=1.0m，垂直高度 h=1/sqrt(3)m。
+-- 当前绘制路径：CustomGeometry + 可选 Part look 材质覆盖。
 
 local VoxelRenderer = {}
 
@@ -97,7 +98,7 @@ function VoxelRenderer.CreateVoxel(scene, gridPosition, color, options)
 
     local customGeometry = node:CreateComponent("CustomGeometry")
     PopulatePrismGeometry(customGeometry, edgeLength, height)
-    customGeometry:SetMaterial(CreateMaterial(color))
+    customGeometry:SetMaterial(options.material or CreateMaterial(color))
 
     return node
 end
