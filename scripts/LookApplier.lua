@@ -1,10 +1,10 @@
 -- 把关卡 atmosphere 和 Part look 应用到场景。
 -- LightGroup 只在路径变化时重载；雾/Bloom/Vignette 覆盖其 Zone，不新建 Zone。
+-- Part look 按 shader 预设切换：一份 Material 对应一份 Surface Shader。
 
 local LookApplier = {}
 
 local DEFAULT_LIGHT_GROUP = "LightGroup/Daytime.xml"
-local DEFAULT_SHADER = "Shaders/BLGL/TriPrismLook.shader"
 local WHITEBOX_COLORS = {
     Color(0.95, 0.29, 0.33, 1.0),
     Color(0.98, 0.58, 0.20, 1.0),
@@ -12,6 +12,19 @@ local WHITEBOX_COLORS = {
     Color(0.35, 0.78, 0.38, 1.0),
     Color(0.24, 0.65, 0.92, 1.0),
     Color(0.62, 0.38, 0.88, 1.0),
+}
+
+LookApplier.SHADER_TRI_PRISM_LOOK = "tri_prism_look"
+LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG = "tri_prism_look_height_fog"
+
+LookApplier.SHADER_PATHS = {
+    [LookApplier.SHADER_TRI_PRISM_LOOK] = "Shaders/BLGL/TriPrismLook.shader",
+    [LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG] = "Shaders/BLGL/TriPrismLookHeightFog.shader",
+}
+
+LookApplier.SHADER_OPTIONS = {
+    { value = LookApplier.SHADER_TRI_PRISM_LOOK, label = "Tri Prism Look" },
+    { value = LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG, label = "Look + Height Fog" },
 }
 
 local function HexToColor(hex, fallback)
@@ -29,6 +42,16 @@ local function HexToColor(hex, fallback)
         return fallback
     end
     return Color(r / 255.0, g / 255.0, b / 255.0, 1.0)
+end
+
+local function CopyAxis(source, fallback)
+    source = source or {}
+    fallback = fallback or { x = 0, y = 1, z = 0 }
+    return {
+        x = tonumber(source.x) or fallback.x,
+        y = tonumber(source.y) or fallback.y,
+        z = tonumber(source.z) or fallback.z,
+    }
 end
 
 function LookApplier.NormalizeTonemap(value, fallback)
@@ -61,6 +84,17 @@ function LookApplier.NormalizeHex(hex, fallback)
     )
 end
 
+function LookApplier.NormalizeShader(value)
+    if value == LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG then
+        return LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG
+    end
+    return LookApplier.SHADER_TRI_PRISM_LOOK
+end
+
+function LookApplier.UsesHeightFog(look)
+    return LookApplier.NormalizeShader(look and look.shader) == LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG
+end
+
 function LookApplier.DefaultAtmosphere()
     return {
         lightGroup = DEFAULT_LIGHT_GROUP,
@@ -86,10 +120,15 @@ end
 
 function LookApplier.DefaultPartLook()
     return {
+        shader = LookApplier.SHADER_TRI_PRISM_LOOK,
         colorNeg = "#8F8478",
         colorMid = "#C4B6A6",
         colorPos = "#F1E6D5",
         lightAxis = { x = 0.35, y = 1.0, z = 0.25 },
+        fogUp = { x = 0.0, y = 1.0, z = 0.0 },
+        fogColor = "#C9C2B4",
+        fogHeightA = 4.0,
+        fogHeightB = 0.0,
     }
 end
 
@@ -124,16 +163,16 @@ end
 function LookApplier.CopyPartLook(source)
     local defaults = LookApplier.DefaultPartLook()
     source = source or {}
-    local axis = source.lightAxis or {}
     return {
+        shader = LookApplier.NormalizeShader(source.shader),
         colorNeg = LookApplier.NormalizeHex(source.colorNeg, defaults.colorNeg),
         colorMid = LookApplier.NormalizeHex(source.colorMid, defaults.colorMid),
         colorPos = LookApplier.NormalizeHex(source.colorPos, defaults.colorPos),
-        lightAxis = {
-            x = tonumber(axis.x) or defaults.lightAxis.x,
-            y = tonumber(axis.y) or defaults.lightAxis.y,
-            z = tonumber(axis.z) or defaults.lightAxis.z,
-        },
+        lightAxis = CopyAxis(source.lightAxis, defaults.lightAxis),
+        fogUp = CopyAxis(source.fogUp, defaults.fogUp),
+        fogColor = LookApplier.NormalizeHex(source.fogColor, defaults.fogColor),
+        fogHeightA = (tonumber(source.fogHeightA) or defaults.fogHeightA) * 1.0,
+        fogHeightB = (tonumber(source.fogHeightB) or defaults.fogHeightB) * 1.0,
     }
 end
 
@@ -152,24 +191,49 @@ end
 
 function LookApplier.CreatePartMaterial(look)
     look = LookApplier.CopyPartLook(look)
+    local shaderPath = LookApplier.SHADER_PATHS[look.shader] or LookApplier.SHADER_PATHS[LookApplier.SHADER_TRI_PRISM_LOOK]
     local material = Material:new()
-    if not material:SetSurfaceShader(DEFAULT_SHADER) then
-        print("LookApplier: failed to load " .. DEFAULT_SHADER)
+    if not material:SetSurfaceShader(shaderPath) then
+        print("LookApplier: failed to load " .. shaderPath)
         return LookApplier.CreateWhiteboxMaterial(1)
     end
     material:SetShaderParameter("color_neg", Variant(HexToColor(look.colorNeg, Color(0.56, 0.52, 0.47, 1))))
     material:SetShaderParameter("color_mid", Variant(HexToColor(look.colorMid, Color(0.77, 0.71, 0.65, 1))))
     material:SetShaderParameter("color_pos", Variant(HexToColor(look.colorPos, Color(0.95, 0.90, 0.84, 1))))
     material:SetShaderParameter("light_axis", Variant(Vector3(look.lightAxis.x, look.lightAxis.y, look.lightAxis.z)))
-    print(string.format(
-        "LookApplier: part material neg=%s mid=%s pos=%s axis=%.2f,%.2f,%.2f",
-        look.colorNeg,
-        look.colorMid,
-        look.colorPos,
-        look.lightAxis.x,
-        look.lightAxis.y,
-        look.lightAxis.z
-    ))
+    if look.shader == LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG then
+        material:SetShaderParameter("fog_up", Variant(Vector3(look.fogUp.x, look.fogUp.y, look.fogUp.z)))
+        material:SetShaderParameter("fog_color", Variant(HexToColor(look.fogColor, Color(0.79, 0.76, 0.71, 1))))
+        material:SetShaderParameter("fog_height_a", Variant(look.fogHeightA))
+        material:SetShaderParameter("fog_height_b", Variant(look.fogHeightB))
+        print(string.format(
+            "LookApplier: part material shader=%s neg=%s mid=%s pos=%s axis=%.2f,%.2f,%.2f fog=%s up=%.2f,%.2f,%.2f heightA=%.2f heightB=%.2f",
+            look.shader,
+            look.colorNeg,
+            look.colorMid,
+            look.colorPos,
+            look.lightAxis.x,
+            look.lightAxis.y,
+            look.lightAxis.z,
+            look.fogColor,
+            look.fogUp.x,
+            look.fogUp.y,
+            look.fogUp.z,
+            look.fogHeightA,
+            look.fogHeightB
+        ))
+    else
+        print(string.format(
+            "LookApplier: part material shader=%s neg=%s mid=%s pos=%s axis=%.2f,%.2f,%.2f",
+            look.shader,
+            look.colorNeg,
+            look.colorMid,
+            look.colorPos,
+            look.lightAxis.x,
+            look.lightAxis.y,
+            look.lightAxis.z
+        ))
+    end
     return material
 end
 

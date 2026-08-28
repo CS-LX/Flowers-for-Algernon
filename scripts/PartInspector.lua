@@ -3,6 +3,7 @@
 
 local UI = require("urhox-libs/UI")
 local Shared = require "InspectorShared"
+local LookApplier = require "LookApplier"
 
 local PartInspector = {}
 PartInspector.__index = PartInspector
@@ -37,12 +38,20 @@ function PartInspector.New(editor)
     self.pivotSectorField = nil
     self.pivotLayerField = nil
     self.openButton = nil
+    self.lookShaderDropdown = nil
     self.lookNegPicker = nil
     self.lookMidPicker = nil
     self.lookPosPicker = nil
     self.lookAxisXField = nil
     self.lookAxisYField = nil
     self.lookAxisZField = nil
+    self.lookFogPanel = nil
+    self.lookFogColorPicker = nil
+    self.lookFogUpXField = nil
+    self.lookFogUpYField = nil
+    self.lookFogUpZField = nil
+    self.lookFogHeightAField = nil
+    self.lookFogHeightBField = nil
     return self
 end
 
@@ -204,6 +213,13 @@ function PartInspector:Build()
             editor:OpenSelectedPart()
         end,
     }
+    self.lookShaderDropdown = UI.Dropdown {
+        options = LookApplier.SHADER_OPTIONS,
+        value = LookApplier.SHADER_TRI_PRISM_LOOK,
+        height = 26,
+        fontSize = 10,
+        onChange = function(_, value) editor:SetSelectedPartLookShader(value) end,
+    }
     self.lookNegPicker = Shared.ColorField {
         color = "#8F8478",
         onClose = function(picker)
@@ -245,6 +261,75 @@ function PartInspector:Build()
         fontSize = 10,
         onSubmit = function(_, value) editor:SetSelectedPartLookAxis("z", value) end,
         onBlur = function(field) editor:SetSelectedPartLookAxis("z", field:GetValue()) end,
+    }
+    self.lookFogColorPicker = Shared.ColorField {
+        color = "#C9C2B4",
+        onClose = function(picker)
+            editor:SetSelectedPartLookFogColor(picker:GetHex())
+        end,
+    }
+    self.lookFogUpXField = UI.TextField {
+        value = "0.00",
+        placeholder = "X",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPartLookFogUp("x", value) end,
+        onBlur = function(field) editor:SetSelectedPartLookFogUp("x", field:GetValue()) end,
+    }
+    self.lookFogUpYField = UI.TextField {
+        value = "1.00",
+        placeholder = "Y",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPartLookFogUp("y", value) end,
+        onBlur = function(field) editor:SetSelectedPartLookFogUp("y", field:GetValue()) end,
+    }
+    self.lookFogUpZField = UI.TextField {
+        value = "0.00",
+        placeholder = "Z",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPartLookFogUp("z", value) end,
+        onBlur = function(field) editor:SetSelectedPartLookFogUp("z", field:GetValue()) end,
+    }
+    self.lookFogHeightAField = UI.TextField {
+        value = "4.00",
+        placeholder = "A",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPartLookFogNumber("fogHeightA", value) end,
+        onBlur = function(field) editor:SetSelectedPartLookFogNumber("fogHeightA", field:GetValue()) end,
+    }
+    self.lookFogHeightBField = UI.TextField {
+        value = "0.00",
+        placeholder = "B",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPartLookFogNumber("fogHeightB", value) end,
+        onBlur = function(field) editor:SetSelectedPartLookFogNumber("fogHeightB", field:GetValue()) end,
+    }
+    self.lookFogPanel = UI.Panel {
+        gap = 4,
+        children = {
+            UI.Label {
+                text = "高度雾：沿 fog_up 轴向，从 Height A 过渡到 Height B。B 低于 A 时雾在低处更浓。",
+                fontSize = 9,
+                fontColor = Shared.MUTED,
+                whiteSpace = "normal",
+            },
+            Shared.FieldRow("Fog", self.lookFogColorPicker),
+            UI.Label { text = "Fog Up  X / Y / Z", fontSize = 9, fontColor = Shared.MUTED },
+            UI.Panel { flexDirection = "row", gap = 3, children = {
+                UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.lookFogUpXField } },
+                UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.lookFogUpYField } },
+                UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.lookFogUpZField } },
+            } },
+            UI.Label { text = "Height A / Height B", fontSize = 9, fontColor = Shared.MUTED },
+            UI.Panel { flexDirection = "row", gap = 3, children = {
+                UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.lookFogHeightAField } },
+                UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.lookFogHeightBField } },
+            } },
+        },
     }
 
     self.scroll = UI.ScrollView {
@@ -354,6 +439,7 @@ function PartInspector:Build()
                         fontColor = Shared.MUTED,
                         whiteSpace = "normal",
                     },
+                    Shared.FieldRow("Shader", self.lookShaderDropdown),
                     Shared.FieldRow("Neg", self.lookNegPicker),
                     Shared.FieldRow("Mid", self.lookMidPicker),
                     Shared.FieldRow("Pos", self.lookPosPicker),
@@ -363,6 +449,7 @@ function PartInspector:Build()
                         UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.lookAxisYField } },
                         UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.lookAxisZField } },
                     } },
+                    self.lookFogPanel,
                 },
             },
             UI.Panel {
@@ -415,12 +502,20 @@ function PartInspector:Clear()
     self.pivotLayerField:SetValue("")
     self.pivotLayerField:SetDisabled(true)
     self.openButton:SetDisabled(true)
+    self.lookShaderDropdown.props.value = LookApplier.SHADER_TRI_PRISM_LOOK
     self.lookNegPicker:SetHex("#8F8478")
     self.lookMidPicker:SetHex("#C4B6A6")
     self.lookPosPicker:SetHex("#F1E6D5")
     self.lookAxisXField:SetValue("")
     self.lookAxisYField:SetValue("")
     self.lookAxisZField:SetValue("")
+    self.lookFogColorPicker:SetHex("#C9C2B4")
+    self.lookFogUpXField:SetValue("")
+    self.lookFogUpYField:SetValue("")
+    self.lookFogUpZField:SetValue("")
+    self.lookFogHeightAField:SetValue("")
+    self.lookFogHeightBField:SetValue("")
+    self.lookFogPanel:SetVisible(false)
 end
 
 function PartInspector:Refresh()
@@ -499,13 +594,21 @@ function PartInspector:Refresh()
     self.pivotLayerField:SetValue(pivotCell and string.format("%.1f", pivotCell.layer) or "0.0")
     self.pivotLayerField:SetDisabled(not usesCellPivot)
     self.openButton:SetDisabled(false)
-    local look = part.look
+    local look = LookApplier.CopyPartLook(part.look)
+    self.lookShaderDropdown.props.value = look.shader
     self.lookNegPicker:SetHex(look.colorNeg)
     self.lookMidPicker:SetHex(look.colorMid)
     self.lookPosPicker:SetHex(look.colorPos)
     self.lookAxisXField:SetValue(string.format("%.2f", look.lightAxis.x))
     self.lookAxisYField:SetValue(string.format("%.2f", look.lightAxis.y))
     self.lookAxisZField:SetValue(string.format("%.2f", look.lightAxis.z))
+    self.lookFogColorPicker:SetHex(look.fogColor)
+    self.lookFogUpXField:SetValue(string.format("%.2f", look.fogUp.x))
+    self.lookFogUpYField:SetValue(string.format("%.2f", look.fogUp.y))
+    self.lookFogUpZField:SetValue(string.format("%.2f", look.fogUp.z))
+    self.lookFogHeightAField:SetValue(string.format("%.2f", look.fogHeightA))
+    self.lookFogHeightBField:SetValue(string.format("%.2f", look.fogHeightB))
+    self.lookFogPanel:SetVisible(LookApplier.UsesHeightFog(look))
 end
 
 return PartInspector

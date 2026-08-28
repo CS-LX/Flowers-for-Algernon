@@ -1083,6 +1083,17 @@ function LevelEditor:RebuildSelectedPartLook()
     return true
 end
 
+function LevelEditor:SetSelectedPartLookShader(shader)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local look = LookApplier.CopyPartLook(part.look)
+    look.shader = LookApplier.NormalizeShader(shader)
+    part:SetLook(look)
+    return self:RebuildSelectedPartLook()
+end
+
 function LevelEditor:SetSelectedPartLookColor(field, hex)
     local part = self:GetSelectedPart()
     if not part then
@@ -1112,6 +1123,55 @@ function LevelEditor:SetSelectedPartLookAxis(axis, value)
     end
     local look = LookApplier.CopyPartLook(part.look)
     look.lightAxis[axis] = number
+    part:SetLook(look)
+    return self:RebuildSelectedPartLook()
+end
+
+function LevelEditor:SetSelectedPartLookFogColor(hex)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local look = LookApplier.CopyPartLook(part.look)
+    look.fogColor = LookApplier.NormalizeHex(hex, look.fogColor)
+    part:SetLook(look)
+    return self:RebuildSelectedPartLook()
+end
+
+function LevelEditor:SetSelectedPartLookFogUp(axis, value)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    if axis ~= "x" and axis ~= "y" and axis ~= "z" then
+        return false
+    end
+    local number = tonumber(value)
+    if not number then
+        self:RefreshLevelUI("高度雾轴向必须是数字")
+        return false
+    end
+    local look = LookApplier.CopyPartLook(part.look)
+    look.fogUp[axis] = number
+    part:SetLook(look)
+    return self:RebuildSelectedPartLook()
+end
+
+function LevelEditor:SetSelectedPartLookFogNumber(field, value)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    if field ~= "fogHeightA" and field ~= "fogHeightB" then
+        return false
+    end
+    local number = tonumber(value)
+    if not number then
+        self:RefreshLevelUI("高度雾高度必须是数字")
+        return false
+    end
+    local look = LookApplier.CopyPartLook(part.look)
+    look[field] = number * 1.0
     part:SetLook(look)
     return self:RebuildSelectedPartLook()
 end
