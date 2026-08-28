@@ -1,4 +1,5 @@
--- 隔离实验：找出能拿到真实 RGB 的路径，并把雾 / HDR / tonemap 握在脚本手里。
+-- 隔离实验：找出能拿到真实 RGB 的路径。
+-- 本轮四盒：raw SurfaceShader / 内置 NoTextureUnlit / pow(2.2) / pow(1/2.2)
 -- 不加载 LightGroup。自己建 Zone。实验稳定前不回关卡编辑器。
 
 local UI = require("urhox-libs/UI")
@@ -13,10 +14,6 @@ local cameraNode_ = nil
 local camera_ = nil
 ---@type Zone|nil
 local zone_ = nil
----@type Material|nil
-local sourceMat_ = nil
----@type Material|nil
-local rawMat_ = nil
 local statusLabel_ = nil
 
 local TARGET = Color(0.95686275, 0.2627451, 0.21176471, 1.0)
@@ -32,23 +29,30 @@ local PRESETS = {
 
 local presetIndex_ = 1
 
-local function CreateUnlit(shaderPath, useSourceColor)
+local function CreateSurface(shaderPath, label)
     local material = Material:new()
     local ok = material:SetSurfaceShader(shaderPath)
-    print("ColorTruthLab: SetSurfaceShader " .. shaderPath .. " = " .. tostring(ok))
+    print("ColorTruthLab: SetSurfaceShader " .. shaderPath .. " = " .. tostring(ok) .. " " .. label)
     if not ok then
         material:SetTechnique(0, cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml"))
         material:SetShaderParameter("MatDiffColor", Variant(TARGET))
         return material
     end
     material:SetShaderParameter("base_color", Variant(TARGET))
-    print("ColorTruthLab: " .. (useSourceColor and "source_color" or "raw vec4") .. " " .. TARGET_HEX)
     return material
 end
 
-local function PlaceBox(parent, name, x, material)
+local function CreateBuiltinUnlit()
+    local material = Material:new()
+    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml"))
+    material:SetShaderParameter("MatDiffColor", Variant(TARGET))
+    print("ColorTruthLab: builtin NoTextureUnlit " .. TARGET_HEX)
+    return material
+end
+
+local function PlaceBox(parent, name, x, y, material)
     local node = parent:CreateChild(name)
-    node.position = Vector3(x, 0.5, 0)
+    node.position = Vector3(x, y, 0)
     local model = node:CreateComponent("StaticModel")
     model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
     model:SetMaterial(material)
@@ -99,17 +103,12 @@ local function ApplyPreset(id)
     end
 
     print(string.format(
-        "ColorTruthLab: preset=%s hdr=%s tonemap=%s fogStart=%.1f fogEnd=%.1f density=%.2f fog=%s",
+        "ColorTruthLab: preset=%s hdr=%s tonemap=%s fogStart=%.1f density=%.2f",
         id,
         tostring(renderer.hdrRendering),
         tostring(zone_.tonemapMode),
         zone_.fogStart,
-        zone_.fogEnd,
-        zone_.fogDensity,
-        string.format("#%02X%02X%02X",
-            math.floor(zone_.fogColor.r * 255.0 + 0.5),
-            math.floor(zone_.fogColor.g * 255.0 + 0.5),
-            math.floor(zone_.fogColor.b * 255.0 + 0.5))
+        zone_.fogDensity
     ))
 end
 
@@ -119,8 +118,8 @@ local function RefreshStatus()
     end
     local preset = PRESETS[presetIndex_]
     statusLabel_:SetText(
-        "目标 " .. TARGET_HEX .. "  左UI色块  中source_color  右raw vec4\n" ..
-        preset.title .. "   点按钮或按 1-5。对齐=真RGB  发粉/发白=雾或映射"
+        "目标 " .. TARGET_HEX .. "  先看档1。左上raw SS  右上内置Unlit  左下pow(2.2)  右下pow(1/2.2)\n" ..
+        preset.title .. "   哪盒对齐UI红=真RGB路径"
     )
 end
 
@@ -147,21 +146,26 @@ function ColorTruthLab.Start()
     ApplyPreset("baseline")
 
     cameraNode_ = scene_:CreateChild("Camera")
-    cameraNode_.position = Vector3(0, 0.5, -4.0)
+    cameraNode_.position = Vector3(0, 0.5, -7.0)
     cameraNode_:LookAt(Vector3(0, 0.5, 0))
     camera_ = cameraNode_:CreateComponent("Camera")
     camera_.orthographic = true
-    camera_.orthoSize = 4.0
+    camera_.orthoSize = 5.5
     camera_.nearClip = 0.1
     camera_.farClip = 50.0
     renderer:SetViewport(0, Viewport:new(scene_, camera_))
 
-    sourceMat_ = CreateUnlit("Shaders/BLGL/LabTrueRgbSource.shader", true)
-    rawMat_ = CreateUnlit("Shaders/BLGL/LabTrueRgbRaw.shader", false)
+    local rawMat = CreateSurface("Shaders/BLGL/LabTrueRgbRaw.shader", "raw")
+    local builtinMat = CreateBuiltinUnlit()
+    local pow22Mat = CreateSurface("Shaders/BLGL/LabTrueRgbPow22.shader", "pow22")
+    local powInvMat = CreateSurface("Shaders/BLGL/LabTrueRgbPowInv.shader", "powInv")
 
     local root = scene_:CreateChild("LabRoot")
-    PlaceBox(root, "SourceColorBox", -1.2, sourceMat_)
-    PlaceBox(root, "RawVec4Box", 1.2, rawMat_)
+    -- 相机沿 -Z 水平看，用 X/Y 排成屏幕 2x2，避免 Z 方向叠在一起。
+    PlaceBox(root, "RawSS", -1.15, 1.55, rawMat)
+    PlaceBox(root, "BuiltinUnlit", 1.15, 1.55, builtinMat)
+    PlaceBox(root, "Pow22", -1.15, -0.55, pow22Mat)
+    PlaceBox(root, "PowInv", 1.15, -0.55, powInvMat)
 
     UI.Init({
         theme = "default-dark",
@@ -176,7 +180,7 @@ function ColorTruthLab.Start()
     }
     statusLabel_ = UI.Label {
         text = "",
-        fontSize = 14,
+        fontSize = 13,
         fontColor = { 240, 240, 245, 255 },
         whiteSpace = "normal",
         flexGrow = 1,
@@ -218,8 +222,7 @@ function ColorTruthLab.Start()
     RefreshStatus()
 
     SubscribeToEvent("Update", "HandleColorTruthLabUpdate")
-    print("ColorTruthLab: target " .. TARGET_HEX)
-    print("ColorTruthLab: left UI NanoVG, mid source_color Unlit, right raw vec4 Unlit")
+    print("ColorTruthLab: four boxes rawSS / builtinUnlit / pow22 / powInv")
 end
 
 ---@param eventType string
@@ -245,8 +248,6 @@ function ColorTruthLab.Stop()
     cameraNode_ = nil
     camera_ = nil
     zone_ = nil
-    sourceMat_ = nil
-    rawMat_ = nil
     statusLabel_ = nil
 end
 
