@@ -34,7 +34,7 @@ void fragment() {
     float t = clamp(dot(normalize(world_n), normalize(light_axis)), -1.0, 1.0);
     // t < 0: mix(color_neg, color_mid, t + 1)
     // t >= 0: mix(color_mid, color_pos, t)
-    ALBEDO = color;
+    ALBEDO = pow(max(color, vec3(0.0)), vec3(2.2));
 }
 ```
 

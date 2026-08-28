@@ -21,5 +21,5 @@ void fragment() {
     } else {
         color = mix(color_mid.rgb, color_pos.rgb, t);
     }
-    ALBEDO = color;
+    ALBEDO = pow(max(color, vec3(0.0)), vec3(2.2));
 }

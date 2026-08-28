@@ -118,8 +118,8 @@ local function RefreshStatus()
     end
     local preset = PRESETS[presetIndex_]
     statusLabel_:SetText(
-        "目标 " .. TARGET_HEX .. "  先看档1。左上raw SS  右上内置Unlit  左下pow(2.2)  右下pow(1/2.2)\n" ..
-        preset.title .. "   哪盒对齐UI红=真RGB路径"
+        "目标 " .. TARGET_HEX .. "  档1。左上raw  右上内置Unlit  左下pow(2.2)  右下正式source_color+pow(2.2)\n" ..
+        preset.title .. "   左下/右下应对齐UI红"
     )
 end
 
@@ -158,14 +158,14 @@ function ColorTruthLab.Start()
     local rawMat = CreateSurface("Shaders/BLGL/LabTrueRgbRaw.shader", "raw")
     local builtinMat = CreateBuiltinUnlit()
     local pow22Mat = CreateSurface("Shaders/BLGL/LabTrueRgbPow22.shader", "pow22")
-    local powInvMat = CreateSurface("Shaders/BLGL/LabTrueRgbPowInv.shader", "powInv")
+    local officialMat = CreateSurface("Shaders/BLGL/LabTrueRgbOfficial.shader", "officialPow22")
 
     local root = scene_:CreateChild("LabRoot")
     -- 相机沿 -Z 水平看，用 X/Y 排成屏幕 2x2，避免 Z 方向叠在一起。
     PlaceBox(root, "RawSS", -1.15, 1.55, rawMat)
     PlaceBox(root, "BuiltinUnlit", 1.15, 1.55, builtinMat)
     PlaceBox(root, "Pow22", -1.15, -0.55, pow22Mat)
-    PlaceBox(root, "PowInv", 1.15, -0.55, powInvMat)
+    PlaceBox(root, "OfficialPow22", 1.15, -0.55, officialMat)
 
     UI.Init({
         theme = "default-dark",
