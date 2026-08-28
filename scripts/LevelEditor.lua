@@ -977,6 +977,16 @@ function LevelEditor:SetAtmosphereLightGroup(value)
     return true
 end
 
+function LevelEditor:SetAtmosphereTonemap(value)
+    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
+    atmosphere.tonemap = LookApplier.NormalizeTonemap(value, atmosphere.tonemap)
+    self.levelDocument.atmosphere = LookApplier.CopyAtmosphere(atmosphere)
+    self.levelDocument.dirty = true
+    self:ApplyCurrentAtmosphere()
+    self:RefreshLevelUI("已更新 Tonemap：" .. tostring(atmosphere.tonemap))
+    return true
+end
+
 function LevelEditor:SetAtmosphereFogColor(hex)
     local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
     atmosphere.fog.color = LookApplier.NormalizeHex(hex, atmosphere.fog.color)
