@@ -80,6 +80,14 @@ ALBEDO = pow(max(color, vec3(0.0)), vec3(2.2));
 
 `color` 是 Inspector hex 对应的 0–1 值。
 
+## 正式路径验收（2026-08-28 第三轮）
+
+档 1：左上 raw、右上内置 Unlit、左下 `pow(2.2)`、右下 `source_color` + `pow(2.2)`。
+
+左下和右下都与 UI 色块对齐。`source_color` 加上 `pow(2.2)` 不破坏对齐，可作为正式 Unlit 写出。
+
+档 4（HDR 开 + `TONEMAP_NONE`）同一套盒子更饱和。真 RGB 对照以档 1 为准：无雾、HDR 关、`TONEMAP_NONE`、`pow(2.2)`。HDR 当作可选的再加饱和，不当作色板基准。
+
 ## 未闭合
 
 像素拾取仍未做。`source_color` 是否已把 hex 转成线性未单独证明；四盒里 raw 与 `source_color` 第一轮无差别，所以当前按「Lua Color 已是 sRGB 0–1」处理。
