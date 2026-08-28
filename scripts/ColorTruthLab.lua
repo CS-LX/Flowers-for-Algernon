@@ -1,6 +1,6 @@
--- 隔离实验：找出能拿到真实 RGB 的路径。
--- 本轮四盒：raw SurfaceShader / 内置 NoTextureUnlit / pow(2.2) / pow(1/2.2)
--- 不加载 LightGroup。自己建 Zone。实验稳定前不回关卡编辑器。
+-- Bloom isolation lab.
+-- Left: red Unlit ALBEDO 0.85. Right: yellow ALBEDO 1 + EMISSION 8.
+-- Transparent full-screen UI root so 3D is not covered.
 
 local UI = require("urhox-libs/UI")
 
@@ -16,111 +16,73 @@ local camera_ = nil
 local zone_ = nil
 local statusLabel_ = nil
 
-local TARGET = Color(0.95686275, 0.2627451, 0.21176471, 1.0)
-local TARGET_HEX = "#F44336"
-
 local PRESETS = {
-    { id = "baseline", title = "1 基线: 无雾 HDR关 TONEMAP_NONE" },
-    { id = "fog", title = "2 加亮蓝雾 density=0.85 start=8" },
-    { id = "fogfar", title = "3 雾推远 start=1000 density=0" },
-    { id = "hdr", title = "4 无雾 + HDR开 + TONEMAP_NONE" },
-    { id = "aces", title = "5 无雾 + HDR开 + ACES" },
+    { id = "off", title = "1 Bloom关 HDR关" },
+    { id = "ldr", title = "2 Bloom开 HDR关" },
+    { id = "hdr", title = "3 Bloom开 HDR开" },
 }
-
 local presetIndex_ = 1
 
-local function CreateSurface(shaderPath, label)
+local function MakeMat(path, label)
     local material = Material:new()
-    local ok = material:SetSurfaceShader(shaderPath)
-    print("ColorTruthLab: SetSurfaceShader " .. shaderPath .. " = " .. tostring(ok) .. " " .. label)
-    if not ok then
-        material:SetTechnique(0, cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml"))
-        material:SetShaderParameter("MatDiffColor", Variant(TARGET))
-        return material
-    end
-    material:SetShaderParameter("base_color", Variant(TARGET))
+    local ok = material:SetSurfaceShader(path)
+    print("BloomLab: " .. label .. " " .. path .. " ok=" .. tostring(ok))
     return material
 end
 
-local function CreateBuiltinUnlit()
-    local material = Material:new()
-    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml"))
-    material:SetShaderParameter("MatDiffColor", Variant(TARGET))
-    print("ColorTruthLab: builtin NoTextureUnlit " .. TARGET_HEX)
-    return material
-end
-
-local function PlaceBox(parent, name, x, y, material)
+local function PlaceBox(parent, name, x, material)
     local node = parent:CreateChild(name)
-    node.position = Vector3(x, y, 0)
+    node.position = Vector3(x, 0, 0)
+    node.scale = Vector3(1.1, 1.1, 1.1)
     local model = node:CreateComponent("StaticModel")
     model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
     model:SetMaterial(material)
     return node
 end
 
-local function DisablePost(zone)
-    zone.autoExposureEnabled = false
-    zone.bloomPlusEnabled = false
-    zone.vignetteEnabled = false
-    zone.ssrEnabled = false
-    zone.ssgiEnabled = false
-    zone.motionBlurEnabled = false
-    zone.fxaaEnabled = false
-    zone.volumetricFogEnabled = false
-    zone.tonemapLUTEnabled = false
-end
-
 local function ApplyPreset(id)
     if not zone_ then
         return
     end
-    renderer.hdrRendering = false
+    zone_.autoExposureEnabled = false
+    zone_.vignetteEnabled = false
+    zone_.ssrEnabled = false
+    zone_.ssgiEnabled = false
+    zone_.motionBlurEnabled = false
+    zone_.fxaaEnabled = false
+    zone_.volumetricFogEnabled = false
+    zone_.tonemapLUTEnabled = false
     zone_.tonemapMode = TONEMAP_MODE_NONE
-    zone_.fogColor = Color(0.08, 0.09, 0.11, 1.0)
-    zone_.fogStart = 1000.0
-    zone_.fogEnd = 2000.0
+    zone_.fogStart = 50.0
+    zone_.fogEnd = 80.0
     zone_.fogDensity = 0.0
-    zone_.heightFog = false
-    DisablePost(zone_)
-
-    if id == "fog" then
-        zone_.fogColor = Color(0.122, 0.580, 0.953, 1.0)
-        zone_.fogStart = 8.0
-        zone_.fogEnd = 42.0
-        zone_.fogDensity = 0.85
-    elseif id == "fogfar" then
-        zone_.fogColor = Color(0.122, 0.580, 0.953, 1.0)
-        zone_.fogStart = 1000.0
-        zone_.fogEnd = 2000.0
-        zone_.fogDensity = 0.0
-    elseif id == "hdr" then
-        renderer.hdrRendering = true
-        zone_.tonemapMode = TONEMAP_MODE_NONE
-    elseif id == "aces" then
-        renderer.hdrRendering = true
-        zone_.tonemapMode = TONEMAP_MODE_ACES
+    zone_.fogColor = Color(0.55, 0.58, 0.62, 1.0)
+    zone_.ambientColor = Color(0.55, 0.58, 0.62, 1.0)
+    zone_.bloomPlusEnabled = false
+    renderer.hdrRendering = false
+    if id == "ldr" or id == "hdr" then
+        zone_.bloomPlusEnabled = true
+        zone_.bloomMode = BLOOM_MODE_PLUS
+        zone_.bloomThreshold = 1.1
+        zone_.bloomPlusIntensity = 1.5
     end
-
+    if id == "hdr" then
+        renderer.hdrRendering = true
+    end
     print(string.format(
-        "ColorTruthLab: preset=%s hdr=%s tonemap=%s fogStart=%.1f density=%.2f",
+        "BloomLab: preset=%s hdr=%s bloom=%s thresh=%.2f intensity=%.2f",
         id,
         tostring(renderer.hdrRendering),
-        tostring(zone_.tonemapMode),
-        zone_.fogStart,
-        zone_.fogDensity
+        tostring(zone_.bloomPlusEnabled),
+        zone_.bloomThreshold,
+        zone_.bloomPlusIntensity
     ))
 end
 
 local function RefreshStatus()
-    if not statusLabel_ then
-        return
+    if statusLabel_ then
+        statusLabel_:SetText("左红对照 右黄热盒  " .. PRESETS[presetIndex_].title)
     end
-    local preset = PRESETS[presetIndex_]
-    statusLabel_:SetText(
-        "目标 " .. TARGET_HEX .. "  档1。左上raw  右上内置Unlit  左下pow(2.2)  右下正式source_color+pow(2.2)\n" ..
-        preset.title .. "   左下/右下应对齐UI红"
-    )
 end
 
 local function SelectPreset(index)
@@ -130,99 +92,85 @@ local function SelectPreset(index)
 end
 
 function ColorTruthLab.Start()
-    graphics.windowTitle = "Color Truth Lab"
+    graphics.windowTitle = "Bloom Lab"
     input.mouseMode = MM_ABSOLUTE
     input.mouseVisible = true
 
     scene_ = Scene()
     scene_:CreateComponent("Octree")
 
-    zone_ = scene_:CreateComponent("Zone")
-    zone_:SetBoundingBox(BoundingBox(Vector3(-1000, -1000, -1000), Vector3(1000, 1000, 1000)))
+    local zoneNode = scene_:CreateChild("Zone")
+    zone_ = zoneNode:CreateComponent("Zone")
+    zone_:SetBoundingBox(BoundingBox(Vector3(-80, -20, -80), Vector3(80, 60, 80)))
     zone_.priority = 0
     zone_.override = true
     zone_.ambientSource = AMBIENT_COLOR
-    zone_.ambientColor = Color(0, 0, 0, 1)
-    ApplyPreset("baseline")
+    ApplyPreset("off")
 
     cameraNode_ = scene_:CreateChild("Camera")
-    cameraNode_.position = Vector3(0, 0.5, -7.0)
-    cameraNode_:LookAt(Vector3(0, 0.5, 0))
+    cameraNode_.position = Vector3(0, 0.2, -6.0)
+    cameraNode_:LookAt(Vector3(0, 0, 0))
     camera_ = cameraNode_:CreateComponent("Camera")
     camera_.orthographic = true
-    camera_.orthoSize = 5.5
+    camera_.orthoSize = 4.0
     camera_.nearClip = 0.1
     camera_.farClip = 50.0
     renderer:SetViewport(0, Viewport:new(scene_, camera_))
 
-    local rawMat = CreateSurface("Shaders/BLGL/LabTrueRgbRaw.shader", "raw")
-    local builtinMat = CreateBuiltinUnlit()
-    local pow22Mat = CreateSurface("Shaders/BLGL/LabTrueRgbPow22.shader", "pow22")
-    local officialMat = CreateSurface("Shaders/BLGL/LabTrueRgbOfficial.shader", "officialPow22")
-
     local root = scene_:CreateChild("LabRoot")
-    -- 相机沿 -Z 水平看，用 X/Y 排成屏幕 2x2，避免 Z 方向叠在一起。
-    PlaceBox(root, "RawSS", -1.15, 1.55, rawMat)
-    PlaceBox(root, "BuiltinUnlit", 1.15, 1.55, builtinMat)
-    PlaceBox(root, "Pow22", -1.15, -0.55, pow22Mat)
-    PlaceBox(root, "OfficialPow22", 1.15, -0.55, officialMat)
+    PlaceBox(root, "ControlRed", -1.35, MakeMat("Shaders/BLGL/LabBloomDim.shader", "red"))
+    PlaceBox(root, "HotYellow", 1.35, MakeMat("Shaders/BLGL/LabBloomHot.shader", "hot"))
 
     UI.Init({
         theme = "default-dark",
         scale = UI.Scale.DEFAULT,
     })
-
-    local uiSwatch = UI.Panel {
-        width = 72,
-        height = 72,
-        backgroundColor = { 244, 67, 54, 255 },
-        borderRadius = 6,
-    }
     statusLabel_ = UI.Label {
         text = "",
-        fontSize = 13,
+        fontSize = 14,
         fontColor = { 240, 240, 245, 255 },
-        whiteSpace = "normal",
-        flexGrow = 1,
     }
-
     local buttons = {}
     for i = 1, #PRESETS do
         local index = i
         buttons[i] = UI.Button {
             text = tostring(i),
-            width = 40,
+            width = 44,
             height = 36,
             onClick = function()
                 SelectPreset(index)
             end,
         }
     end
-
     UI.SetRoot(UI.Panel {
         width = "100%",
-        height = 148,
-        padding = 12,
-        gap = 10,
-        backgroundColor = { 12, 16, 24, 220 },
+        height = "100%",
+        backgroundColor = { 0, 0, 0, 0 },
+        pointerEvents = "box-none",
         children = {
             UI.Panel {
-                flexDirection = "row",
-                alignItems = "center",
-                gap = 12,
-                children = { uiSwatch, statusLabel_ },
-            },
-            UI.Panel {
-                flexDirection = "row",
+                position = "absolute",
+                left = 12,
+                top = 12,
+                padding = 10,
                 gap = 8,
-                children = buttons,
+                backgroundColor = { 12, 16, 24, 210 },
+                borderRadius = 8,
+                pointerEvents = "auto",
+                children = {
+                    statusLabel_,
+                    UI.Panel {
+                        flexDirection = "row",
+                        gap = 8,
+                        children = buttons,
+                    },
+                },
             },
         },
     })
     RefreshStatus()
-
     SubscribeToEvent("Update", "HandleColorTruthLabUpdate")
-    print("ColorTruthLab: four boxes rawSS / builtinUnlit / pow22 / powInv")
+    print("BloomLab: transparent UI root, red vs yellow emission")
 end
 
 ---@param eventType string
@@ -235,10 +183,6 @@ function HandleColorTruthLabUpdate(eventType, eventData)
         SelectPreset(2)
     elseif input:GetKeyPress(KEY_3) then
         SelectPreset(3)
-    elseif input:GetKeyPress(KEY_4) then
-        SelectPreset(4)
-    elseif input:GetKeyPress(KEY_5) then
-        SelectPreset(5)
     end
 end
 

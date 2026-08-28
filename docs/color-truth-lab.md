@@ -96,9 +96,39 @@ ALBEDO = pow(max(color, vec3(0.0)), vec3(2.2));
 
 仍未做：像素拾取；关卡雾叠在 `pow(2.2)` 之后会不会再次掺色。
 
+## Bloom 与 pow(2.2)（2026-08-28）
+
+色板对照档 4 = HDR 关 + Bloom（threshold 1.1，intensity 0.6）；档 5 = HDR 开 + 同一套 Bloom。
+
+红 / 黄 / 绿 / 蓝 / 白 / 灰 / 石膏亮 / 石膏暗在两档都 **没有光晕**。`pow(2.2)` 后通道仍 ≤ 1，过不了 1.1 阈值，所以普通 Part 色不会被当成发光体。
+
+热白 x3 / 暗盒场景当时整屏发灰，**主因是 UI 根节点被 Yoga 拉成全视口，主题默认不透明底盖住了 3D**，不是深灰盒子自己 Bloom。把「实验几何搭错」当成根因是想歪了。
+
+当前 Bloom 实验：透明全屏 UI 根 + 角落控制条；左红对照（ALBEDO 0.85）；右黄热盒（ALBEDO 1 + EMISSION 8）；Bloom 阈值 1.1。
+
+### Bloom 隔离验收（2026-08-28）
+
+透明 UI 根之后的画面：
+
+| 档 | HDR | Bloom | 左红对照 | 右黄热盒 |
+|---|---|---|---|---|
+| 1 | 关 | 关 | 无光效 | 已有自发光光效 |
+| 2 | 关 | 开 | 始终无光效 | 光效增强 |
+| 3 | 开 | 开 | 始终无光效 | 与档 2 同档增强 |
+
+结论：
+
+- **普通 Unlit 分面色 / `pow(2.2)` 后仍 ≤ 1 的 Part 不会 Bloom。** 冷盒始终无光效。
+- **Bloom 不依赖 HDR。** 档 2（HDR 关）和档 3（HDR 开）对热盒是同一档增强。
+- 热盒在 Bloom 关时已有光效，来自 `EMISSION`，不是 Bloom 误伤冷色。Bloom 只是把已超阈值的热盒再抹开一层。
+- 关卡里要发光：给目标写 `EMISSION`（或亮度 > threshold），不要指望开 HDR。Part Look 的 Neg/Mid/Pos 走 `pow(2.2)` 即可，不必为 Bloom 再开 HDR。
+
+本实验分支到此结束。切回主线时带：`TriPrismLook` 的世界法线 + `pow(2.2)`、编辑器 `hdrRendering = false`、Bloom 仍由关卡 Atmosphere 开关。
+
 ## 对关卡的含义
 
 - Inspector 色板走 NanoVG sRGB。体素 Unlit 必须在写出前 `pow(2.2)`，否则色板和体素对不上。
 - 只关 HDR、只关雾、只删 `source_color` 都不够。
 - 内置 `NoTextureUnlit` 同样漂白，换 Technique 解决不了。
 - 正式 `TriPrismLook.shader` 在 sRGB 里 mix 分面色，最后 `pow(2.2)`。
+- Bloom 不依赖 HDR。普通 Part Look 不会开花；要发光给目标写 `EMISSION`。
