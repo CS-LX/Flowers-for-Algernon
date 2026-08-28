@@ -384,7 +384,7 @@ LevelDocument.atmosphere
 2. **极弱 Vignette**：只在章节高潮或衰退段使用；
 3. **轻微 Bloom**：只用于门、窗、花等语义对象，不能照亮所有建筑。
 
-公开资料不能证明纪念碑谷开了引擎级 HDR / ACES。2014 Unity 移动端正交插画更像直接画色，而不是 HDR 再压回 sRGB。本项目 Unlit 分面色已经是最终色，`renderer.hdrRendering` 默认关闭，避免色板和体素对不上。
+公开资料不能证明纪念碑谷开了引擎级 HDR / ACES。2014 Unity 移动端正交插画更像直接画色，而不是 HDR 再压回 sRGB。本项目 Unlit 分面色已经是最终色，`renderer.hdrRendering` 默认关闭；写出前 `pow(2.2)` 才能和 Inspector 色板对齐。Bloom 不依赖 HDR，普通 Part Look 不会开花。实验记录见 `docs/color-truth-lab.md`。
 
 #### 应谨慎使用
 
