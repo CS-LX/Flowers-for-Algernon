@@ -1005,16 +1005,6 @@ function LevelEditor:SetAtmosphereFogNumber(field, value)
     return true
 end
 
-function LevelEditor:SetAtmosphereHeightFog(enabled)
-    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
-    atmosphere.fog.heightFog = enabled == true
-    self.levelDocument.atmosphere = LookApplier.CopyAtmosphere(atmosphere)
-    self.levelDocument.dirty = true
-    self:ApplyCurrentAtmosphere()
-    self:RefreshLevelUI(enabled and "已开启高度雾" or "已关闭高度雾")
-    return true
-end
-
 function LevelEditor:SetAtmosphereBloomEnabled(enabled)
     local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
     atmosphere.bloom.enabled = enabled == true
@@ -1124,6 +1114,9 @@ function LevelEditor:SelectPart(partId)
     self.selectedStillObjectId = nil
     self:SyncTransformGrid(self:GetSelectedPart())
     self:RefreshLevelUI("已选择 Part：" .. self:GetSelectedPart().name)
+    if self.ui and self.ui.ShowInspectorForSelection then
+        self.ui:ShowInspectorForSelection()
+    end
     return true
 end
 
@@ -1135,6 +1128,9 @@ function LevelEditor:SelectStillObject(objectId)
     self.selectedStillObjectId = objectId
     self.selectedPartId = nil
     self:RefreshLevelUI("已选择静物：" .. object.name)
+    if self.ui and self.ui.ShowInspectorForSelection then
+        self.ui:ShowInspectorForSelection()
+    end
     return true
 end
 

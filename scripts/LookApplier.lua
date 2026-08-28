@@ -31,6 +31,23 @@ local function HexToColor(hex, fallback)
     return Color(r / 255.0, g / 255.0, b / 255.0, 1.0)
 end
 
+function LookApplier.NormalizeTonemap(value, fallback)
+    if value == "none" or value == "aces" or value == "lut" then
+        return value
+    end
+    return fallback or "none"
+end
+
+function LookApplier.TonemapModeEnum(value)
+    if value == "aces" then
+        return TONEMAP_MODE_ACES
+    end
+    if value == "lut" then
+        return TONEMAP_MODE_LUT
+    end
+    return TONEMAP_MODE_NONE
+end
+
 function LookApplier.NormalizeHex(hex, fallback)
     local color = HexToColor(hex, nil)
     if not color then
@@ -63,6 +80,7 @@ function LookApplier.DefaultAtmosphere()
             enabled = false,
             intensity = 0.08,
         },
+        tonemap = "none",
     }
 end
 
@@ -99,6 +117,7 @@ function LookApplier.CopyAtmosphere(source)
             enabled = vignette.enabled == true,
             intensity = tonumber(vignette.intensity) or defaults.vignette.intensity,
         },
+        tonemap = LookApplier.NormalizeTonemap(source.tonemap, defaults.tonemap),
     }
 end
 
@@ -186,14 +205,13 @@ function LookApplier.ApplyAtmosphere(scene, atmosphere)
         return false
     end
     zone.fogColor = HexToColor(atmosphere.fog.color, Color(0.79, 0.76, 0.71, 1))
-    -- 对照实验：先关掉深度雾，避免体素被拉向雾色。清屏仍用 fogColor。
-    zone.fogStart = 1000.0
-    zone.fogEnd = 2000.0
-    zone.fogDensity = 0.0
+    zone.fogStart = atmosphere.fog.start
+    zone.fogEnd = atmosphere.fog.finish
+    zone.fogDensity = atmosphere.fog.density
     zone.heightFog = false
     zone.autoExposureEnabled = false
-    zone.tonemapMode = TONEMAP_MODE_NONE
-    zone.tonemapLUTEnabled = false
+    zone.tonemapMode = LookApplier.TonemapModeEnum(atmosphere.tonemap)
+    zone.tonemapLUTEnabled = atmosphere.tonemap == "lut"
     zone.bloomPlusEnabled = atmosphere.bloom.enabled
     zone.bloomThreshold = atmosphere.bloom.threshold
     zone.bloomPlusIntensity = atmosphere.bloom.intensity

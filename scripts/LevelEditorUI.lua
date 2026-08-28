@@ -193,9 +193,15 @@ function LevelEditorUI:Refresh()
     local hasObject = part ~= nil or still ~= nil
     self.duplicateButton:SetDisabled(part == nil)
     self.deleteButton:SetDisabled(not hasObject)
-    if still then
+end
+
+function LevelEditorUI:ShowInspectorForSelection()
+    if not self.inspectorTabs then
+        return
+    end
+    if self.editor:GetSelectedStillObject() then
         self.inspectorTabs:SetActiveTab("still")
-    elseif part then
+    elseif self.editor:GetSelectedPart() then
         self.inspectorTabs:SetActiveTab("part")
     end
 end

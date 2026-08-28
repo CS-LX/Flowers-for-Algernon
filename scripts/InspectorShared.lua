@@ -87,7 +87,7 @@ function Shared.FieldRow(label, content)
         alignItems = "center",
         gap = 6,
         children = {
-            UI.Label { text = label, width = 62, flexShrink = 0, fontSize = 10, fontColor = Shared.MUTED },
+            UI.Label { text = label, width = 88, flexShrink = 0, fontSize = 10, fontColor = Shared.MUTED },
             UI.Panel {
                 flexGrow = 1,
                 flexShrink = 1,
