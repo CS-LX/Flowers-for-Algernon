@@ -97,5 +97,5 @@ function SetupCamera()
 
     viewport_ = Viewport:new(scene_, camera_)
     renderer:SetViewport(0, viewport_)
-    renderer.hdrRendering = true
+    renderer.hdrRendering = false
 end
