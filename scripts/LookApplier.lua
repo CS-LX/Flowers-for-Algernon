@@ -49,9 +49,9 @@ function LookApplier.DefaultAtmosphere()
         lightGroup = DEFAULT_LIGHT_GROUP,
         fog = {
             color = "#C9C2B4",
-            start = 8.0,
-            finish = 42.0,
-            density = 0.85,
+            start = 1000.0,
+            finish = 2000.0,
+            density = 0.0,
             heightFog = false,
         },
         bloom = {
@@ -186,11 +186,14 @@ function LookApplier.ApplyAtmosphere(scene, atmosphere)
         return false
     end
     zone.fogColor = HexToColor(atmosphere.fog.color, Color(0.79, 0.76, 0.71, 1))
-    zone.fogStart = atmosphere.fog.start
-    zone.fogEnd = atmosphere.fog.finish
-    zone.fogDensity = atmosphere.fog.density
-    zone.heightFog = atmosphere.fog.heightFog
+    -- 对照实验：先关掉深度雾，避免体素被拉向雾色。清屏仍用 fogColor。
+    zone.fogStart = 1000.0
+    zone.fogEnd = 2000.0
+    zone.fogDensity = 0.0
+    zone.heightFog = false
     zone.autoExposureEnabled = false
+    zone.tonemapMode = TONEMAP_MODE_NONE
+    zone.tonemapLUTEnabled = false
     zone.bloomPlusEnabled = atmosphere.bloom.enabled
     zone.bloomThreshold = atmosphere.bloom.threshold
     zone.bloomPlusIntensity = atmosphere.bloom.intensity
