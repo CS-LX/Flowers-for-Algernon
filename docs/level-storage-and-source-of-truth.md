@@ -41,6 +41,7 @@ VoxelSandbox / EditorUI
 - 项目开发时的初始关卡/Part 资源；
 - 本地代码分析和新环境回退创建的输入；
 - Git 中可追踪的开发基线。
+- 当前默认关卡是 `levels/default-level.json` + `parts/part_part_9.json` / `parts/part_part_17.json`。缺失或损坏时由 `levels/starter-inline.json`（`docs/level.txt` 同源内联模板）恢复。
 
 限制：
 
