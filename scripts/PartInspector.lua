@@ -55,6 +55,7 @@ function PartInspector.New(editor)
     self.lookAOToggle = nil
     self.lookAOColorPicker = nil
     self.lookAOSmoothField = nil
+    self.lookAOBlendField = nil
     return self
 end
 
@@ -333,6 +334,14 @@ function PartInspector:Build()
         onSubmit = function(_, value) editor:SetSelectedPartLookAOSmooth(value) end,
         onBlur = function(field) editor:SetSelectedPartLookAOSmooth(field:GetValue()) end,
     }
+    self.lookAOBlendField = UI.TextField {
+        value = "1.00",
+        placeholder = "Blend",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPartLookAOBlend(value) end,
+        onBlur = function(field) editor:SetSelectedPartLookAOBlend(field:GetValue()) end,
+    }
     self.lookFogPanel = UI.Panel {
         gap = 4,
         children = {
@@ -477,8 +486,9 @@ function PartInspector:Build()
                     self.lookAOToggle,
                     Shared.FieldRow("AO Color", self.lookAOColorPicker),
                     Shared.FieldRow("AO Smooth", self.lookAOSmoothField),
+                    Shared.FieldRow("AO Blend", self.lookAOBlendField),
                     UI.Label {
-                        text = "接触 AO：只画台阶和内凹折角。共面缝、外凸角不涂。Smooth 是带宽。",
+                        text = "接触 AO：只画台阶和内凹折角。Smooth 是带宽，Blend 是对原色的影响力度。",
                         fontSize = 9,
                         fontColor = Shared.MUTED,
                         whiteSpace = "normal",
@@ -552,6 +562,7 @@ function PartInspector:Clear()
     self.lookAOToggle:SetChecked(true)
     self.lookAOColorPicker:SetHex("#2A1F1A")
     self.lookAOSmoothField:SetValue("")
+    self.lookAOBlendField:SetValue("")
     self.lookFogPanel:SetVisible(false)
 end
 
@@ -648,6 +659,7 @@ function PartInspector:Refresh()
     self.lookAOToggle:SetChecked(look.aoEnabled == true)
     self.lookAOColorPicker:SetHex(look.aoColor)
     self.lookAOSmoothField:SetValue(string.format("%.2f", look.aoSmooth))
+    self.lookAOBlendField:SetValue(string.format("%.2f", look.aoBlend))
     self.lookFogPanel:SetVisible(LookApplier.UsesHeightFog(look))
 end
 

@@ -6,7 +6,7 @@
 
 用户导出是第四条通道：把当前内存关卡连同内联 Part 体素文档复制到**用户系统剪切板**。它不改 Runtime 存档，也不使用 VoxelSandbox 的项目体素复制缓冲。
 
-关卡 JSON 还保存 `atmosphere`（LightGroup、tonemap、雾、Bloom、Vignette）；每个 Part 保存 `look`（shader 预设、Unlit 分面 Neg/Mid/Pos 与 lightAxis；两套预设都含 aoEnabled / aoColor / aoSmooth；高度雾预设另含 fogUp / fogColor / fogHeightA / fogHeightB）。这两项都由 Inspector 写入内存文档，再随保存/导出走同一条真相源。默认雾关闭（start=1000、density=0），tonemap 默认 `none`。默认 Part shader 是 `tri_prism_look`，默认开接触 AO。
+关卡 JSON 还保存 `atmosphere`（LightGroup、tonemap、雾、Bloom、Vignette）；每个 Part 保存 `look`（shader 预设、Unlit 分面 Neg/Mid/Pos 与 lightAxis；两套预设都含 aoEnabled / aoColor / aoSmooth / aoBlend；高度雾预设另含 fogUp / fogColor / fogHeightA / fogHeightB）。这两项都由 Inspector 写入内存文档，再随保存/导出走同一条真相源。默认雾关闭（start=1000、density=0），tonemap 默认 `none`。默认 Part shader 是 `tri_prism_look`，默认开接触 AO。
 
 
 ## 目的

@@ -1166,6 +1166,22 @@ function LevelEditor:SetSelectedPartLookAOSmooth(value)
     return self:RebuildSelectedPartLook()
 end
 
+function LevelEditor:SetSelectedPartLookAOBlend(value)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local number = tonumber(value)
+    if not number then
+        self:RefreshLevelUI("AO Blend 必须是数字")
+        return false
+    end
+    local look = LookApplier.CopyPartLook(part.look)
+    look.aoBlend = math.max(0.0, math.min(1.0, number)) * 1.0
+    part:SetLook(look)
+    return self:RebuildSelectedPartLook()
+end
+
 function LevelEditor:SetSelectedPartLookFogColor(hex)
     local part = self:GetSelectedPart()
     if not part then

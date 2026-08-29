@@ -14,9 +14,17 @@ uniform float fog_height_b = 0.0;
 uniform float ao_enabled = 1.0;
 uniform vec4 ao_color : source_color = vec4(0.16, 0.12, 0.10, 1.0);
 uniform float ao_smooth = 0.18;
+uniform float ao_blend = 1.0;
 
 varying vec3 world_n;
 varying vec3 world_p;
+
+float sd_segment(vec2 point, vec2 start, vec2 end) {
+    vec2 toPoint = point - start;
+    vec2 span = end - start;
+    float t = clamp(dot(toPoint, span) / max(dot(span, span), 0.000001), 0.0, 1.0);
+    return length(toPoint - span * t);
+}
 
 void vertex() {
     world_n = transpose(mat3(MODEL_MATRIX)) * NORMAL;
@@ -34,14 +42,28 @@ void fragment() {
     }
 
     if (ao_enabled > 0.5) {
-        vec3 bary = vec3(1.0 - UV.x - UV.y, UV.x, UV.y);
         vec3 edgeOpen = clamp(COLOR.rgb, vec3(0.0), vec3(1.0));
         float width = max(ao_smooth, 0.001);
+        vec2 uv = vec2(UV.x, UV.y);
+        float dBC = sd_segment(uv, vec2(1.0, 0.0), vec2(0.0, 1.0));
+        float dCA = sd_segment(uv, vec2(0.0, 1.0), vec2(0.0, 0.0));
+        float dAB = sd_segment(uv, vec2(0.0, 0.0), vec2(1.0, 0.0));
+        float dA = length(uv - vec2(0.0, 0.0));
+        float dB = length(uv - vec2(1.0, 0.0));
+        float dC = length(uv - vec2(0.0, 1.0));
+        float bits = floor(COLOR.a * 7.0 + 0.5);
+        float cavityA = step(0.5, mod(bits, 2.0));
+        float cavityB = step(0.5, mod(floor(bits / 2.0), 2.0));
+        float cavityC = step(0.5, mod(floor(bits / 4.0), 2.0));
         float ao = 1.0;
-        ao *= mix(smoothstep(0.0, width, bary.x), 1.0, edgeOpen.r);
-        ao *= mix(smoothstep(0.0, width, bary.y), 1.0, edgeOpen.g);
-        ao *= mix(smoothstep(0.0, width, bary.z), 1.0, edgeOpen.b);
-        color = mix(color, ao_color.rgb, clamp(1.0 - ao, 0.0, 1.0));
+        ao *= mix(smoothstep(0.0, width, dBC), 1.0, edgeOpen.r);
+        ao *= mix(smoothstep(0.0, width, dCA), 1.0, edgeOpen.g);
+        ao *= mix(smoothstep(0.0, width, dAB), 1.0, edgeOpen.b);
+        ao *= mix(1.0, smoothstep(0.0, width, dA), cavityA);
+        ao *= mix(1.0, smoothstep(0.0, width, dB), cavityB);
+        ao *= mix(1.0, smoothstep(0.0, width, dC), cavityC);
+        float amount = clamp((1.0 - ao) * ao_blend, 0.0, 1.0);
+        color = mix(color, ao_color.rgb, amount);
     }
 
     vec3 up = fog_up;

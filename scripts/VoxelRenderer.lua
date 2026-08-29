@@ -31,7 +31,14 @@ local function OpenEdges()
     return {
         top = { 1.0, 1.0, 1.0 },
         bottom = { 1.0, 1.0, 1.0 },
+        topCorners = { 1.0, 1.0, 1.0 },
+        bottomCorners = { 1.0, 1.0, 1.0 },
         sides = {
+            { 1.0, 1.0, 1.0, 1.0 },
+            { 1.0, 1.0, 1.0, 1.0 },
+            { 1.0, 1.0, 1.0, 1.0 },
+        },
+        sideCorners = {
             { 1.0, 1.0, 1.0, 1.0 },
             { 1.0, 1.0, 1.0, 1.0 },
             { 1.0, 1.0, 1.0, 1.0 },
@@ -47,6 +54,9 @@ local function Occupied(occupied, grid, cell)
 end
 
 local function Neighbor(grid, cell, face, layer)
+    if not grid or not cell or not face then
+        return nil
+    end
     local neighbor = grid:GetFaceNeighbor(cell, face)
     if not neighbor then
         return nil
@@ -89,12 +99,71 @@ local function VerticalCavity(occupied, grid, cell, leftFace, rightFace)
         and Has(occupied, grid, cell, rightFace, layer)
 end
 
+local INCIDENT_FACES = {
+    { FACE_SIDE_INNER, FACE_SIDE_NEXT },
+    { FACE_SIDE_INNER, FACE_SIDE_OUTER },
+    { FACE_SIDE_OUTER, FACE_SIDE_NEXT },
+}
+
+local function SamePoint(a, b)
+    if not a or not b then
+        return false
+    end
+    local dx = a.x - b.x
+    local dz = a.z - b.z
+    return dx * dx + dz * dz < 0.00000001
+end
+
+-- 相邻三角只共顶点、不共边。本三角的胶囊到网格边就被裁成刀切，
+-- 必须在那些相邻三角里给这个顶点补圆。
+local function VertexNeedsCap(occupied, grid, cell, vertexIndex, above)
+    local faces = INCIDENT_FACES[vertexIndex]
+    if HorizontalCavity(occupied, grid, cell, faces[1], above)
+        or HorizontalCavity(occupied, grid, cell, faces[2], above) then
+        return false
+    end
+    local origin = grid:GetTriangleVertices(cell)[vertexIndex]
+    local layer = cell.layer
+    local hexes = { { q = cell.hexQ, r = cell.hexR } }
+    for direction = 0, 5 do
+        local neighborQ, neighborR = grid:GetHexNeighbor(cell.hexQ, cell.hexR, direction)
+        hexes[#hexes + 1] = { q = neighborQ, r = neighborR }
+    end
+    for _, hex in ipairs(hexes) do
+        for sector = 0, 5 do
+            local candidate = {
+                hexQ = hex.q,
+                hexR = hex.r,
+                sector = sector,
+                layer = layer,
+            }
+            if Occupied(occupied, grid, candidate)
+                and not (
+                    candidate.hexQ == cell.hexQ
+                    and candidate.hexR == cell.hexR
+                    and candidate.sector == cell.sector
+                ) then
+                local verts = grid:GetTriangleVertices(candidate)
+                for other = 1, 3 do
+                    if SamePoint(verts[other], origin) then
+                        local otherFaces = INCIDENT_FACES[other]
+                        if HorizontalCavity(occupied, grid, candidate, otherFaces[1], above)
+                            or HorizontalCavity(occupied, grid, candidate, otherFaces[2], above) then
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
 function VoxelRenderer.ComputeEdgeAO(grid, cell, occupied)
     if not grid or not cell or not occupied then
         return OpenEdges()
     end
     cell = grid:NormalizeCell(cell)
-    local layer = cell.layer
     local top = {
         Openness(HorizontalCavity(occupied, grid, cell, FACE_SIDE_INNER, true)),
         Openness(HorizontalCavity(occupied, grid, cell, FACE_SIDE_OUTER, true)),
@@ -105,28 +174,65 @@ function VoxelRenderer.ComputeEdgeAO(grid, cell, occupied)
         Openness(HorizontalCavity(occupied, grid, cell, FACE_SIDE_OUTER, false)),
         Openness(HorizontalCavity(occupied, grid, cell, FACE_SIDE_NEXT, false)),
     }
+    local topCorners = {}
+    local bottomCorners = {}
+    for vertex = 1, 3 do
+        topCorners[vertex] = Openness(VertexNeedsCap(occupied, grid, cell, vertex, true))
+        bottomCorners[vertex] = Openness(VertexNeedsCap(occupied, grid, cell, vertex, false))
+    end
     local adjacent = {
         { FACE_SIDE_NEXT, FACE_SIDE_OUTER },
         { FACE_SIDE_INNER, FACE_SIDE_NEXT },
         { FACE_SIDE_OUTER, FACE_SIDE_INNER },
     }
+    local sideVertices = {
+        { 1, 2 },
+        { 2, 3 },
+        { 3, 1 },
+    }
     local sides = {}
+    local sideCorners = {}
     for index = 1, 3 do
         local face = SIDE_FACES[index]
         local leftFace = adjacent[index][1]
         local rightFace = adjacent[index][2]
+        local vertexA = sideVertices[index][1]
+        local vertexB = sideVertices[index][2]
         sides[index] = {
             Openness(HorizontalCavity(occupied, grid, cell, face, false)),
             Openness(VerticalCavity(occupied, grid, cell, face, rightFace)),
             Openness(HorizontalCavity(occupied, grid, cell, face, true)),
             Openness(VerticalCavity(occupied, grid, cell, face, leftFace)),
         }
+        sideCorners[index] = {
+            bottomCorners[vertexA],
+            bottomCorners[vertexB],
+            topCorners[vertexB],
+            topCorners[vertexA],
+        }
     end
-    return { top = top, bottom = bottom, sides = sides }
+    return {
+        top = top,
+        bottom = bottom,
+        topCorners = topCorners,
+        bottomCorners = bottomCorners,
+        sides = sides,
+        sideCorners = sideCorners,
+    }
 end
 
-local function EdgeColor(edgeBC, edgeCA, edgeAB)
-    return Color(edgeBC, edgeCA, edgeAB, 1.0)
+local function PackCornerCaps(cornerA, cornerB, cornerC)
+    local bits = 0
+    if (cornerA or 1.0) < 0.5 then
+        bits = bits + 1
+    end
+    if (cornerB or 1.0) < 0.5 then
+        bits = bits + 2
+    end
+    if (cornerC or 1.0) < 0.5 then
+        bits = bits + 4
+    end
+    return bits * (1.0 / 7.0)
 end
 
 local function AddVertex(geometry, position, normal, uv, color)
@@ -136,15 +242,17 @@ local function AddVertex(geometry, position, normal, uv, color)
     geometry:DefineTexCoord(uv)
 end
 
--- UV.x / UV.y = 顶点 B / C 的重心坐标。COLOR.rgb = 对边 BC / CA / AB 的敞开度。
-local function AddTriangle(geometry, a, b, c, normal, edgeBC, edgeCA, edgeAB)
-    local color = EdgeColor(edgeBC, edgeCA, edgeAB)
+-- UV.x / UV.y = 顶点 B / C 的重心坐标。
+-- COLOR.rgb = 对边 BC / CA / AB 的敞开度。
+-- COLOR.a 打包三个顶点圆角位，三顶点同值，避免插值搅在一起。
+local function AddTriangle(geometry, a, b, c, normal, edgeBC, edgeCA, edgeAB, cornerA, cornerB, cornerC)
+    local color = Color(edgeBC, edgeCA, edgeAB, PackCornerCaps(cornerA, cornerB, cornerC))
     AddVertex(geometry, a, normal, Vector2(0.0, 0.0), color)
     AddVertex(geometry, b, normal, Vector2(1.0, 0.0), color)
     AddVertex(geometry, c, normal, Vector2(0.0, 1.0), color)
 end
 
-local function AddPrismFace(geometry, a, b, bottomY, topY, sideAO)
+local function AddPrismFace(geometry, a, b, bottomY, topY, sideAO, sideCorners)
     local edge = b - a
     local normal = Vector3(-edge.z, 0, edge.x):Normalized()
     local bottomA = Vector3(a.x, bottomY, a.z)
@@ -155,9 +263,13 @@ local function AddPrismFace(geometry, a, b, bottomY, topY, sideAO)
     local rightOpen = sideAO[2]
     local topOpen = sideAO[3]
     local leftOpen = sideAO[4]
+    local cornerBottomA = sideCorners[1]
+    local cornerBottomB = sideCorners[2]
+    local cornerTopB = sideCorners[3]
+    local cornerTopA = sideCorners[4]
 
-    AddTriangle(geometry, bottomA, bottomB, topB, normal, rightOpen, 1.0, bottomOpen)
-    AddTriangle(geometry, bottomA, topB, topA, normal, topOpen, leftOpen, 1.0)
+    AddTriangle(geometry, bottomA, bottomB, topB, normal, rightOpen, 1.0, bottomOpen, cornerBottomA, cornerBottomB, cornerTopB)
+    AddTriangle(geometry, bottomA, topB, topA, normal, topOpen, leftOpen, 1.0, cornerBottomA, cornerTopB, cornerTopA)
 end
 
 local function PopulatePrismGeometry(geometry, edgeLength, height, ao)
@@ -184,7 +296,10 @@ local function PopulatePrismGeometry(geometry, edgeLength, height, ao)
         Vector3(0, 1, 0),
         ao.top[2],
         ao.top[3],
-        ao.top[1]
+        ao.top[1],
+        ao.topCorners[1],
+        ao.topCorners[2],
+        ao.topCorners[3]
     )
     AddTriangle(
         geometry,
@@ -194,12 +309,15 @@ local function PopulatePrismGeometry(geometry, edgeLength, height, ao)
         Vector3(0, -1, 0),
         ao.bottom[2],
         ao.bottom[1],
-        ao.bottom[3]
+        ao.bottom[3],
+        ao.bottomCorners[1],
+        ao.bottomCorners[3],
+        ao.bottomCorners[2]
     )
 
-    AddPrismFace(geometry, points[1], points[2], bottomY, topY, ao.sides[1])
-    AddPrismFace(geometry, points[2], points[3], bottomY, topY, ao.sides[2])
-    AddPrismFace(geometry, points[3], points[1], bottomY, topY, ao.sides[3])
+    AddPrismFace(geometry, points[1], points[2], bottomY, topY, ao.sides[1], ao.sideCorners[1])
+    AddPrismFace(geometry, points[2], points[3], bottomY, topY, ao.sides[2], ao.sideCorners[2])
+    AddPrismFace(geometry, points[3], points[1], bottomY, topY, ao.sides[3], ao.sideCorners[3])
 
     geometry:Commit()
 end
