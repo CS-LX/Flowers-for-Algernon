@@ -16,10 +16,14 @@ local WHITEBOX_COLORS = {
 
 LookApplier.SHADER_TRI_PRISM_LOOK = "tri_prism_look"
 LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG = "tri_prism_look_height_fog"
+LookApplier.SHADER_STILL_OBJECT_BASE = "still_object_base"
+LookApplier.SHADER_STILL_OBJECT_UNLIT = "still_object_unlit"
 
 LookApplier.SHADER_PATHS = {
     [LookApplier.SHADER_TRI_PRISM_LOOK] = "Shaders/BLGL/TriPrismLook.shader",
     [LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG] = "Shaders/BLGL/TriPrismLookHeightFog.shader",
+    [LookApplier.SHADER_STILL_OBJECT_BASE] = "Shaders/BLGL/still_object_base.shader",
+    [LookApplier.SHADER_STILL_OBJECT_UNLIT] = "Shaders/BLGL/still_object_unlit.shader",
 }
 
 LookApplier.SHADER_OPTIONS = {
@@ -190,6 +194,126 @@ end
 
 function LookApplier.WhiteboxColor(material)
     return WHITEBOX_COLORS[((material or 1) - 1) % #WHITEBOX_COLORS + 1]
+end
+
+local function ConfigureSurfacePass(material, blendMode, depthWrite)
+    local technique = material:GetTechnique(0)
+    if not technique then
+        print("LookApplier: still-object material has no technique")
+        return
+    end
+    local listed = ""
+    local passTypes = nil
+    local typesOk, typesResult = pcall(function()
+        return technique:GetPassTypes()
+    end)
+    if typesOk then
+        passTypes = typesResult
+        if type(passTypes) == "table" then
+            for i = 1, #passTypes do
+                listed = listed .. tostring(passTypes[i]) .. ","
+            end
+        else
+            listed = tostring(passTypes)
+        end
+    else
+        listed = "GetPassTypes-failed:" .. tostring(typesResult)
+    end
+    print(string.format(
+        "LookApplier: still-object techniques=%d passes=%s",
+        material:GetNumTechniques(),
+        listed
+    ))
+    local pass = nil
+    local passName = nil
+    if technique:HasPass("alpha") then
+        pass = technique:GetPass("alpha")
+        passName = "alpha"
+    elseif technique:HasPass("base") then
+        pass = technique:GetPass("base")
+        passName = "base"
+    end
+    if not pass and type(passTypes) == "table" and passTypes[1] then
+        pass = technique:GetPass(passTypes[1])
+        passName = passTypes[1]
+    end
+    if not pass then
+        print("LookApplier: still-object material has no usable pass")
+        return
+    end
+    if blendMode then
+        pass:SetBlendMode(blendMode)
+    end
+    if depthWrite ~= nil then
+        pass:SetDepthWrite(depthWrite)
+    end
+    print(string.format(
+        "LookApplier: still-object pass=%s blend=%s depthWrite=%s actualBlend=%s",
+        tostring(passName),
+        tostring(blendMode),
+        tostring(depthWrite),
+        tostring(pass:GetBlendMode())
+    ))
+end
+
+function LookApplier.CreateStillObjectBaseMaterial(look)
+    look = look or {}
+    local shaderPath = LookApplier.SHADER_PATHS[LookApplier.SHADER_STILL_OBJECT_BASE]
+    local material = Material:new()
+    if not material:SetSurfaceShader(shaderPath) then
+        print("LookApplier: failed to load " .. shaderPath)
+        return LookApplier.CreateWhiteboxMaterial(1)
+    end
+    local axis = look.lightAxis or { x = 0.35, y = 1.0, z = 0.25 }
+    material:SetShaderParameter("color_neg", Variant(HexToColor(look.colorNeg, Color(0.664, 0.562, 0.501, 1))))
+    material:SetShaderParameter("color_mid", Variant(HexToColor(look.colorMid, Color(0.804, 0.733, 0.639, 1))))
+    material:SetShaderParameter("color_pos", Variant(HexToColor(look.colorPos, Color(0.944, 0.902, 0.762, 1))))
+    material:SetShaderParameter("light_axis", Variant(Vector3(axis.x, axis.y, axis.z)))
+    print(string.format(
+        "LookApplier: still-object base neg=%s mid=%s pos=%s axis=%.2f,%.2f,%.2f",
+        tostring(look.colorNeg),
+        tostring(look.colorMid),
+        tostring(look.colorPos),
+        axis.x,
+        axis.y,
+        axis.z
+    ))
+    return material
+end
+
+function LookApplier.CreateStillObjectUnlitMaterial(look)
+    look = look or {}
+    local shaderPath = LookApplier.SHADER_PATHS[LookApplier.SHADER_STILL_OBJECT_UNLIT]
+    local material = Material:new()
+    if not material:SetSurfaceShader(shaderPath) then
+        print("LookApplier: failed to load " .. shaderPath)
+        return LookApplier.CreateWhiteboxMaterial(1)
+    end
+    local color = HexToColor(look.color or look.baseColor, Color(1.0, 0.882, 0.290, 1))
+    local vFade = math.max(0.0, math.min(1.0, (tonumber(look.vFade) or 0.0) * 1.0))
+    local fadeUseObjectY = look.fadeUseObjectY == true and 1.0 or 0.0
+    material:SetShaderParameter("base_color", Variant(color))
+    material:SetShaderParameter("v_fade", Variant(vFade))
+    material:SetShaderParameter("fade_use_object_y", Variant(fadeUseObjectY))
+    if look.cullFront then
+        -- UrhoX 默认 CULL_CCW = 剔背面；CULL_CW = 剔正面，对应丁达尔体积的 cull_front。
+        material:SetCullMode(CULL_CW)
+    end
+    if look.additive then
+        -- 灯光体积：Src*Alpha + Dst。不要改 base 不透明 pass，否则 ALPHA 会变成乘黑。
+        ConfigureSurfacePass(material, BLEND_ADDALPHA, false)
+        material:SetRenderOrder(200)
+    end
+    print(string.format(
+        "LookApplier: still-object unlit color=%s vFade=%.2f objectY=%s cullFront=%s additive=%s opaque=%s",
+        tostring(look.color or look.baseColor),
+        vFade,
+        tostring(look.fadeUseObjectY == true),
+        tostring(look.cullFront == true),
+        tostring(look.additive == true),
+        tostring(look.opaque == true)
+    ))
+    return material
 end
 
 function LookApplier.CreateWhiteboxMaterial(materialId)

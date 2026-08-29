@@ -54,50 +54,44 @@ local CAMERA = {
 }
 
 -- import-model 日志：geo0=Door, geo1=Frame, geo2=Light, geo3=Lit
+-- 门框 Door = 石英色 N·L；门板 Frame = 蓝灰色 N·L；Lit = 亮黄 Unlit；Light = 丁达尔加色。
 local SLOT_LOOKS = {
     [0] = {
         name = "Door",
+        kind = "base",
         look = {
-            shader = LookApplier.SHADER_TRI_PRISM_LOOK,
-            colorNeg = "#1E5FA8",
-            colorMid = "#3D8FD4",
-            colorPos = "#8ED4FF",
-            emissionStrength = 0.0,
+            colorNeg = "#A98F80",
+            colorMid = "#CDBBA3",
+            colorPos = "#F1E6C2",
         },
     },
     [1] = {
         name = "Frame",
+        kind = "base",
         look = {
-            shader = LookApplier.SHADER_TRI_PRISM_LOOK,
-            colorNeg = "#8F8478",
-            colorMid = "#C4B6A6",
-            colorPos = "#F1E6D5",
-            emissionStrength = 0.0,
+            colorNeg = "#4A546B",
+            colorMid = "#6E8194",
+            colorPos = "#90B1BD",
         },
     },
     [2] = {
         name = "Light",
+        kind = "unlit",
         look = {
-            shader = LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG,
-            colorNeg = "#D8C7A2",
-            colorMid = "#F4E7C8",
-            colorPos = "#FFF8E8",
-            fogColor = "#82F0FF",
-            fogHeightA = 2.4,
-            fogHeightB = 0.0,
-            emissionColor = "#FFF4D2",
-            emissionStrength = 0.8,
+            color = "#FFE14A",
+            vFade = 1.0,
+            fadeUseObjectY = true,
+            cullFront = true,
+            additive = true,
         },
     },
     [3] = {
         name = "Lit",
+        kind = "unlit",
         look = {
-            shader = LookApplier.SHADER_TRI_PRISM_LOOK,
-            colorNeg = "#C48A2A",
-            colorMid = "#F0C14A",
-            colorPos = "#FFE7A0",
-            emissionColor = "#FFD27A",
-            emissionStrength = 0.55,
+            color = "#FFE14A",
+            vFade = 0.0,
+            opaque = true,
         },
     },
 }
@@ -166,13 +160,6 @@ local function ApplyOpenAmount(amount)
         openerBoneNode_.position = Vector3(0, OPEN_DISTANCE * openAmount_, 0)
         mode = "bone"
     end
-    if doorModel_ then
-        local lightMat = doorModel_:GetMaterial(2)
-        if lightMat then
-            lightMat:SetShaderParameter("emission_strength", Variant(0.15 + 0.85 * openAmount_))
-            lightMat:SetShaderParameter("hover_amount", Variant(openAmount_))
-        end
-    end
     if statusLabel_ then
         if mode == "ani" then
             statusLabel_:SetText(string.format(
@@ -218,7 +205,8 @@ local function CreateDoor()
     doorRoot_ = scene_:CreateChild("NarrativeDoor")
     -- FBX 默认导入后高度沿 -Z；绕 X 转 90° 立到 Y-up。
     doorRoot_.rotation = Quaternion(90, Vector3.RIGHT)
-    doorRoot_.position = Vector3(0, 0, 0)
+    doorRoot_.position = Vector3(0, 0.02, 0)
+    print("StillImportLab: door world Y += 0.02")
 
     local anim = doorRoot_:CreateComponent("AnimatedModel")
     anim:SetModel(resource)
@@ -243,13 +231,18 @@ local function CreateDoor()
     local geoCount = anim:GetNumGeometries()
     for index = 0, geoCount - 1 do
         local slot = SLOT_LOOKS[index]
-        local material = LookApplier.CreatePartMaterial(slot and slot.look or LookApplier.DefaultPartLook())
+        local material
+        if slot and slot.kind == "unlit" then
+            material = LookApplier.CreateStillObjectUnlitMaterial(slot.look)
+        else
+            material = LookApplier.CreateStillObjectBaseMaterial(slot and slot.look or nil)
+        end
         anim:SetMaterial(index, material)
         print(string.format(
-            "StillImportLab: slot %d name=%s shader=%s",
+            "StillImportLab: slot %d name=%s kind=%s",
             index,
             slot and slot.name or "unknown",
-            slot and slot.look.shader or LookApplier.SHADER_TRI_PRISM_LOOK
+            slot and slot.kind or "base"
         ))
     end
     doorModel_ = anim
@@ -319,7 +312,7 @@ local function CreateUI()
                         fontColor = { 231, 238, 248, 255 },
                     },
                     UI.Label {
-                        text = "4 geometry：0 Door 蓝、1 Frame 石膏、2 Light 雾光、3 Lit 暖光。开门优先用导入的 .ani。",
+                        text = "0 Door 石英 / 1 Frame 蓝灰 / 2 Light 丁达尔加色 / 3 Lit 亮黄 Unlit。",
                         fontSize = 11,
                         fontColor = { 145, 160, 184, 255 },
                         whiteSpace = "normal",
