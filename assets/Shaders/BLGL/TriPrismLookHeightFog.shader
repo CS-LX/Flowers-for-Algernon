@@ -11,6 +11,10 @@ uniform vec4 fog_color : source_color = vec4(0.788, 0.761, 0.706, 1.0);
 uniform float fog_height_a = 4.0;
 uniform float fog_height_b = 0.0;
 
+uniform float ao_enabled = 1.0;
+uniform vec4 ao_color : source_color = vec4(0.16, 0.12, 0.10, 1.0);
+uniform float ao_smooth = 0.18;
+
 varying vec3 world_n;
 varying vec3 world_p;
 
@@ -27,6 +31,17 @@ void fragment() {
         color = mix(color_neg.rgb, color_mid.rgb, t + 1.0);
     } else {
         color = mix(color_mid.rgb, color_pos.rgb, t);
+    }
+
+    if (ao_enabled > 0.5) {
+        vec3 bary = vec3(1.0 - UV.x - UV.y, UV.x, UV.y);
+        vec3 edgeOpen = clamp(COLOR.rgb, vec3(0.0), vec3(1.0));
+        float width = max(ao_smooth, 0.001);
+        float ao = 1.0;
+        ao *= mix(smoothstep(0.0, width, bary.x), 1.0, edgeOpen.r);
+        ao *= mix(smoothstep(0.0, width, bary.y), 1.0, edgeOpen.g);
+        ao *= mix(smoothstep(0.0, width, bary.z), 1.0, edgeOpen.b);
+        color = mix(color, ao_color.rgb, clamp(1.0 - ao, 0.0, 1.0));
     }
 
     vec3 up = fog_up;

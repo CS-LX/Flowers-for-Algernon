@@ -52,6 +52,9 @@ function PartInspector.New(editor)
     self.lookFogUpZField = nil
     self.lookFogHeightAField = nil
     self.lookFogHeightBField = nil
+    self.lookAOToggle = nil
+    self.lookAOColorPicker = nil
+    self.lookAOSmoothField = nil
     return self
 end
 
@@ -308,6 +311,28 @@ function PartInspector:Build()
         onSubmit = function(_, value) editor:SetSelectedPartLookFogNumber("fogHeightB", value) end,
         onBlur = function(field) editor:SetSelectedPartLookFogNumber("fogHeightB", field:GetValue()) end,
     }
+    self.lookAOToggle = UI.Checkbox {
+        checked = true,
+        label = "AO",
+        size = 16,
+        height = 24,
+        fontSize = 10,
+        onChange = function(_, checked) editor:SetSelectedPartLookAOEnabled(checked) end,
+    }
+    self.lookAOColorPicker = Shared.ColorField {
+        color = "#2A1F1A",
+        onClose = function(picker)
+            editor:SetSelectedPartLookAOColor(picker:GetHex())
+        end,
+    }
+    self.lookAOSmoothField = UI.TextField {
+        value = "0.18",
+        placeholder = "Smooth",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPartLookAOSmooth(value) end,
+        onBlur = function(field) editor:SetSelectedPartLookAOSmooth(field:GetValue()) end,
+    }
     self.lookFogPanel = UI.Panel {
         gap = 4,
         children = {
@@ -449,6 +474,15 @@ function PartInspector:Build()
                         UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.lookAxisYField } },
                         UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.lookAxisZField } },
                     } },
+                    self.lookAOToggle,
+                    Shared.FieldRow("AO Color", self.lookAOColorPicker),
+                    Shared.FieldRow("AO Smooth", self.lookAOSmoothField),
+                    UI.Label {
+                        text = "接触 AO：只画台阶和内凹折角。共面缝、外凸角不涂。Smooth 是带宽。",
+                        fontSize = 9,
+                        fontColor = Shared.MUTED,
+                        whiteSpace = "normal",
+                    },
                     self.lookFogPanel,
                 },
             },
@@ -515,6 +549,9 @@ function PartInspector:Clear()
     self.lookFogUpZField:SetValue("")
     self.lookFogHeightAField:SetValue("")
     self.lookFogHeightBField:SetValue("")
+    self.lookAOToggle:SetChecked(true)
+    self.lookAOColorPicker:SetHex("#2A1F1A")
+    self.lookAOSmoothField:SetValue("")
     self.lookFogPanel:SetVisible(false)
 end
 
@@ -608,6 +645,9 @@ function PartInspector:Refresh()
     self.lookFogUpZField:SetValue(string.format("%.2f", look.fogUp.z))
     self.lookFogHeightAField:SetValue(string.format("%.2f", look.fogHeightA))
     self.lookFogHeightBField:SetValue(string.format("%.2f", look.fogHeightB))
+    self.lookAOToggle:SetChecked(look.aoEnabled == true)
+    self.lookAOColorPicker:SetHex(look.aoColor)
+    self.lookAOSmoothField:SetValue(string.format("%.2f", look.aoSmooth))
     self.lookFogPanel:SetVisible(LookApplier.UsesHeightFog(look))
 end
 

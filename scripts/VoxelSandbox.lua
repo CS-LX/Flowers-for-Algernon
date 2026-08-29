@@ -138,6 +138,11 @@ function VoxelSandbox:CreateVoxelNode(cell)
         rotation = rotation,
         name = "Voxel_" .. CellKey(self.grid, cell),
         material = self.lookMaterial,
+        grid = self.grid,
+        cell = cell,
+        occupied = function(candidate)
+            return self.document:Get(candidate) ~= nil
+        end,
     })
     self.voxelNodes[CellKey(self.grid, cell)] = node
 end

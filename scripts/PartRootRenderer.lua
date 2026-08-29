@@ -103,6 +103,11 @@ function PartRootRenderer:BuildPart(part)
             rotation = rotation,
             name = "Voxel_" .. self.grid:CellKey(cell),
             material = lookMaterial,
+            grid = self.grid,
+            cell = cell,
+            occupied = function(candidate)
+                return session.document:Get(candidate) ~= nil
+            end,
         })
     end)
 

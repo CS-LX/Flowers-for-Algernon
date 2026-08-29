@@ -1128,6 +1128,44 @@ function LevelEditor:SetSelectedPartLookAxis(axis, value)
     return self:RebuildSelectedPartLook()
 end
 
+function LevelEditor:SetSelectedPartLookAOEnabled(enabled)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local look = LookApplier.CopyPartLook(part.look)
+    look.aoEnabled = enabled == true
+    part:SetLook(look)
+    return self:RebuildSelectedPartLook()
+end
+
+function LevelEditor:SetSelectedPartLookAOColor(hex)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local look = LookApplier.CopyPartLook(part.look)
+    look.aoColor = LookApplier.NormalizeHex(hex, look.aoColor)
+    part:SetLook(look)
+    return self:RebuildSelectedPartLook()
+end
+
+function LevelEditor:SetSelectedPartLookAOSmooth(value)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local number = tonumber(value)
+    if not number then
+        self:RefreshLevelUI("AO 平滑度必须是数字")
+        return false
+    end
+    local look = LookApplier.CopyPartLook(part.look)
+    look.aoSmooth = math.max(0.0, number) * 1.0
+    part:SetLook(look)
+    return self:RebuildSelectedPartLook()
+end
+
 function LevelEditor:SetSelectedPartLookFogColor(hex)
     local part = self:GetSelectedPart()
     if not part then

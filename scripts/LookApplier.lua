@@ -129,6 +129,9 @@ function LookApplier.DefaultPartLook()
         fogColor = "#C9C2B4",
         fogHeightA = 4.0,
         fogHeightB = 0.0,
+        aoEnabled = true,
+        aoColor = "#2A1F1A",
+        aoSmooth = 0.18,
     }
 end
 
@@ -173,6 +176,9 @@ function LookApplier.CopyPartLook(source)
         fogColor = LookApplier.NormalizeHex(source.fogColor, defaults.fogColor),
         fogHeightA = (tonumber(source.fogHeightA) or defaults.fogHeightA) * 1.0,
         fogHeightB = (tonumber(source.fogHeightB) or defaults.fogHeightB) * 1.0,
+        aoEnabled = source.aoEnabled ~= false,
+        aoColor = LookApplier.NormalizeHex(source.aoColor, defaults.aoColor),
+        aoSmooth = (tonumber(source.aoSmooth) or defaults.aoSmooth) * 1.0,
     }
 end
 
@@ -201,13 +207,16 @@ function LookApplier.CreatePartMaterial(look)
     material:SetShaderParameter("color_mid", Variant(HexToColor(look.colorMid, Color(0.77, 0.71, 0.65, 1))))
     material:SetShaderParameter("color_pos", Variant(HexToColor(look.colorPos, Color(0.95, 0.90, 0.84, 1))))
     material:SetShaderParameter("light_axis", Variant(Vector3(look.lightAxis.x, look.lightAxis.y, look.lightAxis.z)))
+    material:SetShaderParameter("ao_enabled", Variant(look.aoEnabled and 1.0 or 0.0))
+    material:SetShaderParameter("ao_color", Variant(HexToColor(look.aoColor, Color(0.16, 0.12, 0.10, 1))))
+    material:SetShaderParameter("ao_smooth", Variant(look.aoSmooth))
     if look.shader == LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG then
         material:SetShaderParameter("fog_up", Variant(Vector3(look.fogUp.x, look.fogUp.y, look.fogUp.z)))
         material:SetShaderParameter("fog_color", Variant(HexToColor(look.fogColor, Color(0.79, 0.76, 0.71, 1))))
         material:SetShaderParameter("fog_height_a", Variant(look.fogHeightA))
         material:SetShaderParameter("fog_height_b", Variant(look.fogHeightB))
         print(string.format(
-            "LookApplier: part material shader=%s neg=%s mid=%s pos=%s axis=%.2f,%.2f,%.2f fog=%s up=%.2f,%.2f,%.2f heightA=%.2f heightB=%.2f",
+            "LookApplier: part material shader=%s neg=%s mid=%s pos=%s axis=%.2f,%.2f,%.2f fog=%s up=%.2f,%.2f,%.2f heightA=%.2f heightB=%.2f ao=%s color=%s smooth=%.2f",
             look.shader,
             look.colorNeg,
             look.colorMid,
@@ -220,18 +229,24 @@ function LookApplier.CreatePartMaterial(look)
             look.fogUp.y,
             look.fogUp.z,
             look.fogHeightA,
-            look.fogHeightB
+            look.fogHeightB,
+            tostring(look.aoEnabled),
+            look.aoColor,
+            look.aoSmooth
         ))
     else
         print(string.format(
-            "LookApplier: part material shader=%s neg=%s mid=%s pos=%s axis=%.2f,%.2f,%.2f",
+            "LookApplier: part material shader=%s neg=%s mid=%s pos=%s axis=%.2f,%.2f,%.2f ao=%s color=%s smooth=%.2f",
             look.shader,
             look.colorNeg,
             look.colorMid,
             look.colorPos,
             look.lightAxis.x,
             look.lightAxis.y,
-            look.lightAxis.z
+            look.lightAxis.z,
+            tostring(look.aoEnabled),
+            look.aoColor,
+            look.aoSmooth
         ))
     end
     return material

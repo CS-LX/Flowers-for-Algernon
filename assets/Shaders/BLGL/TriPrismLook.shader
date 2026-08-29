@@ -6,6 +6,10 @@ uniform vec4 color_mid : source_color = vec4(0.769, 0.714, 0.651, 1.0);
 uniform vec4 color_pos : source_color = vec4(0.945, 0.902, 0.835, 1.0);
 uniform vec3 light_axis = vec3(0.35, 1.0, 0.25);
 
+uniform float ao_enabled = 1.0;
+uniform vec4 ao_color : source_color = vec4(0.16, 0.12, 0.10, 1.0);
+uniform float ao_smooth = 0.18;
+
 varying vec3 world_n;
 
 void vertex() {
@@ -21,5 +25,17 @@ void fragment() {
     } else {
         color = mix(color_mid.rgb, color_pos.rgb, t);
     }
+
+    if (ao_enabled > 0.5) {
+        vec3 bary = vec3(1.0 - UV.x - UV.y, UV.x, UV.y);
+        vec3 edgeOpen = clamp(COLOR.rgb, vec3(0.0), vec3(1.0));
+        float width = max(ao_smooth, 0.001);
+        float ao = 1.0;
+        ao *= mix(smoothstep(0.0, width, bary.x), 1.0, edgeOpen.r);
+        ao *= mix(smoothstep(0.0, width, bary.y), 1.0, edgeOpen.g);
+        ao *= mix(smoothstep(0.0, width, bary.z), 1.0, edgeOpen.b);
+        color = mix(color, ao_color.rgb, clamp(1.0 - ao, 0.0, 1.0));
+    }
+
     ALBEDO = pow(max(color, vec3(0.0)), vec3(2.2));
 }
