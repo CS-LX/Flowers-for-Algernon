@@ -19,13 +19,6 @@ uniform float ao_blend = 1.0;
 varying vec3 world_n;
 varying vec3 world_p;
 
-float sd_segment(vec2 point, vec2 start, vec2 end) {
-    vec2 toPoint = point - start;
-    vec2 span = end - start;
-    float t = clamp(dot(toPoint, span) / max(dot(span, span), 0.000001), 0.0, 1.0);
-    return length(toPoint - span * t);
-}
-
 void vertex() {
     world_n = transpose(mat3(MODEL_MATRIX)) * NORMAL;
     world_p = (transpose(MODEL_MATRIX) * vec4(VERTEX, 1.0)).xyz;
@@ -42,15 +35,16 @@ void fragment() {
     }
 
     if (ao_enabled > 0.5) {
+        vec3 bary = vec3(max(1.0 - UV.x - UV.y, 0.0), max(UV.x, 0.0), max(UV.y, 0.0));
         vec3 edgeOpen = clamp(COLOR.rgb, vec3(0.0), vec3(1.0));
         float width = max(ao_smooth, 0.001);
-        vec2 uv = vec2(UV.x, UV.y);
-        float dBC = sd_segment(uv, vec2(1.0, 0.0), vec2(0.0, 1.0));
-        float dCA = sd_segment(uv, vec2(0.0, 1.0), vec2(0.0, 0.0));
-        float dAB = sd_segment(uv, vec2(0.0, 0.0), vec2(1.0, 0.0));
-        float dA = length(uv - vec2(0.0, 0.0));
-        float dB = length(uv - vec2(1.0, 0.0));
-        float dC = length(uv - vec2(0.0, 1.0));
+        float height = 0.8660254;
+        float dBC = bary.x * height;
+        float dCA = bary.y * height;
+        float dAB = bary.z * height;
+        float dA = sqrt(max(bary.y * bary.y + bary.z * bary.z + bary.y * bary.z, 0.0));
+        float dB = sqrt(max(bary.z * bary.z + bary.x * bary.x + bary.z * bary.x, 0.0));
+        float dC = sqrt(max(bary.x * bary.x + bary.y * bary.y + bary.x * bary.y, 0.0));
         float bits = floor(COLOR.a * 7.0 + 0.5);
         float cavityA = step(0.5, mod(bits, 2.0));
         float cavityB = step(0.5, mod(floor(bits / 2.0), 2.0));
