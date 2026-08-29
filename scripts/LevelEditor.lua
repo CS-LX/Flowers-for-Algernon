@@ -1182,6 +1182,33 @@ function LevelEditor:SetSelectedPartLookAOBlend(value)
     return self:RebuildSelectedPartLook()
 end
 
+function LevelEditor:SetSelectedPartLookEmissionColor(hex)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local look = LookApplier.CopyPartLook(part.look)
+    look.emissionColor = LookApplier.NormalizeHex(hex, look.emissionColor)
+    part:SetLook(look)
+    return self:RebuildSelectedPartLook()
+end
+
+function LevelEditor:SetSelectedPartLookEmissionStrength(value)
+    local part = self:GetSelectedPart()
+    if not part then
+        return false
+    end
+    local number = tonumber(value)
+    if not number then
+        self:RefreshLevelUI("Hover 强度必须是数字")
+        return false
+    end
+    local look = LookApplier.CopyPartLook(part.look)
+    look.emissionStrength = math.max(0.0, number) * 1.0
+    part:SetLook(look)
+    return self:RebuildSelectedPartLook()
+end
+
 function LevelEditor:SetSelectedPartLookFogColor(hex)
     local part = self:GetSelectedPart()
     if not part then

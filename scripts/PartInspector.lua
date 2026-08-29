@@ -342,6 +342,20 @@ function PartInspector:Build()
         onSubmit = function(_, value) editor:SetSelectedPartLookAOBlend(value) end,
         onBlur = function(field) editor:SetSelectedPartLookAOBlend(field:GetValue()) end,
     }
+    self.lookEmissionColorPicker = Shared.ColorField {
+        color = "#FFF4D2",
+        onClose = function(picker)
+            editor:SetSelectedPartLookEmissionColor(picker:GetHex())
+        end,
+    }
+    self.lookEmissionStrengthField = UI.TextField {
+        value = "0.25",
+        placeholder = "Strength",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPartLookEmissionStrength(value) end,
+        onBlur = function(field) editor:SetSelectedPartLookEmissionStrength(field:GetValue()) end,
+    }
     self.lookFogPanel = UI.Panel {
         gap = 4,
         children = {
@@ -487,8 +501,16 @@ function PartInspector:Build()
                     Shared.FieldRow("AO Color", self.lookAOColorPicker),
                     Shared.FieldRow("AO Smooth", self.lookAOSmoothField),
                     Shared.FieldRow("AO Blend", self.lookAOBlendField),
+                    Shared.FieldRow("Hover Color", self.lookEmissionColorPicker),
+                    Shared.FieldRow("Hover Strength", self.lookEmissionStrengthField),
                     UI.Label {
                         text = "接触 AO：只画台阶和内凹折角。Smooth 是带宽，Blend 是对原色的影响力度。",
+                        fontSize = 9,
+                        fontColor = Shared.MUTED,
+                        whiteSpace = "normal",
+                    },
+                    UI.Label {
+                        text = "Hover Emission：Preview 里可拖动时悬停才亮，走路锁住则不亮。0.5 秒可打断 fade。",
                         fontSize = 9,
                         fontColor = Shared.MUTED,
                         whiteSpace = "normal",
@@ -660,6 +682,8 @@ function PartInspector:Refresh()
     self.lookAOColorPicker:SetHex(look.aoColor)
     self.lookAOSmoothField:SetValue(string.format("%.2f", look.aoSmooth))
     self.lookAOBlendField:SetValue(string.format("%.2f", look.aoBlend))
+    self.lookEmissionColorPicker:SetHex(look.emissionColor)
+    self.lookEmissionStrengthField:SetValue(string.format("%.2f", look.emissionStrength))
     self.lookFogPanel:SetVisible(LookApplier.UsesHeightFog(look))
 end
 

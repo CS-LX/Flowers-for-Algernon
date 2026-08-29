@@ -340,7 +340,7 @@ LevelDocument.atmosphere
 - 门的边缘柔和发光；
 - 研究所窗户的低强度冷光；
 - 终章花束的轻微自发光或颜色呼吸；
-- 旋转机关的枢轴状态反馈。
+- 可动 Part 的 hover emission（悬停且能拖才亮，不使用枢轴模型）。
 
 这些效果使用 `MatEmissiveColor` 或窄范围 Surface Shader 即可，不应让整座建筑发光。
 

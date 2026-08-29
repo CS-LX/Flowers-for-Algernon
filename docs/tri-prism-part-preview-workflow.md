@@ -4,7 +4,7 @@
 
 工作流已闭环。Level Object Tree、Part 局部编辑、Editor Camera 与 Game Preview 固定相机分离、Preview 旋转塔拖动-Snap、Preview 移动机关拖动-Snap、点击/拖动手势分流、角色跟随可动 Part，均已按本文实现。Mesh Bake 仍未做，不影响当前白盒工作流。
 
-关卡 Tab 的 Atmosphere 覆盖 LightGroup Zone（不新建 Zone，AutoExposure 关闭）。雾和 Tonemap（none/aces/lut）由 Inspector 配置并写入关卡 JSON。Part Tab 的 Look 使用 Unlit `dot(世界法线, lightAxis)` 分面渐变，写入 `Part.look`。灰色地面已从关卡编辑、体素编辑和 Preview 移除。编辑器与 Preview 都不开 `hdrRendering`，让 Inspector 色板和体素走同一套 sRGB。
+关卡 Tab 的 Atmosphere 覆盖 LightGroup Zone（不新建 Zone，AutoExposure 关闭）。雾和 Tonemap（none/aces/lut）由 Inspector 配置并写入关卡 JSON。Part Tab 的 Look 使用 Unlit `dot(世界法线, lightAxis)` 分面渐变，写入 `Part.look`，并含接触 AO 与 hover emission。Preview 里可动 Part（Rotator / Mover）在悬停且此刻能拖时淡入 emission，走路锁住不亮，0.5 秒可打断 fade；不使用枢轴模型。灰色地面已从关卡编辑、体素编辑和 Preview 移除。编辑器与 Preview 都不开 `hdrRendering`，让 Inspector 色板和体素走同一套 sRGB。
 
 体素 Surface Shader 的法线空间、`world_vertex_coords` 禁令和世界变换公式，以 `docs/voxel-surface-shader-lab.md` 为准。Unlit 写出前必须 `pow(2.2)`，Bloom 不依赖 HDR；详见 `docs/color-truth-lab.md`。关卡编辑器里石膏色“像没画”不能当成 CustomGeometry 失败。
 

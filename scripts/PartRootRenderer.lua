@@ -124,6 +124,8 @@ function PartRootRenderer:BuildPart(part)
         pivotPosition = pivotPosition,
         minPoint = minPoint,
         maxPoint = maxPoint,
+        lookMaterial = lookMaterial,
+        hoverAmount = 0.0,
     }
     return true, root
 end
@@ -260,6 +262,17 @@ function PartRootRenderer:GetLocalBounds(partId)
 end
 
 -- 用 PartContent 局部包围盒拾取，不依赖 CustomGeometry 的 Octree 三角形射线。
+function PartRootRenderer:SetHoverAmount(partId, amount)
+    local entry = self.partRoots[partId]
+    if not entry or not entry.lookMaterial then
+        return false
+    end
+    local value = math.max(0.0, math.min(1.0, amount or 0.0))
+    entry.hoverAmount = value
+    entry.lookMaterial:SetShaderParameter("hover_amount", Variant(value))
+    return true
+end
+
 function PartRootRenderer:RaycastPart(partId, ray)
     local entry = self.partRoots[partId]
     if not entry or not entry.contentRoot or not entry.minPoint or not entry.maxPoint then

@@ -15,6 +15,9 @@ uniform float ao_enabled = 1.0;
 uniform vec4 ao_color : source_color = vec4(0.16, 0.12, 0.10, 1.0);
 uniform float ao_smooth = 0.18;
 uniform float ao_blend = 1.0;
+uniform vec4 emission_color : source_color = vec4(1.0, 0.957, 0.824, 1.0);
+uniform float emission_strength = 0.25;
+uniform float hover_amount = 0.0;
 
 varying vec3 world_n;
 varying vec3 world_p;
@@ -59,6 +62,9 @@ void fragment() {
         float amount = clamp((1.0 - ao) * ao_blend, 0.0, 1.0);
         color = mix(color, ao_color.rgb, amount);
     }
+
+    float emit = clamp(hover_amount * emission_strength, 0.0, 1.0);
+    color = mix(color, emission_color.rgb, emit);
 
     vec3 up = fog_up;
     float upLength = length(up);

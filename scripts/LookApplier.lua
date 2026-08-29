@@ -133,6 +133,8 @@ function LookApplier.DefaultPartLook()
         aoColor = "#2A1F1A",
         aoSmooth = 0.18,
         aoBlend = 1.0,
+        emissionColor = "#FFF4D2",
+        emissionStrength = 0.25,
     }
 end
 
@@ -181,6 +183,8 @@ function LookApplier.CopyPartLook(source)
         aoColor = LookApplier.NormalizeHex(source.aoColor, defaults.aoColor),
         aoSmooth = (tonumber(source.aoSmooth) or defaults.aoSmooth) * 1.0,
         aoBlend = (tonumber(source.aoBlend) or defaults.aoBlend) * 1.0,
+        emissionColor = LookApplier.NormalizeHex(source.emissionColor, defaults.emissionColor),
+        emissionStrength = math.max(0.0, (tonumber(source.emissionStrength) or defaults.emissionStrength) * 1.0),
     }
 end
 
@@ -213,6 +217,9 @@ function LookApplier.CreatePartMaterial(look)
     material:SetShaderParameter("ao_color", Variant(HexToColor(look.aoColor, Color(0.16, 0.12, 0.10, 1))))
     material:SetShaderParameter("ao_smooth", Variant(look.aoSmooth))
     material:SetShaderParameter("ao_blend", Variant(look.aoBlend))
+    material:SetShaderParameter("emission_color", Variant(HexToColor(look.emissionColor, Color(1.0, 0.96, 0.82, 1))))
+    material:SetShaderParameter("emission_strength", Variant(look.emissionStrength))
+    material:SetShaderParameter("hover_amount", Variant(0.0))
     if look.shader == LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG then
         material:SetShaderParameter("fog_up", Variant(Vector3(look.fogUp.x, look.fogUp.y, look.fogUp.z)))
         material:SetShaderParameter("fog_color", Variant(HexToColor(look.fogColor, Color(0.79, 0.76, 0.71, 1))))

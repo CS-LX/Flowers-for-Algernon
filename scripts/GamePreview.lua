@@ -38,6 +38,7 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight, overlayViewMana
     self.feedbackDuration = 0.55
     self.feedbackOriginScale = 0.12
     self.rotatorController = nil
+    self.hoverAmounts = {}
     self.moverController = nil
     return self
 end
@@ -200,6 +201,98 @@ function GamePreview:Start()
     return true
 end
 
+local HOVER_FADE_SECONDS = 0.5
+
+function GamePreview:GetScreenRay()
+    local mouse = input:GetMousePosition()
+    local width = math.max(1, graphics:GetWidth())
+    local height = math.max(1, graphics:GetHeight())
+    return self.camera:GetScreenRay(mouse.x / width, mouse.y / height)
+end
+
+function GamePreview:CanMovePart(part)
+    if not part then
+        return false
+    end
+    local isRotator = part:HasBehavior("rotator")
+    local isMover = part:HasBehavior("mover")
+    if not isRotator and not isMover then
+        return false
+    end
+    if isRotator and self.rotatorController and self.rotatorController:IsWalkingOnPart(part) then
+        return false
+    end
+    if isMover and self.moverController and self.moverController:IsWalkingOnPart(part) then
+        return false
+    end
+    return true
+end
+
+function GamePreview:FindHoveredMovablePart()
+    if not self.partRenderer or not self.camera then
+        return nil
+    end
+    local ray = self:GetScreenRay()
+    local bestPart = nil
+    local bestDistance = math.huge
+    for _, part in ipairs(self.levelDocument:GetParts()) do
+        if self:CanMovePart(part) then
+            local distance = self.partRenderer:RaycastPart(part.id, ray)
+            if distance and distance < bestDistance then
+                bestDistance = distance
+                bestPart = part
+            end
+        end
+    end
+    return bestPart
+end
+
+function GamePreview:IsPartActive(part)
+    if not part then
+        return false
+    end
+    if self.rotatorController and self.rotatorController.activePart and self.rotatorController.activePart.id == part.id then
+        return self.rotatorController.phase == "pending"
+            or self.rotatorController.phase == "drag"
+            or self.rotatorController.phase == "snap"
+    end
+    if self.moverController and self.moverController.activePart and self.moverController.activePart.id == part.id then
+        return self.moverController.phase == "pending"
+            or self.moverController.phase == "drag"
+            or self.moverController.phase == "snap"
+    end
+    return false
+end
+
+function GamePreview:UpdateHoverEmission(timeStep)
+    if not self.partRenderer then
+        return
+    end
+    local hovered = self:FindHoveredMovablePart()
+    local hoveredId = hovered and hovered.id or nil
+    self.hoverAmounts = self.hoverAmounts or {}
+    for _, part in ipairs(self.levelDocument:GetParts()) do
+        local shouldLit = false
+        if hoveredId == part.id then
+            shouldLit = true
+        elseif self:IsPartActive(part) and self:CanMovePart(part) then
+            shouldLit = true
+        end
+        local current = self.hoverAmounts[part.id] or 0.0
+        local target = shouldLit and 1.0 or 0.0
+        if current ~= target then
+            local step = (timeStep / HOVER_FADE_SECONDS)
+            if target > current then
+                current = math.min(target, current + step)
+            else
+                current = math.max(target, current - step)
+            end
+        end
+        self.hoverAmounts[part.id] = current
+        self.partRenderer:SetHoverAmount(part.id, current)
+    end
+end
+
 function GamePreview:BeginMechanismPending()
     if not input:GetMouseButtonPress(MOUSEB_LEFT) then
         return false
@@ -280,6 +373,7 @@ function GamePreview:Update(timeStep)
         self.player:Update(timeStep)
         self.overlayViewManager:PresentPlayer(self.player)
     end
+    self:UpdateHoverEmission(timeStep)
     self:UpdateFeedback(timeStep)
 end
 
