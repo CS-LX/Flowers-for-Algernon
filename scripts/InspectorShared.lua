@@ -65,9 +65,20 @@ function Shared.HexToRgb(hex)
     }
 end
 
+function Shared.NormalizeHex(hex)
+    hex = tostring(hex or ""):gsub("#", ""):upper()
+    if #hex < 6 then
+        return nil
+    end
+    return "#" .. hex:sub(1, 6)
+end
+
+-- Inspector 专用颜色剪切板，不占用体素/关卡 JSON 剪切板。
+Shared.colorClipboard = nil
+
 function Shared.ColorField(opts)
     opts = opts or {}
-    return UI.ColorPicker {
+    local picker = UI.ColorPicker {
         size = "sm",
         height = 26,
         fontSize = 10,
@@ -78,6 +89,58 @@ function Shared.ColorField(opts)
         onChange = opts.onChange,
         onClose = opts.onClose,
     }
+    local copyButton = UI.Button {
+        text = "C",
+        width = 22,
+        height = 26,
+        fontSize = 9,
+        variant = "secondary",
+        onClick = function()
+            Shared.colorClipboard = Shared.NormalizeHex(picker:GetHex())
+        end,
+    }
+    local pasteButton = UI.Button {
+        text = "V",
+        width = 22,
+        height = 26,
+        fontSize = 9,
+        variant = "secondary",
+        onClick = function()
+            local hex = Shared.NormalizeHex(Shared.colorClipboard)
+            if not hex then
+                return
+            end
+            picker:SetHex(hex)
+            if opts.onClose then
+                opts.onClose(picker)
+            elseif opts.onChange then
+                opts.onChange(picker, picker:GetValue())
+            end
+        end,
+    }
+    local row = UI.Panel {
+        flexDirection = "row",
+        alignItems = "center",
+        gap = 3,
+        width = "100%",
+        children = {
+            UI.Panel {
+                flexGrow = 1,
+                flexShrink = 1,
+                minWidth = 0,
+                children = { picker },
+            },
+            copyButton,
+            pasteButton,
+        },
+    }
+    row.GetHex = function()
+        return picker:GetHex()
+    end
+    row.SetHex = function(_, hex)
+        picker:SetHex(hex)
+    end
+    return row
 end
 
 function Shared.FieldRow(label, content)
