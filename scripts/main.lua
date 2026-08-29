@@ -5,6 +5,7 @@ local TriPrismGrid = require "TriPrismGrid"
 local LevelEditor = require "LevelEditor"
 local StarterLevel = require "StarterLevel"
 local LookApplier = require "LookApplier"
+local ScreenColorPicker = require "ScreenColorPicker"
 
 ---@type Scene|nil
 local scene_ = nil
@@ -53,6 +54,7 @@ function Start()
     levelEditor_:Start()
 
     SubscribeToEvent("Update", "HandleUpdate")
+    SubscribeToEvent("EndRendering", "HandleEndRendering")
     print("Level: " .. levelDocument_.name .. " (" .. tostring(#levelDocument_:GetParts()) .. " Parts)")
     print("Level Editor: Object Tree ready")
     print("PathRuntime candidates are indexed for later visual evaluation")
@@ -76,6 +78,12 @@ function HandleUpdate(eventType, eventData)
     if levelEditor_ then
         levelEditor_:Refresh(eventData["TimeStep"]:GetFloat())
     end
+end
+
+---@param eventType string
+---@param eventData EndRenderingEventData
+function HandleEndRendering(eventType, eventData)
+    ScreenColorPicker.CaptureIfPending()
 end
 
 function CreateScene()

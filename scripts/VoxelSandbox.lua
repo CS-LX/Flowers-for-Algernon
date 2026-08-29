@@ -15,6 +15,7 @@ local VoxelHistory = require "VoxelHistory"
 local PathNode = require "PathNode"
 local VoxelRenderer = require "VoxelRenderer"
 local LookApplier = require "LookApplier"
+local ScreenColorPicker = require "ScreenColorPicker"
 
 local VoxelSandbox = {}
 ---@class VoxelSandbox
@@ -795,6 +796,11 @@ function VoxelSandbox:LoadDocument()
 end
 
 function VoxelSandbox:Refresh()
+    if ScreenColorPicker.Update() then
+        self:UpdateCamera()
+        self:DrawDebug()
+        return
+    end
     self:RefreshHover()
     self:HandlePointer()
     self:HandleCameraInput()

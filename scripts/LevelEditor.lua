@@ -15,6 +15,7 @@ local GamePreview = require "GamePreview"
 local FixedGameCamera = require "FixedGameCamera"
 local PathRuntime = require "PathRuntime"
 local LookApplier = require "LookApplier"
+local ScreenColorPicker = require "ScreenColorPicker"
 
 local LevelEditor = {}
 
@@ -1690,6 +1691,9 @@ end
 
 function LevelEditor:Refresh(timeStep)
     timeStep = timeStep or 0.0
+    if ScreenColorPicker.Update() then
+        return
+    end
     if self.mode == "level" then
         self:HandleEditorCameraInput()
         self.overlayViewManager:SyncCamera(self.cameraNode, self.camera)

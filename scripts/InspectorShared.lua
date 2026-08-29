@@ -2,6 +2,7 @@
 -- 不持有关卡数据；只给关卡 Tab 和 Part Tab 复用绘制约定。
 
 local UI = require("urhox-libs/UI")
+local ScreenColorPicker = require "ScreenColorPicker"
 
 local Shared = {}
 
@@ -90,48 +91,67 @@ function Shared.ColorField(opts)
         onClose = opts.onClose,
     }
     local copyButton = UI.Button {
-        text = "C",
-        width = 22,
-        height = 26,
+        text = "复制",
+        height = 22,
         fontSize = 9,
+        flexGrow = 1,
+        flexShrink = 1,
         variant = "secondary",
         onClick = function()
             Shared.colorClipboard = Shared.NormalizeHex(picker:GetHex())
         end,
     }
+    local function ApplyHex(hex)
+        hex = Shared.NormalizeHex(hex)
+        if not hex then
+            return
+        end
+        picker:SetHex(hex)
+        if opts.onClose then
+            opts.onClose(picker)
+        elseif opts.onChange then
+            opts.onChange(picker, picker:GetValue())
+        end
+    end
     local pasteButton = UI.Button {
-        text = "V",
-        width = 22,
-        height = 26,
+        text = "粘贴",
+        height = 22,
         fontSize = 9,
+        flexGrow = 1,
+        flexShrink = 1,
         variant = "secondary",
         onClick = function()
-            local hex = Shared.NormalizeHex(Shared.colorClipboard)
-            if not hex then
-                return
+            ApplyHex(Shared.colorClipboard)
+        end,
+    }
+    local pickButton = UI.Button {
+        text = "拾取",
+        height = 22,
+        fontSize = 9,
+        flexGrow = 1,
+        flexShrink = 1,
+        variant = "secondary",
+        onClick = function()
+            if picker.Close then
+                picker:Close()
             end
-            picker:SetHex(hex)
-            if opts.onClose then
-                opts.onClose(picker)
-            elseif opts.onChange then
-                opts.onChange(picker, picker:GetValue())
-            end
+            ScreenColorPicker.Begin(function(hex)
+                ApplyHex(hex)
+            end)
         end,
     }
     local row = UI.Panel {
-        flexDirection = "row",
-        alignItems = "center",
+        flexDirection = "column",
         gap = 3,
         width = "100%",
         children = {
+            picker,
             UI.Panel {
-                flexGrow = 1,
-                flexShrink = 1,
-                minWidth = 0,
-                children = { picker },
+                flexDirection = "row",
+                gap = 4,
+                width = "100%",
+                children = { copyButton, pasteButton, pickButton },
             },
-            copyButton,
-            pasteButton,
         },
     }
     row.GetHex = function()
