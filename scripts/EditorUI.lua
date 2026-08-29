@@ -141,7 +141,7 @@ function EditorUI:Build()
         fontColor = { 148, 163, 184, 255 },
     }
     editor.viewLabel = UI.Label {
-        text = "LMB 编辑  ·  RMB 旋转  ·  MMB 平移  ·  Wheel 缩放",
+        text = "LMB 编辑  ·  RMB 旋转  ·  MMB 平移  ·  Wheel 缩放  ·  [ ] 换层",
         fontSize = 11,
         fontColor = MUTED_COLOR,
     }

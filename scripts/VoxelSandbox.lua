@@ -299,7 +299,7 @@ function VoxelSandbox:SetTool(tool)
 end
 
 function VoxelSandbox:SetLayer(layer)
-    self.activeLayer = Clamp(layer, 0, 16)
+    self.activeLayer = Clamp(layer, -16, 16)
     self.context.activeLayer = self.activeLayer
     self.layerLabel:SetText("层：" .. tostring(self.activeLayer))
 end
@@ -597,6 +597,15 @@ function VoxelSandbox:HandlePointer()
         return
     end
 
+    if input:GetKeyPress(KEY_LEFTBRACKET) or input:GetKeyPress(KEY_MINUS) then
+        self:SetLayer(self.activeLayer - 1)
+        return
+    end
+    if input:GetKeyPress(KEY_RIGHTBRACKET) or input:GetKeyPress(KEY_EQUALS) then
+        self:SetLayer(self.activeLayer + 1)
+        return
+    end
+
     if self.tool == "select" and leftPress then self:SelectHover() return end
     if self.tool == "box" then
         if leftPress and not self.boxSelectionActive then
@@ -625,7 +634,7 @@ function VoxelSandbox:HandleCameraInput()
 
     if input:GetMouseButtonDown(MOUSEB_RIGHT) then
         self.cameraYaw = self.cameraYaw + mouseMove.x * 0.22
-        self.cameraPitch = Clamp(self.cameraPitch + mouseMove.y * 0.18, 8.0, 82.0)
+        self.cameraPitch = Clamp(self.cameraPitch + mouseMove.y * 0.18, -80.0, 82.0)
     elseif input:GetMouseButtonDown(MOUSEB_MIDDLE) then
         local cameraRotation = self.cameraNode.worldRotation
         local screenRight = cameraRotation * Vector3.RIGHT

@@ -112,7 +112,7 @@ function TriPrismGrid:IsValid(cell)
         return false
     end
     local normalized = self:NormalizeCell(cell)
-    return normalized.layer >= 0 and normalized.sector >= 0 and normalized.sector < self.sectorCount
+    return normalized.sector >= 0 and normalized.sector < self.sectorCount
 end
 
 function TriPrismGrid:CellKey(cell)
@@ -197,7 +197,7 @@ function TriPrismGrid:NormalizePivotCell(cell)
         hexQ = SnapHalfStep(cell.hexQ or cell.q or 0),
         hexR = SnapHalfStep(cell.hexR or cell.r or 0),
         sector = NormalizeIndex(cell.sector or 0, self.sectorCount),
-        layer = math.max(0, SnapHalfStep(cell.layer or 0)),
+        layer = SnapHalfStep(cell.layer or 0),
     }
 end
 

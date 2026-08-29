@@ -239,7 +239,7 @@ function Selection:Connected(seedCell, sameMaterial)
                 result[#result + 1] = CopyCell(existing)
                 for face = 1, self.grid.faceCount do
                     local neighbor = self.grid:GetFaceNeighbor(existing, face)
-                    if neighbor and neighbor.layer >= 0 then
+                    if neighbor then
                         queue[#queue + 1] = neighbor
                     end
                 end
@@ -255,7 +255,7 @@ function Selection:Surface()
         local exposed = false
         for face = 1, self.grid.faceCount do
             local neighbor = self.grid:GetFaceNeighbor(cell, face)
-            if not neighbor or neighbor.layer < 0 or not self.document:Get(neighbor) then
+            if not neighbor or not self.document:Get(neighbor) then
                 exposed = true
                 break
             end
