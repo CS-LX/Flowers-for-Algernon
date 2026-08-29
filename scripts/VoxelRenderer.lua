@@ -185,30 +185,25 @@ function VoxelRenderer.ComputeEdgeAO(grid, cell, occupied)
         { FACE_SIDE_INNER, FACE_SIDE_NEXT },
         { FACE_SIDE_OUTER, FACE_SIDE_INNER },
     }
-    local sideVertices = {
-        { 1, 2 },
-        { 2, 3 },
-        { 3, 1 },
-    }
     local sides = {}
     local sideCorners = {}
     for index = 1, 3 do
         local face = SIDE_FACES[index]
         local leftFace = adjacent[index][1]
         local rightFace = adjacent[index][2]
-        local vertexA = sideVertices[index][1]
-        local vertexB = sideVertices[index][2]
+        -- 立面只画真正的竖向内凹。台阶顶/底边和顶面圆角都留在水平面上，
+        -- 否则会从转角侧面“泄露”出一条水平暗带。
         sides[index] = {
-            Openness(HorizontalCavity(occupied, grid, cell, face, false)),
+            1.0,
             Openness(VerticalCavity(occupied, grid, cell, face, rightFace)),
-            Openness(HorizontalCavity(occupied, grid, cell, face, true)),
+            1.0,
             Openness(VerticalCavity(occupied, grid, cell, face, leftFace)),
         }
         sideCorners[index] = {
-            bottomCorners[vertexA],
-            bottomCorners[vertexB],
-            topCorners[vertexB],
-            topCorners[vertexA],
+            1.0,
+            1.0,
+            1.0,
+            1.0,
         }
     end
     return {
