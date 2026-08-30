@@ -173,9 +173,7 @@ function PartRootRenderer:BuildStillObject(object)
     local minPoint
     local maxPoint
     if stillRuntime then
-        ---@type StillRuntimeEntry
-        local bound = stillRuntime
-        local size = bound.model.boundingBox.size
+        local size = stillRuntime.model.boundingBox.size
         local half = Vector3(size.x * 0.5, size.y * 0.5, size.z * 0.5)
         minPoint = Vector3(-half.x, 0, -half.z)
         maxPoint = Vector3(half.x, size.y, half.z)

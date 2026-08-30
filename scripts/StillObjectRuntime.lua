@@ -176,6 +176,9 @@ function StillObjectRuntime.ApplyDrivers(entry, object)
     StillObjectRuntime.ApplyVisibility(entry, object)
 end
 
+---@param parent Node
+---@param object StillObject
+---@return StillRuntimeEntry|nil
 function StillObjectRuntime.Bind(parent, object)
     local asset = StillModelCatalog.Get(object.modelId)
     if not asset then
