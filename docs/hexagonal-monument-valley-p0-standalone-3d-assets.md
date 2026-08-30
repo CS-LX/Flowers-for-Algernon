@@ -177,24 +177,27 @@ D. 叙事焦点层：角色、动物、花、墓碑等独立资产
 
 ## 三、剧情级 P0 Standalone 模型清单
 
-完整 P0 建议固定为 7 个模型文件，生产时可以合并为 5 个资源包。可动机关不再做 `SixWay_Axis`。
+正式 P0 计划包含 6 个当前制作模型，另有 1 个已纳入计划但暂缓制作的 P0 模型，以及 1 个 P0.5 模型。生产时可以合并为 6 个资源包。可动机关不再做 `SixWay_Axis`。
 
 | 编号 | 模型 | 剧情权重 | 复用范围 | 建议优先级 |
 |---|---|---|---|---|
 | A | `NarrativeDoor_Frame` | 极高 | 第一至第五章 | P0-1 |
 | B | `NarrativeDoor_Leaf` | 极高 | 第一至第四章 | P0-1 |
-| C | `Algernon_Silhouette` | 极高 | 第一至第五章 | P0-2 |
-| D | `Observation_Console` | 高 | 第二至第四章 | P0-3 |
-| E | `Observation_Window` | 高 | 第二至第四章 | P0-3 |
-| F | `Algernon_Memorial` | 极高 | 第四至第五章 | P0-4 |
-| G | `Flower_Bouquet` | 极高 | 第五章 | P0-4 |
+| C | `Charlie_Silhouette` | 极高 | 第一至第五章 | P0（暂缓，灵感与自主建模） |
+| D | `Algernon_Silhouette` | 极高 | 第一至第五章 | P0-3 |
+| E | `Observation_Window` | 高 | 第二至第四章 | P0-4 |
+| F | `Algernon_Memorial` | 极高 | 第四至第五章 | P0-5 |
+| G | `Flower_Bouquet` | 极高 | 第五章 | P0-6 |
+
+`Observation_Console` 降为 P0.5，`SixWay_Axis` 从模型计划中删除。
 
 推荐的资源包划分：
 
 ```text
 DoorKit
+Charlie
 Algernon
-ObservationKit
+ObservationWindow
 MemorialStone
 FlowerBouquet
 ```
@@ -296,7 +299,185 @@ sealed      封闭但仍可见
 
 ---
 
-## 五、P0-2：Algernon
+## 五、P0-2：Charlie
+
+> **制作状态：暂缓。** 查理已纳入剧情级 P0 计划，但当前不进入正式建模和导入流程。设计方向、比例和动作规范仅作为灵感与约束，具体造型由项目方自行建模并逐步收敛。当前生成的角色原画只作为探索参考，不是最终模型定稿。
+
+### 1. 角色定位
+
+查理是唯一的主操作角色，也是玩家观察空间、理解路径和执行最终纪念动作的视觉参照。它不能被制作成一个具象化的普通人，也不能退化成没有身份的抽象几何符号。
+
+目标不是“隐藏查理是什么人”，而是把人物信息压缩到固定正交相机最需要的几个信号：
+
+```text
+人形姿态
+  + 无脸
+  + 稳定服装/色块
+  + 清晰头身比例
+  + 可读的手脚和朝向
+```
+
+查理应该被玩家认出是“一个人”，但不应被要求认出具体年龄、脸部、发型、职业或现实身份。
+
+### 2. `Charlie_Silhouette` 的具体形态
+
+建议制作成**无脸的几何旅人**，参考纪念碑谷角色“远景先读轮廓、近景再读姿态”的方法，但不复制任何具体角色：
+
+- 独立头部，略小于真实人体比例；
+- 简化躯干，接近短斗篷、长外套或连体衣的整体轮廓；
+- 两条短而清楚的腿，脚部略向外分开；
+- 两条极简手臂，至少能看出垂落、等待和行走；
+- 无眼睛、鼻子、嘴和耳朵；
+- 不做具体发型，可用非常短的头顶轮廓表示头部方向；
+- 不做写实手指、衣物褶皱和布料物理；
+- 轮廓应比当前胶囊更像“人”，但比完整人物更像一个符号。
+
+推荐轮廓比例：
+
+```text
+总高：1.00
+头部：0.20～0.24
+躯干：0.38～0.44
+腿部：0.28～0.34
+肩宽：总高的 0.24～0.30
+```
+
+这是屏幕识别比例，不是现实人体解剖比例。固定正交视角下，头、躯干、腿和脚的分离比真实比例更重要。
+
+### 3. 推荐的建模形态
+
+第一版建议使用 3～5 个独立子网格或骨骼部件：
+
+```text
+Head
+Torso / Coat
+Arm_L + Arm_R
+Leg_L + Leg_R
+```
+
+如果需要减少资源复杂度，可以将两臂合并、两腿合并，但不要把头和躯干合并成一个无关节胶囊。
+
+形体方向：
+
+- 头部：低面数圆角体或略带切面的球体；
+- 躯干：向下略收窄的短斗篷/外套体；
+- 手臂：细短的圆角棱柱；
+- 腿：两条短直腿或略微弯曲的低面数体块；
+- 鞋：不必单独建模，可用腿底部的深色小切面表示。
+
+不要加入：
+
+- 五官；
+- 写实头发；
+- 具体制服徽章；
+- 实验病患服；
+- 真实职业道具；
+- 复杂衣褶；
+- 夸张披风；
+- 让玩家误认成另一种动物的尖耳或尾巴。
+
+### 4. 为什么选择“无脸旅人”
+
+脸部会把玩家注意力从空间转向角色身份，也会迫使美术做出年龄、种族、表情和现实背景的判断。当前剧情并不需要这些信息。
+
+完全抽象的球、胶囊或单个三棱柱又会削弱：
+
+- 玩家对查理的角色认知；
+- 角色走路、等待和回头的叙事信息；
+- 结尾“查理放下花”的动作可读性。
+
+“无脸旅人”处于两者之间：
+
+```text
+远景：读作一个人
+中景：读作查理
+近景：仍然不提供具象身份
+```
+
+### 5. 色彩和材质
+
+查理需要成为跨章节的稳定视觉锚点，模型本身不随章节换造型。
+
+建议使用两个主要材质槽：
+
+```text
+Body / Coat：暖黄或浅赭色
+Head / Skin：略偏暖的浅肤色或统一浅暖色
+```
+
+候选颜色：
+
+```text
+身体：#D9AD55 ～ #E0B85E
+头部：#E7B38A 或 #E7C08B
+```
+
+如果希望进一步抽象，可以让头部和身体使用相近色，但必须保留明度差，避免头部和躯干粘成一块。
+
+材质建议：
+
+- 优先 Unlit 或受控 Surface Shader；
+- 保持稳定的纯色轮廓；
+- 不使用皮肤纹理；
+- 不使用衣物纹理；
+- 不使用明显金属；
+- 不用强高光改变角色轮廓；
+- 角色不跟随章节整体饱和度完全褪色，始终略暖于环境。
+
+### 6. 姿态和动画需求
+
+第一版只需要表达剧情必需的动作：
+
+```text
+idle       站立，略有呼吸或轻微重心变化
+walk       腿部交替，步幅短而稳定
+turn       整体转向，不做复杂扭腰
+wait       面向远处目标或门
+place      放下花束时短暂弯腰/伸手
+```
+
+不需要：
+
+- 战斗动作；
+- 跑步；
+- 跳跃；
+- 攀爬；
+- 复杂面部表情；
+- 物理布料。
+
+角色动画应服务于路径和叙事节奏，不能抢过建筑空间。
+
+### 7. 与阿尔吉侬的区分
+
+查理和阿尔吉侬都采用简化轮廓，但识别信号必须不同：
+
+| 对象 | 主要轮廓 | 主要颜色 | 叙事含义 |
+|---|---|---|---|
+| 查理 | 直立人形、头/躯干/双腿 | 暖黄、浅赭 | 玩家行动、理解和选择 |
+| 阿尔吉侬 | 低矮侧卧动物、耳朵/鼻尖/尾巴 | 浅白 | 先行者、对照和被记住的生命 |
+
+阿尔吉侬当前模型图的方向是对的：轮廓清楚、低面数、没有写实毛发。建模时只需确保尾巴和后腿在固定相机的小尺寸下仍可辨，不需要继续增加脸部或身体细节。
+
+### 8. 玩法边界
+
+```text
+Charlie_Silhouette = 角色表现
+PlayerController = 位置、路径和移动逻辑
+PathRuntime = 当前有效 Graph
+```
+
+查理模型：
+
+- 不拥有 PathNode；
+- 不生成 Graph 边；
+- 不参与视觉连接评估；
+- 不通过碰撞体反向定义可达性；
+- 可以在 Overlay 中置顶显示，但颜色和主场景应保持一致；
+- 放花动作发生在抵达纪念石座之后，不改变 Path Graph。
+
+---
+
+## 六、P0-3：Algernon
 
 ### 1. 阿尔吉侬的剧情价值
 
@@ -371,7 +552,7 @@ resting     几乎静止的浅白
 
 ---
 
-## 六、P0-3：ObservationKit
+## 七、P0-4：ObservationKit
 
 ObservationKit 建议包含两个模型：
 
@@ -451,7 +632,7 @@ ObservationKit 建议包含两个模型：
 
 ---
 
-## 七、可动机关身份：Hover Emission（替代 SixWayAxis）
+## 八、可动机关身份：Hover Emission（替代 SixWayAxis）
 
 Rotator 和 Mover 共用同一套体素反馈，不再制作独立枢轴或六向环。枢轴会破坏“建筑自己在动”的氛围，也无法同时覆盖平移。
 
@@ -467,7 +648,7 @@ Rotator 和 Mover 共用同一套体素反馈，不再制作独立枢轴或六�
 
 ---
 
-## 八、P0-4：MemorialStone 与 FlowerBouquet
+## 九、P0-5/P0-6：MemorialStone 与 FlowerBouquet
 
 这组资产的使用频率不一定高，但剧情权重是 P0，因为它们承担故事的最终记忆和情绪收束。
 
@@ -527,7 +708,8 @@ Rotator 和 Mover 共用同一套体素反馈，不再制作独立枢轴或六�
 使用：
 
 - DoorKit；
-- SixWayAxis；
+- 体素 Part 的 hover emission 机关反馈；
+- 查理；
 - 阿尔吉侬；
 - 极少量门光。
 
@@ -547,9 +729,11 @@ Rotator 和 Mover 共用同一套体素反馈，不再制作独立枢轴或六�
 使用：
 
 - DoorKit；
-- SixWayAxis；
-- ObservationKit；
-- 阿尔吉侬。
+- 体素 Part 的 hover emission 机关反馈；
+- 查理；
+- 阿尔吉侬；
+- Observation_Window；
+- （P0.5）Observation_Console。
 
 表现重点：
 
@@ -563,10 +747,11 @@ Rotator 和 Mover 共用同一套体素反馈，不再制作独立枢轴或六�
 使用：
 
 - DoorKit；
-- ObservationKit；
-- SixWayAxis；
-- 阿尔吉侬；
-- 少量玻璃蓝观察窗。
+- 体素 Part 的 hover emission 机关反馈；
+- 查理；
+- Observation_Window；
+- （P0.5）Observation_Console；
+- 阿尔吉侬。
 
 表现重点：
 
@@ -580,10 +765,12 @@ Rotator 和 Mover 共用同一套体素反馈，不再制作独立枢轴或六�
 使用：
 
 - DoorKit 的暗化状态；
-- ObservationKit 的熄灭状态；
-- SixWayAxis 的弱光/失效卡位；
+- 体素 Part 的 hover emission 机关反馈；
+- 查理；
+- Observation_Window；
+- （P0.5）Observation_Console；
 - 阿尔吉侬；
-- 远处出现 MemorialStone。
+- 远处出现 Algernon_Memorial。
 
 表现重点：
 
@@ -596,10 +783,10 @@ Rotator 和 Mover 共用同一套体素反馈，不再制作独立枢轴或六�
 
 使用：
 
-- MemorialStone；
-- FlowerBouquet；
+- Algernon_Memorial；
+- Flower_Bouquet；
 - 简化 DoorKit 作为花园入口；
-- 不再使用复杂 SixWayAxis。
+- 不再使用复杂的可动机关。
 
 表现重点：
 
@@ -615,7 +802,7 @@ Rotator 和 Mover 共用同一套体素反馈，不再制作独立枢轴或六�
 
 ### 1. 生产形式
 
-完整 P0 可以组织成 6 个资源包：
+正式 P0 可以组织成 6 个资源包，另有一个 P0.5 资源包：
 
 ```text
 DoorKit
@@ -623,16 +810,19 @@ DoorKit
   - NarrativeDoor_Leaf
   - closed/open/lit/dim/sealed 状态
 
+Charlie
+  - Charlie_Silhouette
+  - idle/walk/turn/wait/place 状态
+
 Algernon
   - Algernon_Silhouette
   - normal/distant/weak/resting 状态
 
-ObservationKit
-  - Observation_Console
+ObservationWindow
   - Observation_Window
 
-SixWayAxis
-  - SixWay_Axis
+ObservationConsole（P0.5）
+  - Observation_Console
 
 MemorialStone
   - Algernon_Memorial
@@ -735,6 +925,8 @@ P0 模型应当：
 3. MemorialStone + FlowerBouquet
 ```
 
+`Charlie` 虽然属于 P0，但当前暂缓制作，不计入本阶段的执行顺序。
+
 理由：
 
 - DoorKit 负责章节结构；
@@ -746,11 +938,12 @@ P0 模型应当：
 ```text
 1. DoorKit
 2. Algernon
-3. ObservationKit
-4. SixWayAxis
-5. MemorialStone
-6. FlowerBouquet
+3. ObservationWindow
+4. MemorialStone
+5. FlowerBouquet
 ```
+
+`Charlie` 已纳入 P0 计划，但本阶段保持暂缓；`ObservationConsole` 仍为 P0.5。
 
 ### 推荐的验证场景
 
@@ -763,7 +956,7 @@ P0 模型应当：
 
 - 一个门框；
 - 一个门扇；
-- 一个六向枢轴；
+- 一个查理；
 - 一个观察窗；
 - 一个阿尔吉侬。
 
@@ -817,11 +1010,17 @@ P0 最终由六个资源包组成：
 
 ```text
 DoorKit
+Charlie
 Algernon
-ObservationKit
-SixWayAxis
+ObservationWindow
 MemorialStone
 FlowerBouquet
+```
+
+另有一个 P0.5 资源包：
+
+```text
+ObservationConsole
 ```
 
 其中门是第一优先级。它是跨章节反复出现、能表达进入与离开、能承载打开与封闭、还能作为环境状态余波的最佳剧情级 standalone 资产。
