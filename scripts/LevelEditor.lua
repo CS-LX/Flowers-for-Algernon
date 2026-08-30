@@ -51,6 +51,8 @@ end
 ---@field selectedPartId string|nil
 ---@field mode string
 ---@field partEditor table|nil
+---@field overlayViewManager table
+---@field overlayRenderer table
 ---@field ui table|nil
 ---@field transformGrid table
 ---@field editorCamera table

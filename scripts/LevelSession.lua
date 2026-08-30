@@ -1,6 +1,6 @@
 -- 玩法关卡容器。
--- Init 加载内存关卡 Model 并启动 GamePreview；Dispose 完整拆除场景。
--- 不走 ImportInlineJson，避免把 docs/level.txt 写回编辑器存档。
+-- Init 加载游戏内配置的关卡 JSON 并启动 GamePreview；Dispose 完整拆除场景。
+-- 只读 assets/Levels，不读用户关卡编辑器存档（levels/default-level.json）。
 -- 不依赖 LevelEditor / OverlayViewManager；玩法自己驱动 Scene。
 
 local GamePreview = require "GamePreview"

@@ -6,6 +6,7 @@ local LevelCatalog = require "LevelCatalog"
 
 ---@class LevelSelectUI
 ---@field onSelect fun(definition: LevelDefinition)|nil
+---@field onOpenEditor fun()|nil
 ---@field root Widget|nil
 ---@field statusLabel Widget|nil
 local LevelSelectUI = {}
@@ -26,9 +27,10 @@ local function EnsureUI()
     })
 end
 
-function LevelSelectUI.New(onSelect)
+function LevelSelectUI.New(onSelect, onOpenEditor)
     local self = setmetatable({}, LevelSelectUI)
     self.onSelect = onSelect
+    self.onOpenEditor = onOpenEditor
     ---@type Widget|nil
     self.root = nil
     ---@type Widget|nil
@@ -69,7 +71,7 @@ function LevelSelectUI:BuildCard(definition)
                         fontColor = MUTED,
                     },
                     UI.Label {
-                        text = "白膜关卡 · Levels/whitebox-level.json",
+                        text = "游戏内关卡 · " .. definition.sourcePath,
                         fontSize = 11,
                         fontColor = MUTED,
                     },
@@ -96,8 +98,9 @@ function LevelSelectUI:Show()
     for _, definition in ipairs(LevelCatalog.GetAll()) do
         cards[#cards + 1] = self:BuildCard(definition)
     end
+    local onOpenEditor = self.onOpenEditor
     self.statusLabel = UI.Label {
-        text = "Esc 退出关卡后回到这里",
+        text = "章节只读游戏内配置。编辑器独立，导出 JSON 后由我置入指定章。",
         fontSize = 12,
         fontColor = MUTED,
     }
@@ -120,7 +123,7 @@ function LevelSelectUI:Show()
                         fontColor = TEXT,
                     },
                     UI.Label {
-                        text = "选择一章进入白膜关卡",
+                        text = "选择一章进入，或打开独立关卡编辑器",
                         fontSize = 14,
                         fontColor = MUTED,
                     },
@@ -130,6 +133,18 @@ function LevelSelectUI:Show()
                 flexDirection = "row",
                 gap = 18,
                 children = cards,
+            },
+            UI.Button {
+                text = "关卡编辑器",
+                width = 220,
+                height = 40,
+                fontSize = 15,
+                variant = "secondary",
+                onClick = function()
+                    if onOpenEditor then
+                        onOpenEditor()
+                    end
+                end,
             },
             self.statusLabel,
         },

@@ -6,20 +6,64 @@ local OverlayRenderer = {}
 OverlayRenderer.__index = OverlayRenderer
 
 local function ConfigurePass(pass)
+    if not pass then
+        return false
+    end
     pass:SetDepthTestMode(CMP_ALWAYS)
     pass:SetDepthWrite(false)
     pass:SetCullMode(CULL_NONE)
     pass:SetLightingMode(LIGHTING_UNLIT)
     pass:SetBlendMode(BLEND_REPLACE)
+    return true
+end
+
+local function ConfigureOverlayTechnique(technique)
+    if not technique then
+        return false
+    end
+    local configured = false
+    local passesOk, passes = pcall(function()
+        return technique:GetPasses()
+    end)
+    if passesOk and type(passes) == "table" then
+        for _, pass in ipairs(passes) do
+            if ConfigurePass(pass) then
+                configured = true
+            end
+        end
+        if not configured then
+            for _, pass in pairs(passes) do
+                if ConfigurePass(pass) then
+                    configured = true
+                end
+            end
+        end
+    end
+    if configured then
+        return true
+    end
+    local named = { "base", "alpha", "unlit" }
+    for _, passName in ipairs(named) do
+        if technique:HasPass(passName) and ConfigurePass(technique:GetPass(passName)) then
+            configured = true
+        end
+    end
+    return configured
 end
 
 local function CreateMaterial(name, color)
     local material = Material:new()
-    local technique = cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml"):Clone(name)
-    for _, passType in ipairs(technique:GetPassTypes()) do
-        ConfigurePass(technique:GetPass(passType))
+    local source = cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml")
+    if source then
+        local technique = source:Clone(name)
+        if not ConfigureOverlayTechnique(technique) then
+            print("LevelEditorOverlayRenderer: overlay technique has no usable pass, using shared Unlit " .. name)
+        end
+        material:SetTechnique(0, technique)
+    else
+        print("LevelEditorOverlayRenderer: missing Techniques/NoTextureUnlit.xml")
+        material:SetTechnique(0, cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml"))
     end
-    material:SetTechnique(0, technique)
     material:SetShaderParameter("MatDiffColor", Variant(color))
     material:SetShaderParameter("MatSpecColor", Variant(Color(0, 0, 0, 1)))
     return material
@@ -125,10 +169,15 @@ function OverlayRenderer:GetViewDirection()
 end
 
 function OverlayRenderer:EnsureGizmoGeometry()
-    if self.gizmoGeometry then
+    if self.gizmoGeometry and self.materials then
         return
     end
-    self.gizmoGeometry = self.gizmoNode:CreateComponent("CustomGeometry")
+    if not self.gizmoGeometry then
+        self.gizmoGeometry = self.gizmoNode:CreateComponent("CustomGeometry")
+    end
+    if self.materials then
+        return
+    end
     self.materials = {
         orange = CreateMaterial("LevelEditorOverlayOrange", Color(1.0, 0.55, 0.05, 1.0)),
         red = CreateMaterial("LevelEditorOverlayRed", Color(1.0, 0.20, 0.16, 1.0)),
@@ -469,6 +518,10 @@ function OverlayRenderer:DrawWorldSelection(corners, center, rotation)
         return
     end
     self:EnsureGizmoGeometry()
+    if not self.materials or not self.gizmoGeometry then
+        print("LevelEditorOverlayRenderer: selection skipped, overlay materials unavailable")
+        return
+    end
     self.enabled = true
     self.gizmoNode.enabled = true
 

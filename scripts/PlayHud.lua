@@ -45,7 +45,7 @@ function PlayHud:Show(definition)
                         fontColor = TEXT,
                     },
                     UI.Label {
-                        text = definition.subtitle,
+                        text = definition.subtitle .. "  ·  " .. definition.sourcePath,
                         fontSize = 12,
                         fontColor = MUTED,
                     },

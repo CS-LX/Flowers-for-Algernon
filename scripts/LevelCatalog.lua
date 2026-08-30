@@ -1,5 +1,6 @@
 -- 玩法关卡目录。
--- 只描述关卡 Model：id、标题、资源路径。三关暂时共用同一份白膜 JSON。
+-- 只描述游戏内已配置关卡：id、标题、资源路径。
+-- 章节进关只读 assets/Levels，不读用户关卡编辑器存档。
 
 ---@class LevelDefinition
 ---@field id string
