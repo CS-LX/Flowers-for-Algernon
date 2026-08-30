@@ -1674,8 +1674,7 @@ function LevelEditor:StartGamePreview()
     local preview = GamePreview.New(
         self.levelDocument,
         self.edgeLength,
-        self.voxelHeight,
-        self.overlayViewManager
+        self.voxelHeight
     )
     local started, errorMessage = preview:Start()
     if not started then

@@ -4,6 +4,8 @@
 
 local LookApplier = require "LookApplier"
 
+---@class PartDefinition
+---@field runtimeVoxelDocument table|nil
 local PartDefinition = {}
 PartDefinition.__index = PartDefinition
 
@@ -144,6 +146,7 @@ function PartDefinition:Init(data)
     self.name = data.name or self.id
     self.parentId = data.parentId
     self.localVoxelPath = data.localVoxelPath or ("parts/" .. self.id .. ".json")
+    self.runtimeVoxelDocument = data.runtimeVoxelDocument
     self.pivot = CopyPivot(data.pivot)
     self.look = LookApplier.CopyPartLook(data.look)
 

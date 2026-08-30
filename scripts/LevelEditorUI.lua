@@ -223,8 +223,14 @@ function LevelEditorUI:SetStatus(text)
 end
 
 function LevelEditorUI:Destroy()
-    self.root = nil
-    UI.Shutdown()
+    if self.root then
+        if UI.GetRoot() == self.root then
+            UI.SetRoot(nil, true)
+        else
+            self.root:Destroy()
+        end
+        self.root = nil
+    end
 end
 
 return LevelEditorUI

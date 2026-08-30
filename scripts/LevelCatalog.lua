@@ -1,0 +1,54 @@
+-- 玩法关卡目录。
+-- 只描述关卡 Model：id、标题、资源路径。三关暂时共用同一份白膜 JSON。
+
+---@class LevelDefinition
+---@field id string
+---@field index number
+---@field title string
+---@field subtitle string
+---@field sourcePath string
+
+local LevelCatalog = {}
+
+-- 玩法只读资源根下的关卡 JSON。docs/level.txt 是编辑器导出通道，不进 ResourceCache。
+LevelCatalog.SOURCE_PATH = "Levels/whitebox-level.json"
+
+---@type LevelDefinition[]
+LevelCatalog.LEVELS = {
+    {
+        id = "chapter_1",
+        index = 1,
+        title = "第一章",
+        subtitle = "静基座与旋转塔",
+        sourcePath = LevelCatalog.SOURCE_PATH,
+    },
+    {
+        id = "chapter_2",
+        index = 2,
+        title = "第二章",
+        subtitle = "同一座白膜建筑",
+        sourcePath = LevelCatalog.SOURCE_PATH,
+    },
+    {
+        id = "chapter_3",
+        index = 3,
+        title = "第三章",
+        subtitle = "同一座白膜建筑",
+        sourcePath = LevelCatalog.SOURCE_PATH,
+    },
+}
+
+function LevelCatalog.GetAll()
+    return LevelCatalog.LEVELS
+end
+
+function LevelCatalog.GetById(id)
+    for _, definition in ipairs(LevelCatalog.LEVELS) do
+        if definition.id == id then
+            return definition
+        end
+    end
+    return nil
+end
+
+return LevelCatalog

@@ -1,6 +1,5 @@
--- 所有 Overlay Viewport 和 PlayerView 的唯一所有者。
-
-local PlayerView = require "PlayerView"
+-- 编辑器 Overlay Viewport 的唯一所有者。
+-- 只服务 LevelEditor Gizmo / PathNode 叠加层；玩法角色不走这里。
 
 local OverlayViewManager = {}
 OverlayViewManager.__index = OverlayViewManager
@@ -45,16 +44,6 @@ function OverlayViewManager.New(mainViewport, mainCameraNode, mainCamera)
         self.editorCamera,
         BuildOverlayRenderPath(mainViewport)
     )
-    self.previewScene = Scene()
-    self.previewScene:CreateComponent("Octree")
-    self.previewCameraNode = self.previewScene:CreateChild("PreviewOverlayCamera")
-    self.previewCamera = self.previewCameraNode:CreateComponent("Camera")
-    self.previewViewport = Viewport:new(
-        self.previewScene,
-        self.previewCamera,
-        BuildOverlayRenderPath(mainViewport)
-    )
-    self.playerView = nil
     self.activeLayer = "editor"
     self:BindEditor(mainViewport)
     self:SyncCamera(mainCameraNode, mainCamera)
@@ -66,7 +55,6 @@ function OverlayViewManager:SyncCamera(cameraNode, camera)
     self.mainCamera = camera or self.mainCamera
     local pairs = {
         { self.editorCameraNode, self.editorCamera },
-        { self.previewCameraNode, self.previewCamera },
     }
     for _, pair in ipairs(pairs) do
         pair[1].position = self.mainCameraNode.worldPosition
@@ -82,42 +70,6 @@ function OverlayViewManager:BindEditor(mainViewport)
     renderer:SetViewport(0, mainViewport)
     renderer:SetViewport(1, self.editorViewport)
     renderer:SetNumViewports(2)
-end
-
-function OverlayViewManager:BindPreview(mainViewport)
-    self.activeLayer = "preview"
-    self.mainViewport = mainViewport
-    self.mainScene = mainViewport.scene
-    renderer:SetViewport(0, mainViewport)
-    renderer:SetViewport(1, self.previewViewport)
-    renderer:SetNumViewports(2)
-end
-
-function OverlayViewManager:PresentPlayer(model)
-    if not model then
-        self:ClearPlayer()
-        return
-    end
-    -- 置顶不再切 Overlay 相机：Clone RenderPath 会丢掉 Tonemap，颜色会变。
-    -- 角色始终留在主场景，用 depth_test_disabled shader + RenderOrder 255 画在最上层。
-    local topmost = model:GetViewState() == "topmost"
-    if not self.playerView or self.playerView.topmost ~= topmost
-        or self.playerView.scene ~= self.mainScene then
-        print(string.format(
-            "OverlayViewManager: recreate player viewState=%s scene=main",
-            topmost and "topmost" or "normal"
-        ))
-        self:ClearPlayer()
-        self.playerView = PlayerView.New(self.mainScene, topmost)
-    end
-    self.playerView:Apply(model:GetPosition(), model:GetRotation())
-end
-
-function OverlayViewManager:ClearPlayer()
-    if self.playerView then
-        self.playerView:Destroy()
-        self.playerView = nil
-    end
 end
 
 function OverlayViewManager:GetEditorScene()
@@ -143,15 +95,10 @@ function OverlayViewManager:ClearEditorOverlay()
 end
 
 function OverlayViewManager:Stop()
-    self:ClearPlayer()
     renderer:SetNumViewports(1)
     if self.editorScene then
         self.editorScene:Clear(true, true)
         self.editorScene = nil
-    end
-    if self.previewScene then
-        self.previewScene:Clear(true, true)
-        self.previewScene = nil
     end
 end
 

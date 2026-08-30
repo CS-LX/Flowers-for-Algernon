@@ -560,6 +560,46 @@ function LevelDocument:ImportInlineJson(json, grid)
     return self:Save()
 end
 
+-- 玩法会话专用：把内联关卡 JSON 读进内存，不写 levels/parts 存档。
+function LevelDocument.LoadInlineRuntime(json, grid)
+    if not grid then
+        return nil, "inline runtime load requires TriPrismGrid"
+    end
+    local data, decodeError = DecodeLevelJson(json)
+    if not data then
+        return nil, decodeError
+    end
+    if type(data.parts) ~= "table" or #data.parts == 0 then
+        return nil, "imported level has no Parts"
+    end
+
+    local voxelDocuments = {}
+    for _, item in ipairs(data.parts) do
+        if type(item) ~= "table" or type(item.id) ~= "string" or item.id == "" then
+            return nil, "imported Part is missing id"
+        end
+        local voxelData = item.localVoxelDocument
+        if type(voxelData) ~= "table" then
+            return nil, "imported Part is missing inlined voxel document: " .. item.id
+        end
+        voxelDocuments[item.id] = voxelData
+    end
+
+    local document = LevelDocument.New()
+    local loaded, loadError = document:LoadTable(data)
+    if not loaded then
+        return nil, loadError
+    end
+    for _, part in ipairs(document:GetParts()) do
+        part.runtimeVoxelDocument = voxelDocuments[part.id]
+        if not part.runtimeVoxelDocument then
+            return nil, "imported Part is missing voxel document: " .. part.id
+        end
+    end
+    document.dirty = false
+    return document
+end
+
 function LevelDocument:LoadTable(data)
     if type(data) ~= "table" or type(data.parts) ~= "table" then
         return false, "invalid level document"

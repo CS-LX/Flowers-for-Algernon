@@ -39,6 +39,13 @@ function PartEditSession.Open(grid, part)
         name = part.name,
         path = part.localVoxelPath,
     })
+    if type(part.runtimeVoxelDocument) == "table" then
+        local loaded, errorMessage = session.document:LoadTable(part.runtimeVoxelDocument)
+        if not loaded then
+            return nil, errorMessage
+        end
+        return session
+    end
     local loaded, errorMessage = session:Load()
     if not loaded then
         return nil, errorMessage

@@ -1,13 +1,15 @@
--- 固定游戏镜头下的只读关卡 Preview。
--- Preview 只持有关卡场景、PathRuntime 和角色逻辑；Overlay Viewport 由 LevelEditor 统一持有。
+-- 固定游戏镜头下的只读关卡运行时。
+-- 自己持有 Scene、Viewport 和角色表现；不依赖 LevelEditor / OverlayViewManager。
 
 local PartRootRenderer = require "PartRootRenderer"
 local FixedGameCamera = require "FixedGameCamera"
 local PathRuntime = require "PathRuntime"
 local PlayerController = require "PlayerController"
+local PlayerView = require "PlayerView"
 local PreviewRotatorController = require "PreviewRotatorController"
 local PreviewMoverController = require "PreviewMoverController"
 local LookApplier = require "LookApplier"
+local UI = require("urhox-libs/UI")
 
 local GamePreview = {}
 GamePreview.__index = GamePreview
@@ -19,19 +21,24 @@ local function CreateUnlitMaterial(color)
     return material
 end
 
-function GamePreview.New(levelDocument, edgeLength, voxelHeight, overlayViewManager)
+function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     local self = setmetatable({}, GamePreview)
     self.levelDocument = levelDocument
     self.edgeLength = edgeLength
     self.voxelHeight = voxelHeight
-    self.overlayViewManager = overlayViewManager
+    ---@type Scene|nil
     self.scene = nil
+    ---@type Node|nil
     self.cameraNode = nil
+    ---@type Camera|nil
     self.camera = nil
+    ---@type Viewport|nil
     self.viewport = nil
     self.partRenderer = nil
     self.pathRuntime = nil
     self.player = nil
+    ---@type table|nil
+    self.playerView = nil
     self.spawnNodeKey = nil
     self.feedbackNode = nil
     self.feedbackElapsed = 0.0
@@ -109,8 +116,13 @@ function GamePreview:HandlePointer()
     end
     local fromPendingClick = (self.rotatorController and self.rotatorController:ConsumePendingClick())
         or (self.moverController and self.moverController:ConsumePendingClick())
-    if not fromPendingClick and not input:GetMouseButtonPress(MOUSEB_LEFT) then
-        return
+    if not fromPendingClick then
+        if UI.IsPointerOverUI() then
+            return
+        end
+        if not input:GetMouseButtonPress(MOUSEB_LEFT) then
+            return
+        end
     end
     local target = self:FindClickedNode()
     if not target then
@@ -171,14 +183,15 @@ function GamePreview:Start()
         return false, "出生点必须是有效的可走 PathNode"
     end
 
-    self.overlayViewManager:BindPreview(self.viewport)
-    self.overlayViewManager:SyncCamera(self.cameraNode, self.camera)
+    renderer:SetViewport(0, self.viewport)
+    renderer:SetNumViewports(1)
     self.player = PlayerController.New(self.pathRuntime, self.spawnNodeKey, self.camera)
     local playerStarted, playerError = self.player:Start()
     if not playerStarted then
         self:Stop()
         return false, playerError
     end
+    self:PresentPlayer()
 
     self.rotatorController = PreviewRotatorController.New(
         self.levelDocument,
@@ -294,6 +307,9 @@ function GamePreview:UpdateHoverEmission(timeStep)
 end
 
 function GamePreview:BeginMechanismPending()
+    if UI.IsPointerOverUI() then
+        return false
+    end
     if not input:GetMouseButtonPress(MOUSEB_LEFT) then
         return false
     end
@@ -371,10 +387,35 @@ function GamePreview:Update(timeStep)
     end
     if self.player then
         self.player:Update(timeStep)
-        self.overlayViewManager:PresentPlayer(self.player)
+        self:PresentPlayer()
     end
     self:UpdateHoverEmission(timeStep)
     self:UpdateFeedback(timeStep)
+end
+
+function GamePreview:PresentPlayer()
+    if not self.player or not self.scene then
+        self:ClearPlayerView()
+        return
+    end
+    local topmost = self.player:GetViewState() == "topmost"
+    if not self.playerView or self.playerView.topmost ~= topmost
+        or self.playerView.scene ~= self.scene then
+        print(string.format(
+            "GamePreview: recreate player viewState=%s scene=level",
+            topmost and "topmost" or "normal"
+        ))
+        self:ClearPlayerView()
+        self.playerView = PlayerView.New(self.scene, topmost)
+    end
+    self.playerView:Apply(self.player:GetPosition(), self.player:GetRotation())
+end
+
+function GamePreview:ClearPlayerView()
+    if self.playerView then
+        self.playerView:Destroy()
+        self.playerView = nil
+    end
 end
 
 function GamePreview:Stop()
@@ -387,13 +428,9 @@ function GamePreview:Stop()
         self.moverController = nil
     end
     if self.player then
-        self.player:Stop()
         self.player = nil
     end
-    if self.overlayViewManager then
-        self.overlayViewManager:ClearPlayer()
-        self.overlayViewManager:BindEditor(self.overlayViewManager.mainViewport)
-    end
+    self:ClearPlayerView()
     if self.feedbackNode then
         self.feedbackNode:Remove()
         self.feedbackNode = nil
