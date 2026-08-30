@@ -5,6 +5,7 @@ local TriPrismGrid = require "TriPrismGrid"
 local PartEditSession = require "PartEditSession"
 local VoxelRenderer = require "VoxelRenderer"
 local LookApplier = require "LookApplier"
+local StillObjectRuntime = require "StillObjectRuntime"
 
 local PartRootRenderer = {}
 PartRootRenderer.__index = PartRootRenderer
@@ -168,7 +169,19 @@ function PartRootRenderer:BuildStillObject(object)
     local root = self:GetParentNode(object.parentId):CreateChild("StillRoot_" .. object.id)
     root:SetVar("stillObjectId", Variant(object.id))
     self:ApplyStillTransform(root, object)
-    local _, minPoint, maxPoint = self:CreatePlaceholderModel(root)
+    local stillRuntime = StillObjectRuntime.Bind(root, object)
+    local minPoint
+    local maxPoint
+    if stillRuntime then
+        ---@type StillRuntimeEntry
+        local bound = stillRuntime
+        local size = bound.model.boundingBox.size
+        local half = Vector3(size.x * 0.5, size.y * 0.5, size.z * 0.5)
+        minPoint = Vector3(-half.x, 0, -half.z)
+        maxPoint = Vector3(half.x, size.y, half.z)
+    else
+        _, minPoint, maxPoint = self:CreatePlaceholderModel(root)
+    end
     self.partRoots[object.id] = {
         node = root,
         contentRoot = root,
@@ -177,8 +190,27 @@ function PartRootRenderer:BuildStillObject(object)
         minPoint = minPoint,
         maxPoint = maxPoint,
         kind = "stillObject",
+        stillRuntime = stillRuntime,
     }
     return true, root
+end
+
+function PartRootRenderer:ApplyStillLooks(object)
+    local entry = object and self.partRoots[object.id]
+    if not entry or not entry.stillRuntime then
+        return false
+    end
+    StillObjectRuntime.ApplyLooks(entry.stillRuntime, object)
+    return true
+end
+
+function PartRootRenderer:ApplyStillDrivers(object)
+    local entry = object and self.partRoots[object.id]
+    if not entry or not entry.stillRuntime then
+        return false
+    end
+    StillObjectRuntime.ApplyDrivers(entry.stillRuntime, object)
+    return true
 end
 
 function PartRootRenderer:Rebuild(levelDocument)

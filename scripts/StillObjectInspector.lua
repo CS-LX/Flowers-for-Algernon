@@ -1,8 +1,9 @@
 -- 静物 Inspector。
--- 只编辑装饰物的名称、父级和局部任意坐标；不能打开体素编辑器。
+-- 名称、父级、局部坐标，以及当前模型 sidecar 声明的字段 / driver。
 
 local UI = require("urhox-libs/UI")
 local Shared = require "InspectorShared"
+local StillModelCatalog = require "StillModelCatalog"
 
 local StillObjectInspector = {}
 StillObjectInspector.__index = StillObjectInspector
@@ -20,6 +21,12 @@ function StillObjectInspector.New(editor)
     self.rotYField = nil
     self.scaleField = nil
     self.modelLabel = nil
+    ---@type Dropdown|nil
+    self.modelDropdown = nil
+    ---@type Widget|nil
+    self.lookPanel = nil
+    ---@type Widget|nil
+    self.driverPanel = nil
     self.triggerableToggle = nil
     self.triggerIdField = nil
     self.interactionLabel = nil
@@ -74,6 +81,24 @@ function StillObjectInspector:Build()
         fontSize = 10,
         fontColor = Shared.MUTED,
         whiteSpace = "normal",
+    }
+    self.modelDropdown = UI.Dropdown {
+        options = StillModelCatalog.Options(),
+        value = "",
+        placeholder = "静物模型",
+        height = 28,
+        fontSize = 11,
+        onChange = function(_, value) editor:SetSelectedStillModelId(value) end,
+    }
+    self.lookPanel = UI.Panel {
+        width = "100%",
+        gap = 4,
+        children = {},
+    }
+    self.driverPanel = UI.Panel {
+        width = "100%",
+        gap = 4,
+        children = {},
     }
     self.triggerableToggle = UI.Checkbox {
         checked = false,
@@ -160,9 +185,12 @@ function StillObjectInspector:Build()
                 padding = 8,
                 gap = 4,
                 children = {
+                    Shared.FieldRow("Model", self.modelDropdown),
                     self.modelLabel,
+                    self.lookPanel,
+                    self.driverPanel,
                     UI.Label {
-                        text = "静物没有体素、PathNode 和机关。自己不会移动，只跟随父级 Transform。",
+                        text = "静物没有体素、PathNode 和机关。自己不会移动，只跟随父级 Transform。换模型会保留旧模型覆盖。",
                         fontSize = 9,
                         fontColor = Shared.MUTED,
                         whiteSpace = "normal",
@@ -186,6 +214,16 @@ function StillObjectInspector:Clear()
     self.rotYField:SetValue("")
     self.scaleField:SetValue("")
     self.modelLabel:SetText("占位模型：Box")
+    if self.modelDropdown then
+        self.modelDropdown:SetOptions(StillModelCatalog.Options())
+        self.modelDropdown.props.value = ""
+    end
+    if self.lookPanel then
+        self.lookPanel:ClearChildren()
+    end
+    if self.driverPanel then
+        self.driverPanel:ClearChildren()
+    end
     self.triggerableToggle:SetChecked(false)
     self.triggerIdField:SetValue("")
     self.triggerIdField:SetDisabled(true)
@@ -221,11 +259,72 @@ function StillObjectInspector:Refresh()
     self.posZField:SetValue(string.format("%.3f", position.z))
     self.rotYField:SetValue(string.format("%.1f", rotation.y or 0))
     self.scaleField:SetValue(string.format("%.2f", scale.x))
-    self.modelLabel:SetText(object:HasModel() and ("模型：" .. object.modelPath) or "占位模型：Box（尚未导入正式模型）")
+    local asset = object:GetAsset()
+    if self.modelDropdown then
+        self.modelDropdown:SetOptions(StillModelCatalog.Options())
+        self.modelDropdown.props.value = object.modelId or ""
+    end
+    if asset then
+        self.modelLabel:SetText("资产：" .. asset.label .. "  " .. asset.modelPath)
+    elseif object:HasModel() then
+        self.modelLabel:SetText("模型：" .. object.modelPath)
+    else
+        self.modelLabel:SetText("占位模型：Box（尚未绑定资产）")
+    end
+    self:RefreshLooks(object, asset)
+    self:RefreshDrivers(object, asset)
     local hasTrigger = object:HasBehavior("triggerable")
     self.triggerableToggle:SetChecked(hasTrigger)
     self.triggerIdField:SetDisabled(not hasTrigger)
     self.triggerIdField:SetValue(hasTrigger and object.behaviors.triggerable.triggerId or "")
+end
+
+function StillObjectInspector:RefreshLooks(object, asset)
+    if not self.lookPanel then
+        return
+    end
+    self.lookPanel:ClearChildren()
+    if not asset or #asset.inspect == 0 then
+        return
+    end
+    local editor = self.editor
+    local overrides = object:GetActiveParams()
+    for _, field in ipairs(asset.inspect) do
+        local current = StillModelCatalog.ResolveParam(asset, overrides, field.path)
+        local picker = Shared.ColorField {
+            color = current or "#FFFFFF",
+            onClose = function(widget)
+                editor:SetSelectedStillParam(field.path, widget:GetHex())
+            end,
+        }
+        picker:SetHex(current or "#FFFFFF")
+        self.lookPanel:AddChild(Shared.FieldRow(field.label, picker))
+    end
+end
+
+function StillObjectInspector:RefreshDrivers(object, asset)
+    if not self.driverPanel then
+        return
+    end
+    self.driverPanel:ClearChildren()
+    if not asset or #asset.drivers == 0 then
+        return
+    end
+    local editor = self.editor
+    for _, driver in ipairs(asset.drivers) do
+        local value = object:GetDriver(driver.id)
+        local slider = UI.Slider {
+            value = value,
+            min = driver.min,
+            max = driver.max,
+            step = 0.01,
+            width = "100%",
+            onChange = function(_, amount)
+                editor:SetSelectedStillDriver(driver.id, amount)
+            end,
+        }
+        self.driverPanel:AddChild(Shared.FieldRow(driver.label, slider))
+    end
 end
 
 return StillObjectInspector

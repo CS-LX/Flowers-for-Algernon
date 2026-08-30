@@ -1,0 +1,82 @@
+{
+  "id": "door",
+  "label": "叙事门",
+  "modelPath": "Meshes/Door.mdl",
+  "component": "AnimatedModel",
+  "rootRotation": { "x": 90, "y": 0, "z": 0 },
+  "rootOffset": { "x": 0, "y": 0.02, "z": 0 },
+  "slots": [
+    {
+      "index": 0,
+      "id": "door",
+      "label": "门框",
+      "shader": "still_object_base",
+      "params": {
+        "colorNeg": "#A98F80",
+        "colorMid": "#CDBBA3",
+        "colorPos": "#F1E6C2"
+      }
+    },
+    {
+      "index": 1,
+      "id": "frame",
+      "label": "门板",
+      "shader": "still_object_base",
+      "params": {
+        "colorNeg": "#4A546B",
+        "colorMid": "#6E8194",
+        "colorPos": "#90B1BD"
+      }
+    },
+    {
+      "index": 2,
+      "id": "light",
+      "label": "丁达尔",
+      "shader": "still_object_unlit",
+      "params": {
+        "color": "#FFE14A"
+      },
+      "pass": {
+        "cullFront": true,
+        "additive": true,
+        "vFade": 1,
+        "fadeUseObjectY": true
+      },
+      "visibleWhen": {
+        "driver": "open",
+        "op": ">",
+        "value": 0.05
+      }
+    },
+    {
+      "index": 3,
+      "id": "lit",
+      "label": "门内",
+      "shader": "still_object_unlit",
+      "params": {
+        "color": "#FFE14A"
+      }
+    }
+  ],
+  "inspect": [
+    { "path": "slots.door.colorNeg", "label": "门框 Neg", "type": "color" },
+    { "path": "slots.door.colorMid", "label": "门框 Mid", "type": "color" },
+    { "path": "slots.door.colorPos", "label": "门框 Pos", "type": "color" },
+    { "path": "slots.frame.colorNeg", "label": "门板 Neg", "type": "color" },
+    { "path": "slots.frame.colorMid", "label": "门板 Mid", "type": "color" },
+    { "path": "slots.frame.colorPos", "label": "门板 Pos", "type": "color" },
+    { "path": "slots.lit.color", "label": "门内", "type": "color" },
+    { "path": "slots.light.color", "label": "丁达尔", "type": "color" }
+  ],
+  "drivers": [
+    {
+      "id": "open",
+      "label": "开门",
+      "type": "boneTranslate",
+      "bone": "DoorBone",
+      "axis": "Y",
+      "distance": 2.8,
+      "range": [0, 1]
+    }
+  ]
+}

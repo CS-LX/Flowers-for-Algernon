@@ -636,6 +636,58 @@ function LevelEditor:SetSelectedStillScale(value)
     return self:RebuildAfterStillEdit("已更新静物缩放")
 end
 
+function LevelEditor:SetSelectedStillModelId(modelId)
+    local object = self:GetSelectedStillObject()
+    if not object or not object:SetModelId(modelId) then
+        return false
+    end
+    self.levelDocument.dirty = true
+    local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+    if not rebuilt then
+        self:RefreshLevelUI(tostring(rebuildError))
+        return false
+    end
+    self:RefreshLevelUI(modelId == "" and "已解绑静物模型" or ("已绑定静物模型：" .. modelId))
+    return true
+end
+
+function LevelEditor:SetSelectedStillParam(path, value)
+    local object = self:GetSelectedStillObject()
+    if not object or not object:SetParam(path, value) then
+        return false
+    end
+    self.levelDocument.dirty = true
+    if not self.partRenderer:ApplyStillLooks(object) then
+        local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+        if not rebuilt then
+            self:RefreshLevelUI(tostring(rebuildError))
+            return false
+        end
+    end
+    self:RefreshLevelUI("已更新静物外观")
+    return true
+end
+
+function LevelEditor:SetSelectedStillDriver(driverId, value)
+    local object = self:GetSelectedStillObject()
+    if not object or not object:SetDriver(driverId, value) then
+        return false
+    end
+    self.levelDocument.dirty = true
+    if not self.partRenderer:ApplyStillDrivers(object) then
+        local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+        if not rebuilt then
+            self:RefreshLevelUI(tostring(rebuildError))
+            return false
+        end
+    end
+    -- 拖滑条时不要 Refresh 整个 Inspector，否则控件会被重建。
+    if self.ui then
+        self.ui:SetStatus(string.format("已更新静物 %s = %.2f", driverId, object:GetDriver(driverId)))
+    end
+    return true
+end
+
 function LevelEditor:SyncTransformGrid(part)
     local position = part.transform.position
     local grid = self.partRenderer.grid
