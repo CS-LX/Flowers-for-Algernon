@@ -1,6 +1,20 @@
 -- 关卡装饰静物。
--- 无体素、无 PathNode、无机关；只保存父节点局部 Transform 和后续模型引用。
+-- 无体素、无 PathNode、无机关；保存父节点局部 Transform、模型绑定和覆盖参数。
 
+local StillModelCatalog = require "StillModelCatalog"
+
+---@class StillObject
+---@field kind string
+---@field id string
+---@field name string
+---@field parentId string|nil
+---@field modelPath string
+---@field modelId string
+---@field paramStore table<string, table<string, string>>
+---@field driverState table<string, number>
+---@field transform table
+---@field behaviorModes string[]
+---@field behaviors table
 local StillObject = {}
 StillObject.__index = StillObject
 
@@ -43,6 +57,46 @@ local function HasMode(modes, wanted)
     return false
 end
 
+local function CopyStringMap(source)
+    local result = {}
+    if type(source) ~= "table" then
+        return result
+    end
+    for key, value in pairs(source) do
+        if type(key) == "string" and type(value) == "string" then
+            result[key] = value
+        end
+    end
+    return result
+end
+
+local function CopyNumberMap(source)
+    local result = {}
+    if type(source) ~= "table" then
+        return result
+    end
+    for key, value in pairs(source) do
+        local number = tonumber(value)
+        if type(key) == "string" and number then
+            result[key] = number * 1.0
+        end
+    end
+    return result
+end
+
+local function CopyParamStore(source)
+    local result = {}
+    if type(source) ~= "table" then
+        return result
+    end
+    for modelId, params in pairs(source) do
+        if type(modelId) == "string" and modelId ~= "" then
+            result[modelId] = CopyStringMap(params)
+        end
+    end
+    return result
+end
+
 function StillObject.New(data)
     local self = setmetatable({}, StillObject)
     self:Init(data)
@@ -56,6 +110,27 @@ function StillObject:Init(data)
     self.name = data.name or self.id
     self.parentId = data.parentId
     self.modelPath = type(data.modelPath) == "string" and data.modelPath or ""
+    self.modelId = type(data.modelId) == "string" and data.modelId or ""
+    if self.modelId == "" and self.modelPath == "Meshes/Door.mdl" then
+        self.modelId = "door"
+    end
+    self.paramStore = CopyParamStore(data.paramStore)
+    if type(data.params) == "table" and self.modelId ~= "" and not self.paramStore[self.modelId] then
+        self.paramStore[self.modelId] = CopyStringMap(data.params)
+    end
+    self.driverState = CopyNumberMap(data.driverState)
+    if self.modelId ~= "" then
+        local asset = StillModelCatalog.Get(self.modelId)
+        if asset then
+            self.modelPath = asset.modelPath
+            local defaults = StillModelCatalog.DefaultDrivers(asset)
+            for driverId, value in pairs(defaults) do
+                if self.driverState[driverId] == nil then
+                    self.driverState[driverId] = value
+                end
+            end
+        end
+    end
     local transform = data.transform or {}
     self.transform = {
         position = CopyVector(transform.position),
@@ -116,8 +191,90 @@ function StillObject:SetModelPath(path)
     return true
 end
 
+function StillObject:GetAsset()
+    return StillModelCatalog.Get(self.modelId)
+end
+
+function StillObject:SetModelId(modelId)
+    if type(modelId) ~= "string" then
+        modelId = ""
+    end
+    if self.modelId == modelId then
+        return true
+    end
+    if self.modelId ~= "" then
+        self.paramStore[self.modelId] = CopyStringMap(self.paramStore[self.modelId] or {})
+    end
+    self.modelId = modelId
+    local asset = self:GetAsset()
+    self.modelPath = asset and asset.modelPath or ""
+    if modelId ~= "" then
+        self.paramStore[modelId] = CopyStringMap(self.paramStore[modelId] or {})
+        local defaults = StillModelCatalog.DefaultDrivers(asset)
+        for driverId, value in pairs(defaults) do
+            if self.driverState[driverId] == nil then
+                self.driverState[driverId] = value
+            end
+        end
+    end
+    return true
+end
+
 function StillObject:HasModel()
-    return self.modelPath ~= ""
+    return self.modelId ~= "" or self.modelPath ~= ""
+end
+
+function StillObject:GetActiveParams()
+    if self.modelId == "" then
+        return {}
+    end
+    return CopyStringMap(self.paramStore[self.modelId] or {})
+end
+
+function StillObject:SetParam(path, value)
+    if self.modelId == "" or type(path) ~= "string" or path == "" then
+        return false
+    end
+    self.paramStore[self.modelId] = self.paramStore[self.modelId] or {}
+    if value == nil or value == "" then
+        self.paramStore[self.modelId][path] = nil
+    else
+        self.paramStore[self.modelId][path] = tostring(value)
+    end
+    return true
+end
+
+function StillObject:GetDriverState()
+    local asset = self:GetAsset()
+    local result = StillModelCatalog.DefaultDrivers(asset)
+    for key, value in pairs(self.driverState) do
+        result[key] = value
+    end
+    return result
+end
+
+function StillObject:GetDriver(driverId)
+    local state = self:GetDriverState()
+    return state[driverId] or 0.0
+end
+
+function StillObject:SetDriver(driverId, value)
+    local asset = self:GetAsset()
+    local driver = StillModelCatalog.GetDriver(asset, driverId)
+    if not driver then
+        return false
+    end
+    local number = tonumber(value)
+    if not number then
+        return false
+    end
+    if number < driver.min then
+        number = driver.min
+    elseif number > driver.max then
+        number = driver.max
+    end
+    self.driverState[driverId] = number * 1.0
+    return true
 end
 
 function StillObject:HasBehavior(mode)
@@ -162,6 +319,7 @@ function StillObject:ToTable()
         id = self.id,
         name = self.name,
         parentId = self.parentId,
+        modelId = self.modelId ~= "" and self.modelId or nil,
         modelPath = self.modelPath ~= "" and self.modelPath or nil,
         transform = {
             position = CopyVector(self.transform.position),
@@ -181,6 +339,17 @@ function StillObject:ToTable()
                 triggerId = self.behaviors.triggerable.triggerId,
             },
         }
+    end
+    local paramStore = CopyParamStore(self.paramStore)
+    if next(paramStore) then
+        data.paramStore = paramStore
+        if self.modelId ~= "" and paramStore[self.modelId] then
+            data.params = CopyStringMap(paramStore[self.modelId])
+        end
+    end
+    local driverState = CopyNumberMap(self.driverState)
+    if next(driverState) then
+        data.driverState = driverState
     end
     return data
 end

@@ -1,9 +1,11 @@
--- 静物导入装配实验：Door.fbx -> Door.mdl。
--- 优先播导入的开门 .ani（SetTime 0~1）；没有 .ani 时直接移 DoorOpener 骨头。
+-- 静物资产绑定实验：Door sidecar -> StillObjectRuntime。
+-- 开门走 driver；open <= 0.05 时按 sidecar 隐藏 Light 槽。
 
 local UI = require("urhox-libs/UI")
 local LookApplier = require "LookApplier"
 local FixedGameCamera = require "FixedGameCamera"
+local StillObject = require "StillObject"
+local StillObjectRuntime = require "StillObjectRuntime"
 
 local StillImportLab = {}
 
@@ -17,33 +19,17 @@ local camera_ = nil
 local viewport_ = nil
 ---@type Node|nil
 local doorRoot_ = nil
----@type AnimatedModel|nil
-local doorModel_ = nil
----@type Node|nil
-local openerBoneNode_ = nil
----@type AnimationController|nil
-local animCtrl_ = nil
----@type string|nil
-local openAnimName_ = nil
----@type number
-local openAnimLength_ = 1.0
+---@type table|nil
+local doorRuntime_ = nil
+---@type StillObject?
+local doorObject_ = nil
 ---@type Label|nil
 local statusLabel_ = nil
 ---@type Slider|nil
 local morphSlider_ = nil
 
-local openAmount_ = 0.0
 local yawOrbit_ = 0.0
-local OPEN_DISTANCE = 2.8
-local OPENER_BONE_NAME = "DoorBone"
-local OPEN_ANIM_CANDIDATES = {
-    "Animations/Door/DoorOpenerAnim.ani",
-    "Animations/Door/DoorOpener_DoorOpenerAnim.ani",
-    "Animations/Door/Open.ani",
-}
-
 local LEVEL_ATMOSPHERE_PATH = "levels/default-level.json"
-local DOOR_MODEL_PATH = "Meshes/Door.mdl"
 
 local CAMERA = {
     pitch = 30.0,
@@ -53,57 +39,14 @@ local CAMERA = {
     farClip = 100.0,
 }
 
--- import-model 日志：geo0=Door, geo1=Frame, geo2=Light, geo3=Lit
--- 门框 Door = 石英色 N·L；门板 Frame = 蓝灰色 N·L；Lit = 亮黄 Unlit；Light = 丁达尔加色。
-local SLOT_LOOKS = {
-    [0] = {
-        name = "Door",
-        kind = "base",
-        look = {
-            colorNeg = "#A98F80",
-            colorMid = "#CDBBA3",
-            colorPos = "#F1E6C2",
-        },
-    },
-    [1] = {
-        name = "Frame",
-        kind = "base",
-        look = {
-            colorNeg = "#4A546B",
-            colorMid = "#6E8194",
-            colorPos = "#90B1BD",
-        },
-    },
-    [2] = {
-        name = "Light",
-        kind = "unlit",
-        look = {
-            color = "#FFE14A",
-            vFade = 1.0,
-            fadeUseObjectY = true,
-            cullFront = true,
-            additive = true,
-        },
-    },
-    [3] = {
-        name = "Lit",
-        kind = "unlit",
-        look = {
-            color = "#FFE14A",
-            vFade = 0.0,
-            opaque = true,
-        },
-    },
-}
-
 local function LoadLevelAtmosphere()
     local atmosphere = LookApplier.DefaultAtmosphere()
     if not fileSystem:FileExists(LEVEL_ATMOSPHERE_PATH) then
-        print("StillImportLab: missing " .. LEVEL_ATMOSPHERE_PATH .. ", using default atmosphere")
+        print("StillImportLab: missing " .. LEVEL_ATMOSPHERE_PATH)
         return atmosphere
     end
     local file = File(LEVEL_ATMOSPHERE_PATH, FILE_READ)
-    if not file:IsOpen() then
+    if not file or not file:IsOpen() then
         print("StillImportLab: cannot open " .. LEVEL_ATMOSPHERE_PATH)
         return atmosphere
     end
@@ -119,133 +62,43 @@ local function LoadLevelAtmosphere()
     return LookApplier.CopyAtmosphere(data.atmosphere)
 end
 
-local function FindOpenerBone(anim)
-    local skeleton = anim:GetSkeleton()
-    if not skeleton then
-        return nil
-    end
-    local named = skeleton:GetBone(OPENER_BONE_NAME)
-    if named and named.node then
-        return named.node
-    end
-    for index = 0, skeleton:GetNumBones() - 1 do
-        local bone = skeleton:GetBone(index)
-        if bone and bone.node and bone.name == OPENER_BONE_NAME then
-            return bone.node
-        end
-    end
-    return nil
-end
-
-local function FindOpenAnimation()
-    for _, path in ipairs(OPEN_ANIM_CANDIDATES) do
-        if fileSystem:FileExists(path) then
-            local animation = cache:GetResource("Animation", path)
-            if animation then
-                return path, animation.length
-            end
-        end
-    end
-    print("StillImportLab: no open .ani on disk, skip Animation resource load")
-    return nil, 1.0
-end
-
 local function ApplyOpenAmount(amount)
-    openAmount_ = math.max(0.0, math.min(1.0, amount))
-    local mode = "none"
-    if animCtrl_ and openAnimName_ then
-        animCtrl_:SetTime(openAnimName_, openAmount_ * openAnimLength_)
-        mode = "ani"
-    elseif openerBoneNode_ then
-        openerBoneNode_.position = Vector3(0, OPEN_DISTANCE * openAmount_, 0)
-        mode = "bone"
+    if not doorObject_ or not doorRuntime_ then
+        return
     end
+    doorObject_:SetDriver("open", amount)
+    StillObjectRuntime.ApplyDrivers(doorRuntime_, doorObject_)
+    local openAmount = doorObject_:GetDriver("open")
     if statusLabel_ then
-        if mode == "ani" then
-            statusLabel_:SetText(string.format(
-                "Open = %.2f  动画 %s  t=%.3fs / %.3fs",
-                openAmount_,
-                openAnimName_,
-                openAmount_ * openAnimLength_,
-                openAnimLength_
-            ))
-        elseif mode == "bone" then
-            statusLabel_:SetText(string.format(
-                "Open = %.2f  无 .ani，直接移 %s  Y=%.2fm",
-                openAmount_,
-                OPENER_BONE_NAME,
-                OPEN_DISTANCE * openAmount_
-            ))
-        else
-            statusLabel_:SetText("既没有开门动画，也没有 DoorOpener 骨骼")
-        end
+        statusLabel_:SetText(string.format(
+            "Open = %.2f  Light %s",
+            openAmount,
+            openAmount > 0.05 and "可见" or "隐藏"
+        ))
     end
-    print(string.format("StillImportLab: openAmount=%.2f mode=%s", openAmount_, mode))
+    print(string.format("StillImportLab: open=%.2f lightVisible=%s", openAmount, tostring(openAmount > 0.05)))
 end
 
 local function CreateDoor()
     if not scene_ then
         error("StillImportLab: scene is missing")
     end
-    local resource = cache:GetResource("Model", DOOR_MODEL_PATH)
-    if not resource then
-        error("StillImportLab: missing " .. DOOR_MODEL_PATH)
-    end
-    local skeleton = resource:GetSkeleton()
-    print(string.format(
-        "StillImportLab: %s geos=%d bones=%s bbox=(%.3f,%.3f,%.3f)",
-        DOOR_MODEL_PATH,
-        resource:GetNumGeometries(),
-        tostring(skeleton and skeleton:GetNumBones()),
-        resource.boundingBox.size.x,
-        resource.boundingBox.size.y,
-        resource.boundingBox.size.z
-    ))
-
+    doorObject_ = StillObject.New({
+        id = "lab_door",
+        name = "叙事门",
+        modelId = "door",
+        transform = {
+            position = { x = 0, y = 0, z = 0 },
+            rotation = { x = 0, y = 0, z = 0 },
+            scale = { x = 1, y = 1, z = 1 },
+        },
+        driverState = { open = 0 },
+    })
     doorRoot_ = scene_:CreateChild("NarrativeDoor")
-    -- FBX 默认导入后高度沿 -Z；绕 X 转 90° 立到 Y-up。
-    doorRoot_.rotation = Quaternion(90, Vector3.RIGHT)
-    doorRoot_.position = Vector3(0, 0.02, 0)
-    print("StillImportLab: door world Y += 0.02")
-
-    local anim = doorRoot_:CreateComponent("AnimatedModel")
-    anim:SetModel(resource)
-    openerBoneNode_ = FindOpenerBone(anim)
-    animCtrl_ = doorRoot_:CreateComponent("AnimationController")
-    openAnimName_, openAnimLength_ = FindOpenAnimation()
-    if openAnimName_ and animCtrl_ then
-        animCtrl_:Play(openAnimName_, 0, false, 0)
-        animCtrl_:SetSpeed(openAnimName_, 0)
-        animCtrl_:SetTime(openAnimName_, 0)
-        print(string.format("StillImportLab: playing %s length=%.3f", openAnimName_, openAnimLength_))
-    else
-        print("StillImportLab: no .ani imported; will drive DoorOpener bone directly")
+    doorRuntime_ = StillObjectRuntime.Bind(doorRoot_, doorObject_)
+    if not doorRuntime_ then
+        error("StillImportLab: failed to bind door asset; catalog did not resolve StillModels/Door.json")
     end
-    print(string.format(
-        "StillImportLab: openerBone=%s liveBones=%s anim=%s",
-        tostring(openerBoneNode_ ~= nil),
-        tostring(anim:GetSkeleton() and anim:GetSkeleton():GetNumBones()),
-        tostring(openAnimName_)
-    ))
-
-    local geoCount = anim:GetNumGeometries()
-    for index = 0, geoCount - 1 do
-        local slot = SLOT_LOOKS[index]
-        local material
-        if slot and slot.kind == "unlit" then
-            material = LookApplier.CreateStillObjectUnlitMaterial(slot.look)
-        else
-            material = LookApplier.CreateStillObjectBaseMaterial(slot and slot.look or nil)
-        end
-        anim:SetMaterial(index, material)
-        print(string.format(
-            "StillImportLab: slot %d name=%s kind=%s",
-            index,
-            slot and slot.name or "unknown",
-            slot and slot.kind or "base"
-        ))
-    end
-    doorModel_ = anim
     ApplyOpenAmount(0.0)
 end
 
@@ -274,7 +127,7 @@ local function CreateUI()
     })
 
     statusLabel_ = UI.Label {
-        text = "Open = 0.00",
+        text = "Open = 0.00  Light 隐藏",
         fontSize = 13,
         fontColor = { 231, 238, 248, 255 },
         whiteSpace = "normal",
@@ -306,13 +159,13 @@ local function CreateUI()
                 borderRadius = 8,
                 children = {
                     UI.Label {
-                        text = "静物导入实验 / Door.fbx",
+                        text = "静物资产绑定 / Door",
                         fontSize = 18,
                         fontWeight = "bold",
                         fontColor = { 231, 238, 248, 255 },
                     },
                     UI.Label {
-                        text = "0 Door 石英 / 1 Frame 蓝灰 / 2 Light 丁达尔加色 / 3 Lit 亮黄 Unlit。",
+                        text = "sidecar：门框/门板三色、Lit/Light 色、open driver。open ≤ 0.05 隐藏丁达尔。",
                         fontSize = 11,
                         fontColor = { 145, 160, 184, 255 },
                         whiteSpace = "normal",
@@ -325,7 +178,7 @@ local function CreateUI()
                     morphSlider_,
                     statusLabel_,
                     UI.Label {
-                        text = "拖拽 0~1。RMB 绕门转。O 键开关。本次导入器未写出 .ani 时会退回移骨头。",
+                        text = "拖拽 0~1。RMB 绕门转。O 键开关。",
                         fontSize = 11,
                         fontColor = { 145, 160, 184, 255 },
                     },
@@ -355,7 +208,7 @@ local function ApplyCamera()
 end
 
 function StillImportLab.Start()
-    graphics.windowTitle = "Still Import Lab — Door.fbx"
+    graphics.windowTitle = "Still Import Lab — Door asset"
     scene_ = Scene()
     scene_:CreateComponent("Octree")
     renderer.hdrRendering = false
@@ -371,15 +224,13 @@ function StillImportLab.Start()
     ApplyCamera()
 
     SubscribeToEvent("Update", "HandleStillImportLabUpdate")
-    print("StillImportLab: FBX Door assembled as one model with 4 material slots.")
+    print("StillImportLab: Door bound from StillModels/Door.json")
 end
 
 function StillImportLab.Stop()
     UI.Shutdown()
-    openerBoneNode_ = nil
-    animCtrl_ = nil
-    openAnimName_ = nil
-    doorModel_ = nil
+    doorRuntime_ = nil
+    doorObject_ = nil
     doorRoot_ = nil
     scene_ = nil
     cameraNode_ = nil
@@ -397,10 +248,11 @@ function HandleStillImportLabUpdate(eventType, eventData)
         yawOrbit_ = yawOrbit_ + mouseMove.x * 0.35
         ApplyCamera()
     end
-    if input:GetKeyPress(KEY_O) then
-        ApplyOpenAmount(openAmount_ < 0.5 and 1.0 or 0.0)
+    if input:GetKeyPress(KEY_O) and doorObject_ then
+        local nextValue = doorObject_:GetDriver("open") < 0.5 and 1.0 or 0.0
+        ApplyOpenAmount(nextValue)
         if morphSlider_ then
-            morphSlider_.props.value = openAmount_
+            morphSlider_.props.value = nextValue
         end
     end
 end
