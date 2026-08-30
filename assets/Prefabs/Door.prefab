@@ -9,7 +9,7 @@
 	<attribute name="Variables" value="" />
 	<component type="AnimatedModel">
 		<attribute name="Model" value="Model;uuid://AjExWQPxDqgyIOAafgXpqpB4" />
-		<attribute name="Material" value="Material;uuid://ATA9mRUpgh8fiPCwYKUMrkJO;uuid://H32dYQ6roz6lP0zCC22eqiGN;uuid://EsHRiZvn9235U4hECt4f1jrs;uuid://CLjgGZ2pGqhXY70743-aZMw6" />
+		<attribute name="Material" value="Material;Editor/Materials/Engine/GridMaterial.material;Editor/Materials/Engine/GridMaterial.material;Editor/Materials/Engine/GridMaterial.material;Editor/Materials/Engine/GridMaterial.material" />
 		<attribute name="Cast Shadows" value="true" />
 	</component>
 </node>
