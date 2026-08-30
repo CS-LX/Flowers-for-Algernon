@@ -391,6 +391,13 @@ function PartDefinition:SetTriggerId(triggerId)
     return true
 end
 
+function PartDefinition:GetTriggerId()
+    if not self:HasBehavior(PartDefinition.MODE_TRIGGERABLE) then
+        return ""
+    end
+    return self.behaviors.triggerable.triggerId or ""
+end
+
 function PartDefinition:ToTable()
     local behaviors = CopyTable(self.behaviors) or {}
     if self:HasBehavior(PartDefinition.MODE_ROTATOR) then

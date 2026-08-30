@@ -1,12 +1,13 @@
 -- 玩法关卡容器。
 -- Init 加载游戏内配置的关卡 JSON 并启动 GamePreview；Dispose 完整拆除场景。
 -- 只读 assets/Levels，不读用户关卡编辑器存档（levels/default-level.json）。
--- 不依赖 LevelEditor / OverlayViewManager；玩法自己驱动 Scene。
+-- 关卡内持有 LevelSignalBus；Dispose 后清空订阅，避免信号跨关卡。
 
 local GamePreview = require "GamePreview"
 local LevelDocument = require "LevelDocument"
 local TriPrismGrid = require "TriPrismGrid"
 local VoxelRenderer = require "VoxelRenderer"
+local LevelSignalBus = require "LevelSignalBus"
 
 ---@class LevelSession
 ---@field definition LevelDefinition
@@ -15,6 +16,7 @@ local VoxelRenderer = require "VoxelRenderer"
 ---@field grid table
 ---@field levelDocument table|nil
 ---@field preview table|nil
+---@field signalBus table|nil
 ---@field sourcePath string|nil
 ---@field started boolean
 local LevelSession = {}
@@ -105,6 +107,8 @@ function LevelSession.New(definition, edgeLength, voxelHeight)
     self.levelDocument = nil
     ---@type table|nil
     self.preview = nil
+    ---@type table|nil
+    self.signalBus = nil
     ---@type string|nil
     self.sourcePath = nil
     self.started = false
@@ -125,6 +129,7 @@ function LevelSession:Init()
         return false, loadError
     end
     self.levelDocument = document
+    self.signalBus = LevelSignalBus.New()
     self.preview = GamePreview.New(
         self.levelDocument,
         self.edgeLength,
@@ -137,7 +142,7 @@ function LevelSession:Init()
     end
     self.started = true
     print(string.format(
-        "LevelSession Init: id=%s title=%s name=%s parts=%d source=%s",
+        "LevelSession Init: id=%s title=%s name=%s parts=%d source=%s signals=ready",
         tostring(self.definition.id),
         tostring(self.definition.title),
         tostring(self.levelDocument.name),
@@ -145,6 +150,10 @@ function LevelSession:Init()
         tostring(self.sourcePath)
     ))
     return true
+end
+
+function LevelSession:GetSignalBus()
+    return self.signalBus
 end
 
 function LevelSession:Update(timeStep)
@@ -159,6 +168,10 @@ function LevelSession:Dispose()
         self.definition and self.definition.id or "nil",
         tostring(self.started)
     ))
+    if self.signalBus then
+        self.signalBus:Dispose()
+        self.signalBus = nil
+    end
     if self.preview then
         self.preview:Stop()
         self.preview = nil

@@ -312,6 +312,13 @@ function StillObject:SetTriggerId(triggerId)
     return true
 end
 
+function StillObject:GetTriggerId()
+    if not self:HasBehavior(MODE_TRIGGERABLE) then
+        return ""
+    end
+    return self.behaviors.triggerable.triggerId or ""
+end
+
 
 function StillObject:ToTable()
     local data = {

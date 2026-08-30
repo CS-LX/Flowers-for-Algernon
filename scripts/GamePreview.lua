@@ -1,5 +1,6 @@
 -- 固定游戏镜头下的只读关卡运行时。
 -- 自己持有 Scene、Viewport 和角色表现；不依赖 LevelEditor / OverlayViewManager。
+-- 不接线关卡信号应用；信号总线由 LevelSession 持有。
 
 local PartRootRenderer = require "PartRootRenderer"
 local FixedGameCamera = require "FixedGameCamera"
