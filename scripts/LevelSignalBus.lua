@@ -8,8 +8,8 @@ LevelSignalBus.__index = LevelSignalBus
 LevelSignalBus.NEGATIVE = -1
 LevelSignalBus.NEUTRAL = 0
 LevelSignalBus.POSITIVE = 1
--- 预留通道名，供后续过关应用订阅；框架本身不自动 Publish。
-LevelSignalBus.CLEAR_ID = "level.clear"
+-- 预留通道名，供关卡过关应用订阅；框架本身不自动 Publish。
+LevelSignalBus.FINISH_ID = "level.finish"
 
 local function NormalizeId(channelId)
     if type(channelId) ~= "string" then

@@ -29,7 +29,17 @@ function Shared.ModeText(part)
     if not part or #part.behaviorModes == 0 then
         return "无运行时行为"
     end
-    return table.concat(part.behaviorModes, " + ")
+    local text = table.concat(part.behaviorModes, " + ")
+    if part:HasBehavior("triggerable") then
+        local triggerId = part:GetTriggerId()
+        if triggerId ~= "" then
+            text = text .. "  ID=" .. triggerId
+        else
+            text = text .. "  未填 Trigger ID"
+        end
+        text = text .. "  ·  踩上开火"
+    end
+    return text
 end
 
 function Shared.ComponentHeader(icon, title)

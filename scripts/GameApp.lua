@@ -131,6 +131,12 @@ function GameApp:EnterLevel(definition)
     end
     self.session = session
     self.state = STATE_PLAYING
+    session.onFinish = function()
+        print("GameApp: chapter finished " .. definition.id)
+        if self.playHud then
+            self.playHud:ShowFinish()
+        end
+    end
     if self.playHud then
         self.playHud:Show(definition)
     end

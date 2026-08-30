@@ -8,6 +8,7 @@ local LevelDocument = require "LevelDocument"
 local TriPrismGrid = require "TriPrismGrid"
 local VoxelRenderer = require "VoxelRenderer"
 local LevelSignalBus = require "LevelSignalBus"
+local LevelTriggerRuntime = require "LevelTriggerRuntime"
 
 ---@class LevelSession
 ---@field definition LevelDefinition
@@ -17,8 +18,11 @@ local LevelSignalBus = require "LevelSignalBus"
 ---@field levelDocument table|nil
 ---@field preview table|nil
 ---@field signalBus table|nil
+---@field triggerRuntime table|nil
 ---@field sourcePath string|nil
 ---@field started boolean
+---@field finished boolean
+---@field onFinish fun(session: LevelSession, payload: table)|nil
 local LevelSession = {}
 LevelSession.__index = LevelSession
 
@@ -109,9 +113,14 @@ function LevelSession.New(definition, edgeLength, voxelHeight)
     self.preview = nil
     ---@type table|nil
     self.signalBus = nil
+    ---@type table|nil
+    self.triggerRuntime = nil
     ---@type string|nil
     self.sourcePath = nil
     self.started = false
+    self.finished = false
+    ---@type fun(session: LevelSession, payload: table)|nil
+    self.onFinish = nil
     return self
 end
 
@@ -130,6 +139,11 @@ function LevelSession:Init()
     end
     self.levelDocument = document
     self.signalBus = LevelSignalBus.New()
+    self.finished = false
+    self.signalBus:Subscribe(LevelSignalBus.FINISH_ID, function(payload)
+        self:OnFinishSignal(payload)
+    end)
+    self.triggerRuntime = LevelTriggerRuntime.New(self)
     self.preview = GamePreview.New(
         self.levelDocument,
         self.edgeLength,
@@ -142,14 +156,41 @@ function LevelSession:Init()
     end
     self.started = true
     print(string.format(
-        "LevelSession Init: id=%s title=%s name=%s parts=%d source=%s signals=ready",
+        "LevelSession Init: id=%s title=%s name=%s parts=%d source=%s finish=%s",
         tostring(self.definition.id),
         tostring(self.definition.title),
         tostring(self.levelDocument.name),
         #self.levelDocument:GetParts(),
-        tostring(self.sourcePath)
+        tostring(self.sourcePath),
+        LevelSignalBus.FINISH_ID
     ))
     return true
+end
+
+function LevelSession:OnFinishSignal(payload)
+    if self.finished then
+        return
+    end
+    if not payload or payload.value ~= LevelSignalBus.POSITIVE then
+        print(string.format(
+            "LevelSession: ignore finish value=%s",
+            tostring(payload and payload.value)
+        ))
+        return
+    end
+    self.finished = true
+    print(string.format(
+        "LevelSession: finish +1 source=%s/%s",
+        tostring(payload.source and payload.source.kind),
+        tostring(payload.source and payload.source.id)
+    ))
+    local preview = self.preview
+    if preview and preview.player then
+        preview.player:SetMechanismLocked(true)
+    end
+    if self.onFinish then
+        self.onFinish(self, payload)
+    end
 end
 
 function LevelSession:GetSignalBus()
@@ -160,6 +201,9 @@ function LevelSession:Update(timeStep)
     if self.preview then
         self.preview:Update(timeStep)
     end
+    if self.triggerRuntime and not self.finished then
+        self.triggerRuntime:Update()
+    end
 end
 
 function LevelSession:Dispose()
@@ -168,6 +212,10 @@ function LevelSession:Dispose()
         self.definition and self.definition.id or "nil",
         tostring(self.started)
     ))
+    if self.triggerRuntime then
+        self.triggerRuntime:Dispose()
+        self.triggerRuntime = nil
+    end
     if self.signalBus then
         self.signalBus:Dispose()
         self.signalBus = nil
@@ -179,6 +227,8 @@ function LevelSession:Dispose()
     self.levelDocument = nil
     self.sourcePath = nil
     self.started = false
+    self.finished = false
+    self.onFinish = nil
 end
 
 return LevelSession

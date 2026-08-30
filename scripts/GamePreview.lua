@@ -112,6 +112,9 @@ function GamePreview:HandlePointer()
     if not self.player then
         return
     end
+    if self.player.mechanismLocked then
+        return
+    end
     if self.player:IsWalking() then
         return
     end
@@ -225,6 +228,9 @@ function GamePreview:GetScreenRay()
 end
 
 function GamePreview:CanMovePart(part)
+    if self.player and self.player.mechanismLocked then
+        return false
+    end
     if not part then
         return false
     end
@@ -314,7 +320,7 @@ function GamePreview:BeginMechanismPending()
     if not input:GetMouseButtonPress(MOUSEB_LEFT) then
         return false
     end
-    if self.player and self.player:IsWalking() then
+    if self.player and (self.player:IsWalking() or self.player.mechanismLocked) then
         return false
     end
     local mouse = input:GetMousePosition()

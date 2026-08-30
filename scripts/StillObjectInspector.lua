@@ -116,7 +116,7 @@ function StillObjectInspector:Build()
         onSubmit = function(_, value) editor:SetSelectedStillTriggerId(value) end,
     }
     self.interactionLabel = UI.Label {
-        text = "静物只能挂交互组件，不能挂 rotator / mover。",
+        text = "Inspector 只配置 Trigger ID。开火条件写在静物辅助脚本里；门是进入且 open≥0.95。",
         fontSize = 9,
         fontColor = Shared.MUTED,
         whiteSpace = "normal",
