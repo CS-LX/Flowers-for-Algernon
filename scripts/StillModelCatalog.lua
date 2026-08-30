@@ -11,6 +11,7 @@ local CATALOG_DIR = "StillModels/"
 -- 已知 sidecar 必须走 ResourceCache，才能解析到 uuid://StillModelDoorSidecar01。
 local KNOWN_SIDECARS = {
     "StillModels/Door.json",
+    "StillModels/Algernon.json",
 }
 local cached_ = nil
 
@@ -68,8 +69,10 @@ end
 local function NormalizeSlotParams(shader, source)
     source = source or {}
     if shader == LookApplier.SHADER_STILL_OBJECT_UNLIT then
+        local albedoMap = type(source.albedoMap) == "string" and source.albedoMap or ""
         return {
             color = NormalizeHex(source.color or source.baseColor, "#FFE14A"),
+            albedoMap = albedoMap,
         }
     end
     return {
@@ -120,7 +123,7 @@ local function NormalizeInspect(source, slots)
         if type(item) == "table" and type(item.path) == "string" then
             local slotId, field = item.path:match("^slots%.([%w_]+)%.([%w_]+)$")
             local slot = slotId and known["slots." .. slotId] or nil
-            if slot and type(field) == "string" and slot.params[field] ~= nil then
+            if slot and type(field) == "string" and slot.params[field] ~= nil and type(slot.params[field]) == "string" and field ~= "albedoMap" then
                 result[#result + 1] = {
                     path = "slots." .. slotId .. "." .. field,
                     label = type(item.label) == "string" and item.label or (slot.label .. " " .. field),
@@ -169,7 +172,9 @@ local function NormalizeAsset(source, fallbackId)
     if id == "" then
         id = fallbackId
     end
-    if id == "" or type(source.modelPath) ~= "string" or source.modelPath == "" then
+    local builder = type(source.builder) == "string" and source.builder or ""
+    local modelPath = type(source.modelPath) == "string" and source.modelPath or ""
+    if id == "" or (modelPath == "" and builder == "") then
         return nil
     end
     local slots = {}
@@ -185,10 +190,12 @@ local function NormalizeAsset(source, fallbackId)
     end
     local rootRotation = source.rootRotation or {}
     local rootOffset = source.rootOffset or {}
+    local rootScale = source.rootScale or {}
     return {
         id = id,
         label = type(source.label) == "string" and source.label or id,
-        modelPath = source.modelPath,
+        builder = builder,
+        modelPath = modelPath,
         component = source.component == "AnimatedModel" and "AnimatedModel" or "StaticModel",
         rootRotation = {
             x = tonumber(rootRotation.x) or 0.0,
@@ -199,6 +206,11 @@ local function NormalizeAsset(source, fallbackId)
             x = tonumber(rootOffset.x) or 0.0,
             y = tonumber(rootOffset.y) or 0.0,
             z = tonumber(rootOffset.z) or 0.0,
+        },
+        rootScale = {
+            x = tonumber(rootScale.x) or 1.0,
+            y = tonumber(rootScale.y) or 1.0,
+            z = tonumber(rootScale.z) or 1.0,
         },
         slots = slots,
         inspect = NormalizeInspect(source.inspect, slots),

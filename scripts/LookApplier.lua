@@ -18,12 +18,14 @@ LookApplier.SHADER_TRI_PRISM_LOOK = "tri_prism_look"
 LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG = "tri_prism_look_height_fog"
 LookApplier.SHADER_STILL_OBJECT_BASE = "still_object_base"
 LookApplier.SHADER_STILL_OBJECT_UNLIT = "still_object_unlit"
+LookApplier.SHADER_STILL_OBJECT_UNLIT_SOLID = "still_object_unlit_solid"
 
 LookApplier.SHADER_PATHS = {
     [LookApplier.SHADER_TRI_PRISM_LOOK] = "Shaders/BLGL/TriPrismLook.shader",
     [LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG] = "Shaders/BLGL/TriPrismLookHeightFog.shader",
     [LookApplier.SHADER_STILL_OBJECT_BASE] = "Shaders/BLGL/still_object_base.shader",
     [LookApplier.SHADER_STILL_OBJECT_UNLIT] = "Shaders/BLGL/still_object_unlit.shader",
+    [LookApplier.SHADER_STILL_OBJECT_UNLIT_SOLID] = "Shaders/BLGL/still_object_unlit_solid.shader",
 }
 
 LookApplier.SHADER_OPTIONS = {
@@ -283,18 +285,34 @@ end
 
 function LookApplier.CreateStillObjectUnlitMaterial(look)
     look = look or {}
-    local shaderPath = LookApplier.SHADER_PATHS[LookApplier.SHADER_STILL_OBJECT_UNLIT]
+    local shaderKey = look.opaque == true
+        and LookApplier.SHADER_STILL_OBJECT_UNLIT_SOLID
+        or LookApplier.SHADER_STILL_OBJECT_UNLIT
+    local shaderPath = LookApplier.SHADER_PATHS[shaderKey]
     local material = Material:new()
     if not material:SetSurfaceShader(shaderPath) then
         print("LookApplier: failed to load " .. shaderPath)
         return LookApplier.CreateWhiteboxMaterial(1)
     end
     local color = HexToColor(look.color or look.baseColor, Color(1.0, 0.882, 0.290, 1))
+    material:SetShaderParameter("base_color", Variant(color))
     local vFade = math.max(0.0, math.min(1.0, (tonumber(look.vFade) or 0.0) * 1.0))
     local fadeUseObjectY = look.fadeUseObjectY == true and 1.0 or 0.0
-    material:SetShaderParameter("base_color", Variant(color))
-    material:SetShaderParameter("v_fade", Variant(vFade))
-    material:SetShaderParameter("fade_use_object_y", Variant(fadeUseObjectY))
+    if look.opaque ~= true then
+        material:SetShaderParameter("v_fade", Variant(vFade))
+        material:SetShaderParameter("fade_use_object_y", Variant(fadeUseObjectY))
+    end
+    local albedoMap = type(look.albedoMap) == "string" and look.albedoMap or ""
+    if look.opaque == true and albedoMap ~= "" then
+        local texture = cache:GetResource("Texture2D", albedoMap)
+        if texture then
+            material:SetSurfaceTexture("albedo_map", texture)
+            material:SetShaderParameter("use_albedo_map", Variant(1.0))
+            print("LookApplier: still-object unlit albedo=" .. albedoMap)
+        else
+            print("LookApplier: missing albedo " .. albedoMap)
+        end
+    end
     if look.cullFront then
         -- UrhoX 默认 CULL_CCW = 剔背面；CULL_CW = 剔正面，对应丁达尔体积的 cull_front。
         material:SetCullMode(CULL_CW)

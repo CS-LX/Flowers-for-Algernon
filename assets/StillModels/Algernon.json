@@ -1,0 +1,30 @@
+{
+  "id": "algernon",
+  "label": "阿尔吉侬",
+  "modelPath": "Meshes/Algernon.mdl",
+  "component": "StaticModel",
+  "rootRotation": { "x": 0, "y": 0, "z": 0 },
+  "rootOffset": { "x": 0, "y": 0.067, "z": 0 },
+  "rootScale": { "x": 0.55, "y": 0.55, "z": 0.55 },
+  "slots": [
+    { "index": 0, "id": "body", "label": "身体", "shader": "still_object_unlit", "params": { "color": "#F4F1EA" }, "pass": { "opaque": true } },
+    { "index": 1, "id": "earOuterL", "label": "外耳左", "shader": "still_object_unlit", "params": { "color": "#F4F1EA" }, "pass": { "opaque": true } },
+    { "index": 2, "id": "earInnerL", "label": "内耳左", "shader": "still_object_unlit", "params": { "color": "#ECA4B0" }, "pass": { "opaque": true } },
+    { "index": 3, "id": "earInnerR", "label": "内耳右", "shader": "still_object_unlit", "params": { "color": "#ECA4B0" }, "pass": { "opaque": true } },
+    { "index": 4, "id": "earOuterR", "label": "外耳右", "shader": "still_object_unlit", "params": { "color": "#F4F1EA" }, "pass": { "opaque": true } },
+    { "index": 5, "id": "eyeL", "label": "左眼", "shader": "still_object_unlit", "params": { "color": "#181412" }, "pass": { "opaque": true } },
+    { "index": 6, "id": "eyeR", "label": "右眼", "shader": "still_object_unlit", "params": { "color": "#181412" }, "pass": { "opaque": true } },
+    { "index": 7, "id": "nose", "label": "鼻子", "shader": "still_object_unlit", "params": { "color": "#DE3A4A" }, "pass": { "opaque": true } },
+    { "index": 8, "id": "tail", "label": "尾巴", "shader": "still_object_unlit", "params": { "color": "#ECA4B0" }, "pass": { "opaque": true } }
+  ],
+  "inspect": [
+    { "path": "slots.body.color", "label": "身体", "type": "color" },
+    { "path": "slots.earInnerL.color", "label": "内耳左", "type": "color" },
+    { "path": "slots.earInnerR.color", "label": "内耳右", "type": "color" },
+    { "path": "slots.eyeL.color", "label": "左眼", "type": "color" },
+    { "path": "slots.eyeR.color", "label": "右眼", "type": "color" },
+    { "path": "slots.nose.color", "label": "鼻子", "type": "color" },
+    { "path": "slots.tail.color", "label": "尾巴", "type": "color" }
+  ],
+  "drivers": []
+}

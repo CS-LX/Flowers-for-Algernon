@@ -6,9 +6,11 @@ local StillModelCatalog = require "StillModelCatalog"
 
 ---@class StillRuntimeEntry
 ---@field node Node
----@field model AnimatedModel|StaticModel
+---@field model AnimatedModel|StaticModel|nil
 ---@field asset table
 ---@field slotMaterials table<string, Material>
+---@field partNodes table<string, Node[]>|nil
+---@field localBounds BoundingBox|nil
 ---@field boneNodes table<string, Node|nil>
 ---@field animCtrl AnimationController|nil
 ---@field animationName string|nil
@@ -136,7 +138,10 @@ function StillObjectRuntime.ApplyVisibility(entry, object)
 end
 
 function StillObjectRuntime.ApplyLooks(entry, object)
-    if not entry or not entry.model or not entry.asset then
+    if not entry or not entry.asset then
+        return
+    end
+    if not entry.model then
         return
     end
     local overrides = object:GetActiveParams()
@@ -198,6 +203,8 @@ function StillObjectRuntime.Bind(parent, object)
         * Quaternion(rotation.z, Vector3.FORWARD)
     local offset = asset.rootOffset
     node.position = Vector3(offset.x, offset.y, offset.z)
+    local scale = asset.rootScale or { x = 1, y = 1, z = 1 }
+    node.scale = Vector3(scale.x, scale.y, scale.z)
 
     ---@type AnimatedModel|StaticModel
     local model

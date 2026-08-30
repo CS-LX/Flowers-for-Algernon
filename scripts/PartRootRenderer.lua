@@ -173,10 +173,16 @@ function PartRootRenderer:BuildStillObject(object)
     local minPoint
     local maxPoint
     if stillRuntime then
-        local size = stillRuntime.model.boundingBox.size
-        local half = Vector3(size.x * 0.5, size.y * 0.5, size.z * 0.5)
-        minPoint = Vector3(-half.x, 0, -half.z)
-        maxPoint = Vector3(half.x, size.y, half.z)
+        local bounds = stillRuntime.localBounds
+        if bounds then
+            minPoint = bounds.min
+            maxPoint = bounds.max
+        else
+            local size = stillRuntime.model.boundingBox.size
+            local half = Vector3(size.x * 0.5, size.y * 0.5, size.z * 0.5)
+            minPoint = Vector3(-half.x, 0, -half.z)
+            maxPoint = Vector3(half.x, size.y, half.z)
+        end
     else
         _, minPoint, maxPoint = self:CreatePlaceholderModel(root)
     end
@@ -249,6 +255,9 @@ function PartRootRenderer:GetStillWorldBoundingBox(objectId)
         return nil
     end
     local runtime = entry.stillRuntime
+    if runtime and runtime.localBounds and runtime.node then
+        return runtime.localBounds:Transformed(runtime.node.worldTransform)
+    end
     if runtime and runtime.model then
         return runtime.model.worldBoundingBox
     end

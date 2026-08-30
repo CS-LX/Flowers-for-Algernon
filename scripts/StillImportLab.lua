@@ -1,5 +1,5 @@
--- 静物资产绑定实验：Door sidecar -> StillObjectRuntime。
--- 开门走 driver；open <= 0.05 时按 sidecar 隐藏 Light 槽。
+-- 静物资产绑定实验：当前预览 Algernon sidecar。
+-- 纯色 Unlit 代替 emission；尺寸按查理胶囊约 1/3 高。
 
 local UI = require("urhox-libs/UI")
 local LookApplier = require "LookApplier"
@@ -18,23 +18,21 @@ local camera_ = nil
 ---@type Viewport|nil
 local viewport_ = nil
 ---@type Node|nil
-local doorRoot_ = nil
+local stillRoot_ = nil
 ---@type table|nil
-local doorRuntime_ = nil
+local stillRuntime_ = nil
 ---@type StillObject?
-local doorObject_ = nil
+local stillObject_ = nil
 ---@type Label|nil
 local statusLabel_ = nil
----@type Slider|nil
-local morphSlider_ = nil
 
 local yawOrbit_ = 0.0
 local LEVEL_ATMOSPHERE_PATH = "levels/default-level.json"
 
 local CAMERA = {
     pitch = 30.0,
-    orthoSize = 8.0,
-    target = { x = 0.0, y = 1.4, z = 0.0 },
+    orthoSize = 2.4,
+    target = { x = 0.0, y = 0.16, z = 0.0 },
     nearClip = 0.1,
     farClip = 100.0,
 }
@@ -57,49 +55,55 @@ local function LoadLevelAtmosphere()
         print("StillImportLab: atmosphere decode failed: " .. tostring(data))
         return atmosphere
     end
-    print("StillImportLab: loaded atmosphere from " .. LEVEL_ATMOSPHERE_PATH
-        .. " lightGroup=" .. tostring((data.atmosphere or {}).lightGroup))
     return LookApplier.CopyAtmosphere(data.atmosphere)
 end
 
-local function ApplyOpenAmount(amount)
-    if not doorObject_ or not doorRuntime_ then
-        return
-    end
-    doorObject_:SetDriver("open", amount)
-    StillObjectRuntime.ApplyDrivers(doorRuntime_, doorObject_)
-    local openAmount = doorObject_:GetDriver("open")
-    if statusLabel_ then
-        statusLabel_:SetText(string.format(
-            "Open = %.2f  Light %s",
-            openAmount,
-            openAmount > 0.05 and "可见" or "隐藏"
-        ))
-    end
-    print(string.format("StillImportLab: open=%.2f lightVisible=%s", openAmount, tostring(openAmount > 0.05)))
-end
-
-local function CreateDoor()
+local function CreateAlgernon()
     if not scene_ then
         error("StillImportLab: scene is missing")
     end
-    doorObject_ = StillObject.New({
-        id = "lab_door",
-        name = "叙事门",
-        modelId = "door",
+    stillObject_ = StillObject.New({
+        id = "lab_algernon",
+        name = "阿尔吉侬",
+        modelId = "algernon",
         transform = {
             position = { x = 0, y = 0, z = 0 },
             rotation = { x = 0, y = 0, z = 0 },
             scale = { x = 1, y = 1, z = 1 },
         },
-        driverState = { open = 0 },
     })
-    doorRoot_ = scene_:CreateChild("NarrativeDoor")
-    doorRuntime_ = StillObjectRuntime.Bind(doorRoot_, doorObject_)
-    if not doorRuntime_ then
-        error("StillImportLab: failed to bind door asset; catalog did not resolve StillModels/Door.json")
+    stillRoot_ = scene_:CreateChild("Algernon")
+    stillRuntime_ = StillObjectRuntime.Bind(stillRoot_, stillObject_)
+    if not stillRuntime_ then
+        error("StillImportLab: failed to bind algernon asset")
     end
-    ApplyOpenAmount(0.0)
+    print("StillImportLab: Algernon Mouse.glb bound")
+end
+
+local function CreateCharlieReference()
+    if not scene_ then
+        return
+    end
+    local node = scene_:CreateChild("CharlieRef")
+    node.position = Vector3(0.45, 0, 0)
+    local body = node:CreateChild("Body")
+    body.position = Vector3(0, 0.22, 0)
+    local bodyModel = body:CreateComponent("StaticModel")
+    bodyModel.model = CapsuleGeometry(0.16, 0.38, 12, 6):ToModel()
+    local material = LookApplier.CreateStillObjectUnlitMaterial({
+        color = "#F5DB5C",
+        opaque = true,
+    })
+    bodyModel.material = material
+    local head = node:CreateChild("Head")
+    head.position = Vector3(0, 0.46, 0)
+    head.scale = Vector3(0.72, 0.72, 0.72)
+    local headModel = head:CreateComponent("StaticModel")
+    headModel.model = SphereGeometry(0.16, 16, 8):ToModel()
+    headModel.material = LookApplier.CreateStillObjectUnlitMaterial({
+        color = "#FAB87A",
+        opaque = true,
+    })
 end
 
 local function CreateGroundMark()
@@ -110,7 +114,7 @@ local function CreateGroundMark()
     node.position = Vector3(0, 0.01, 0)
     local model = node:CreateComponent("StaticModel")
     model:SetModel(cache:GetResource("Model", "Models/Plane.mdl"))
-    node.scale = Vector3(6, 1, 6)
+    node.scale = Vector3(3, 1, 3)
     local material = Material:new()
     material:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
     material:SetShaderParameter("MatDiffColor", Variant(Vector4(0.18, 0.22, 0.28, 1)))
@@ -127,20 +131,10 @@ local function CreateUI()
     })
 
     statusLabel_ = UI.Label {
-        text = "Open = 0.00  Light 隐藏",
+        text = "Toy Mouse · 白身体 / 粉内耳尾巴 / 黑眼睛 / 红鼻子",
         fontSize = 13,
         fontColor = { 231, 238, 248, 255 },
         whiteSpace = "normal",
-    }
-    morphSlider_ = UI.Slider {
-        value = 0,
-        min = 0,
-        max = 1,
-        step = 0.01,
-        width = 220,
-        onChange = function(_, value)
-            ApplyOpenAmount(value)
-        end,
     }
 
     local root = UI.Panel {
@@ -159,26 +153,20 @@ local function CreateUI()
                 borderRadius = 8,
                 children = {
                     UI.Label {
-                        text = "静物资产绑定 / Door",
+                        text = "静物资产 / 阿尔吉侬",
                         fontSize = 18,
                         fontWeight = "bold",
                         fontColor = { 231, 238, 248, 255 },
                     },
                     UI.Label {
-                        text = "sidecar：门框/门板三色、Lit/Light 色、open driver。open ≤ 0.05 隐藏丁达尔。",
+                        text = "Poly Pizza Toy Mouse。身体白、内耳/尾巴粉、眼睛黑、鼻子红。右侧胶囊是查理对照。",
                         fontSize = 11,
                         fontColor = { 145, 160, 184, 255 },
                         whiteSpace = "normal",
                     },
-                    UI.Label {
-                        text = "开门 0~1",
-                        fontSize = 12,
-                        fontColor = { 231, 238, 248, 255 },
-                    },
-                    morphSlider_,
                     statusLabel_,
                     UI.Label {
-                        text = "拖拽 0~1。RMB 绕门转。O 键开关。",
+                        text = "RMB 绕模型转。",
                         fontSize = 11,
                         fontColor = { 145, 160, 184, 255 },
                     },
@@ -208,7 +196,7 @@ local function ApplyCamera()
 end
 
 function StillImportLab.Start()
-    graphics.windowTitle = "Still Import Lab — Door asset"
+    graphics.windowTitle = "Still Import Lab — Algernon"
     scene_ = Scene()
     scene_:CreateComponent("Octree")
     renderer.hdrRendering = false
@@ -219,25 +207,25 @@ function StillImportLab.Start()
     renderer:SetViewport(0, viewport_)
 
     CreateGroundMark()
-    CreateDoor()
+    CreateAlgernon()
+    CreateCharlieReference()
     CreateUI()
     ApplyCamera()
 
     SubscribeToEvent("Update", "HandleStillImportLabUpdate")
-    print("StillImportLab: Door bound from StillModels/Door.json")
+    print("StillImportLab: Algernon bound from StillModels/Algernon.json")
 end
 
 function StillImportLab.Stop()
     UI.Shutdown()
-    doorRuntime_ = nil
-    doorObject_ = nil
-    doorRoot_ = nil
+    stillRuntime_ = nil
+    stillObject_ = nil
+    stillRoot_ = nil
     scene_ = nil
     cameraNode_ = nil
     camera_ = nil
     viewport_ = nil
     statusLabel_ = nil
-    morphSlider_ = nil
 end
 
 ---@param eventType string
@@ -247,13 +235,6 @@ function HandleStillImportLabUpdate(eventType, eventData)
         local mouseMove = input:GetMouseMove()
         yawOrbit_ = yawOrbit_ + mouseMove.x * 0.35
         ApplyCamera()
-    end
-    if input:GetKeyPress(KEY_O) and doorObject_ then
-        local nextValue = doorObject_:GetDriver("open") < 0.5 and 1.0 or 0.0
-        ApplyOpenAmount(nextValue)
-        if morphSlider_ then
-            morphSlider_.props.value = nextValue
-        end
     end
 end
 

@@ -265,7 +265,8 @@ function StillObjectInspector:Refresh()
         self.modelDropdown.props.value = object.modelId or ""
     end
     if asset then
-        self.modelLabel:SetText("资产：" .. asset.label .. "  " .. asset.modelPath)
+        local detail = asset.modelPath ~= "" and asset.modelPath or ("builder:" .. tostring(asset.builder))
+        self.modelLabel:SetText("资产：" .. asset.label .. "  " .. detail)
     elseif object:HasModel() then
         self.modelLabel:SetText("模型：" .. object.modelPath)
     else
