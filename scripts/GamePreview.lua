@@ -115,9 +115,6 @@ function GamePreview:HandlePointer()
     if self.player.mechanismLocked then
         return
     end
-    if self.player:IsWalking() then
-        return
-    end
     local fromPendingClick = (self.rotatorController and self.rotatorController:ConsumePendingClick())
         or (self.moverController and self.moverController:ConsumePendingClick())
     if not fromPendingClick then

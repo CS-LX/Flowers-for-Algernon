@@ -123,18 +123,31 @@ function PlayerController:MoveTo(path, targetKey)
     if type(path) ~= "table" or #path == 0 then
         return false, "path is empty"
     end
-    if self.walking then
-        return false, "player is already walking"
-    end
     if self.mechanismLocked then
         return false, "player is locked to a moving part"
+    end
+    if self.walking and self.targetKey == targetKey then
+        return true
     end
     self.path = {}
     for index, key in ipairs(path) do
         self.path[index] = key
     end
-    self.pathIndex = 1
     self.targetKey = targetKey
+    local first = self.pathRuntime:GetNode(self.path[1])
+    local firstPoint = first and first.worldPoint
+    local distanceToFirst = firstPoint and (self.position - firstPoint):Length() or 0.0
+    if firstPoint and distanceToFirst > ARRIVAL_DISTANCE then
+        -- 走路中途改目标：先回到当前图节点，再走新路径，避免离开 Graph。
+        self.pathIndex = 0
+        self.walking = true
+        self.currentEdgeIsCandidate = self.pathRuntime:IsCandidateEdge(
+            self.currentNodeKey,
+            self.path[1]
+        ) or self.currentEdgeIsCandidate
+        return true
+    end
+    self.pathIndex = 1
     self.currentEdgeIsCandidate = #self.path > 1
         and self.pathRuntime:IsCandidateEdge(self.path[1], self.path[2])
         or false
