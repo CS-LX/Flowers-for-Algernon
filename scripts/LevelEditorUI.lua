@@ -82,7 +82,7 @@ function LevelEditorUI:Build()
         height = 28,
         fontSize = 10,
         variant = "secondary",
-        onClick = function() editor:DuplicateSelectedPart() end,
+        onClick = function() editor:DuplicateSelectedObject() end,
     }
     self.deleteButton = UI.Button {
         text = "删除",
@@ -191,7 +191,7 @@ function LevelEditorUI:Refresh()
     local part = self.editor:GetSelectedPart()
     local still = self.editor:GetSelectedStillObject()
     local hasObject = part ~= nil or still ~= nil
-    self.duplicateButton:SetDisabled(part == nil)
+    self.duplicateButton:SetDisabled(not hasObject)
     self.deleteButton:SetDisabled(not hasObject)
 end
 

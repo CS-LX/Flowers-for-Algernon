@@ -326,7 +326,7 @@ function LevelEditor:AllocatePartId(baseName)
 end
 
 function LevelEditor:AllocateCopyName(sourceName)
-    local baseName = GetCopyBaseName(sourceName)
+    local baseName, _ = GetCopyBaseName(sourceName)
     local suffix = 1
     while true do
         local candidate = baseName .. " (" .. tostring(suffix) .. ")"
@@ -335,6 +335,14 @@ function LevelEditor:AllocateCopyName(sourceName)
             if part.name == candidate then
                 exists = true
                 break
+            end
+        end
+        if not exists then
+            for _, object in ipairs(self.levelDocument:GetStillObjects()) do
+                if object.name == candidate then
+                    exists = true
+                    break
+                end
             end
         end
         if not exists then
@@ -476,6 +484,56 @@ function LevelEditor:DuplicateSelectedPart()
     end
     self:RefreshLevelUI("已复制 Part：" .. name)
     return true
+end
+
+function LevelEditor:DuplicateSelectedStillObject()
+    local source = self:GetSelectedStillObject()
+    if not source then
+        return false
+    end
+    local name = self:AllocateCopyName(source.name)
+    local id = self:AllocateStillObjectId(name)
+    local data = source:ToTable()
+    data.id = id
+    data.name = name
+    local copy = StillObject.New(data)
+    copy:SetName(name)
+    local offset = self.edgeLength or 1.0
+    copy:SetPosition({
+        x = source.transform.position.x + offset,
+        y = source.transform.position.y,
+        z = source.transform.position.z,
+    })
+    local added, addError = self.levelDocument:AddStillObject(copy)
+    if not added then
+        self:RefreshLevelUI("副本加入关卡失败：" .. tostring(addError))
+        return false
+    end
+    local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+    if not rebuilt then
+        self:RefreshLevelUI(tostring(rebuildError))
+        return false
+    end
+    self:SelectStillObject(id)
+    self:RefreshLevelUI("已复制静物：" .. name)
+    print(string.format(
+        "Level Editor: duplicated still %s -> %s parent=%s",
+        source.id,
+        id,
+        tostring(copy.parentId)
+    ))
+    return true
+end
+
+function LevelEditor:DuplicateSelectedObject()
+    if self:GetSelectedStillObject() then
+        return self:DuplicateSelectedStillObject()
+    end
+    if self:GetSelectedPart() then
+        return self:DuplicateSelectedPart()
+    end
+    self:RefreshLevelUI("未选择可复制对象")
+    return false
 end
 
 function LevelEditor:DeleteSelectedPart()
