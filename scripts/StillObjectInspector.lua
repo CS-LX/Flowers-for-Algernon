@@ -197,6 +197,7 @@ function StillObjectInspector:Build()
                     },
                 },
             },
+            Shared.ColorPopupSpacer(),
         },
     }
     Shared.BindSlowWheel(self.scroll)
