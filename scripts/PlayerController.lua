@@ -77,6 +77,10 @@ function PlayerController:FollowCurrentNodeVisual(partRenderer)
     return self.walker:FollowCurrentNodeVisual(partRenderer)
 end
 
+function PlayerController:SetOnArrived(listener)
+    self.walker.onArrived = listener
+end
+
 function PlayerController:MoveTo(path, targetKey)
     if self.mechanismLocked then
         return false, "player is locked to a moving part"

@@ -12,17 +12,12 @@ local AlgernonView = require "AlgernonView"
 local PreviewRotatorController = require "PreviewRotatorController"
 local PreviewMoverController = require "PreviewMoverController"
 local LookApplier = require "LookApplier"
+local ClickFeedbackVfx = require "ClickFeedbackVfx"
+local PointerInput = require "PointerInput"
 local UI = require("urhox-libs/UI")
 
 local GamePreview = {}
 GamePreview.__index = GamePreview
-
-local function CreateUnlitMaterial(color)
-    local material = Material:new()
-    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml"))
-    material:SetShaderParameter("MatDiffColor", Variant(color))
-    return material
-end
 
 function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     local self = setmetatable({}, GamePreview)
@@ -47,10 +42,7 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     ---@type table|nil
     self.algernonView = nil
     self.spawnNodeKey = nil
-    self.feedbackNode = nil
-    self.feedbackElapsed = 0.0
-    self.feedbackDuration = 0.55
-    self.feedbackOriginScale = 0.12
+    self.clickFeedback = ClickFeedbackVfx.New()
     self.rotatorController = nil
     self.hoverAmounts = {}
     self.moverController = nil
@@ -65,52 +57,20 @@ function GamePreview:CreateScene()
 end
 
 function GamePreview:CreateFeedback(record, reachable)
-    if self.feedbackNode then
-        self.feedbackNode:Remove()
-        self.feedbackNode = nil
+    if not self.clickFeedback then
+        self.clickFeedback = ClickFeedbackVfx.New()
     end
-    local node = self.scene:CreateChild("PathClickFeedback")
-    local worldPoint = Vector3(
-        record.worldPoint.x,
-        record.worldPoint.y,
-        record.worldPoint.z
-    )
-    local normal = record.worldNormal
-        and Vector3(record.worldNormal.x, record.worldNormal.y, record.worldNormal.z)
-        or Vector3.UP
-    node.position = worldPoint + normal * 0.025
-    node.rotation = Quaternion(Vector3.UP, normal)
-    node.scale = Vector3(self.feedbackOriginScale, self.feedbackOriginScale, self.feedbackOriginScale)
-
-    local ring = node:CreateComponent("StaticModel")
-    ring.model = TorusGeometry(0.55, 0.055, 24, 8):ToModel()
-    ring.material = CreateUnlitMaterial(
-        reachable and Color(0.25, 1.0, 0.58, 1.0) or Color(1.0, 0.28, 0.24, 1.0)
-    )
-    self.feedbackNode = node
-    self.feedbackElapsed = 0.0
+    self.clickFeedback:Play(self.scene, record, reachable, self.edgeLength)
 end
 
 function GamePreview:UpdateFeedback(timeStep)
-    if not self.feedbackNode then
-        return
-    end
-    self.feedbackElapsed = self.feedbackElapsed + timeStep
-    local progress = math.min(1.0, self.feedbackElapsed / self.feedbackDuration)
-    local scale = self.feedbackOriginScale * (1.0 + progress * 2.4)
-    self.feedbackNode.scale = Vector3(scale, scale, scale)
-    self.feedbackNode.enabled = progress < 1.0
-    if progress >= 1.0 then
-        self.feedbackNode:Remove()
-        self.feedbackNode = nil
+    if self.clickFeedback then
+        self.clickFeedback:Update(timeStep)
     end
 end
 
 function GamePreview:FindClickedNode()
-    local mouse = input:GetMousePosition()
-    local width = math.max(1, graphics:GetWidth())
-    local height = math.max(1, graphics:GetHeight())
-    local ray = self.camera:GetScreenRay(mouse.x / width, mouse.y / height)
+    local ray = PointerInput.GetScreenRay(self.camera)
     local candidates = self.pathRuntime:FindNodeCandidatesAtRay(ray)
     return candidates[1] and candidates[1].record or nil
 end
@@ -133,10 +93,10 @@ function GamePreview:HandlePointer()
     local fromPendingClick = (self.rotatorController and self.rotatorController:ConsumePendingClick())
         or (self.moverController and self.moverController:ConsumePendingClick())
     if not fromPendingClick then
-        if UI.IsPointerOverUI() then
+        if PointerInput.IsOverUI() then
             return
         end
-        if not input:GetMouseButtonPress(MOUSEB_LEFT) then
+        if not PointerInput.Get().pressed then
             return
         end
     end
@@ -208,6 +168,11 @@ function GamePreview:Start()
         return false, playerError
     end
     self:PresentPlayer()
+    self.player:SetOnArrived(function(nodeKey)
+        if self.clickFeedback then
+            self.clickFeedback:NotifyArrived(nodeKey)
+        end
+    end)
     self.algernon = AlgernonController.New(self.pathRuntime, self.spawnNodeKey, self.camera)
 
     self.rotatorController = PreviewRotatorController.New(
@@ -236,10 +201,7 @@ end
 local HOVER_FADE_SECONDS = 0.5
 
 function GamePreview:GetScreenRay()
-    local mouse = input:GetMousePosition()
-    local width = math.max(1, graphics:GetWidth())
-    local height = math.max(1, graphics:GetHeight())
-    return self.camera:GetScreenRay(mouse.x / width, mouse.y / height)
+    return PointerInput.GetScreenRay(self.camera)
 end
 
 function GamePreview:CanMovePart(part)
@@ -418,19 +380,17 @@ function GamePreview:BeginMechanismPending()
     if self.inputLocked then
         return false
     end
-    if UI.IsPointerOverUI() then
+    if PointerInput.IsOverUI() then
         return false
     end
-    if not input:GetMouseButtonPress(MOUSEB_LEFT) then
+    if not PointerInput.Get().pressed then
         return false
     end
     if self.player and (self.player:IsWalking() or self.player.mechanismLocked) then
         return false
     end
-    local mouse = input:GetMousePosition()
-    local width = math.max(1, graphics:GetWidth())
-    local height = math.max(1, graphics:GetHeight())
-    local ray = self.camera:GetScreenRay(mouse.x / width, mouse.y / height)
+    local mouse = PointerInput.Get().position
+    local ray = PointerInput.GetScreenRay(self.camera)
     local rotatorPart, rotatorDistance = nil, math.huge
     local moverPart, moverDistance = nil, math.huge
     if self.rotatorController then
@@ -480,6 +440,7 @@ function GamePreview:ResolveSharedPending()
 end
 
 function GamePreview:Update(timeStep)
+    PointerInput.BeginFrame()
     self:ResolveSharedPending()
     ---@type boolean
     local rotatorBusy = false
@@ -658,9 +619,9 @@ function GamePreview:Stop()
         self.algernon = nil
     end
     self:ClearAlgernonView()
-    if self.feedbackNode then
-        self.feedbackNode:Remove()
-        self.feedbackNode = nil
+    if self.clickFeedback then
+        self.clickFeedback:Destroy()
+        self.clickFeedback = nil
     end
     if self.partRenderer then
         self.partRenderer:Clear()

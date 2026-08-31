@@ -3,6 +3,7 @@
 -- 不改编辑器立刻改网格坐标的工作流。
 
 local PartDefinition = require "PartDefinition"
+local PointerInput = require "PointerInput"
 
 local PreviewMoverController = {}
 PreviewMoverController.__index = PreviewMoverController
@@ -28,10 +29,11 @@ local function SnapToStep(value, step)
 end
 
 local function GetScreenRay(camera)
-    local mouse = input:GetMousePosition()
-    local width = math.max(1, graphics:GetWidth())
-    local height = math.max(1, graphics:GetHeight())
-    return camera:GetScreenRay(mouse.x / width, mouse.y / height)
+    return PointerInput.GetScreenRay(camera)
+end
+
+local function GetPointerPosition()
+    return PointerInput.Get().position
 end
 
 local function IntersectHorizontalPlane(ray, planeY)
@@ -243,7 +245,7 @@ function PreviewMoverController:SampleTargetPosition()
         end
     end
     if axes.layer and self.dragStartMouse then
-        local mouse = input:GetMousePosition()
+        local mouse = GetPointerPosition()
         layer = layer + (self.dragStartMouse.y - mouse.y) * LAYER_SENSITIVITY
     end
     hexQ, hexR, layer = self:ConstrainGrid(part, hexQ, hexR, layer)
@@ -314,7 +316,7 @@ function PreviewMoverController:GetPendingDragScore()
     if self.phase ~= PHASE_PENDING or not self.activePart or not self.dragStartMouse then
         return 0.0
     end
-    local mouse = input:GetMousePosition()
+    local mouse = GetPointerPosition()
     local dx = mouse.x - self.dragStartMouse.x
     local dy = mouse.y - self.dragStartMouse.y
     if dx * dx + dy * dy < DRAG_DEADZONE_PIXELS * DRAG_DEADZONE_PIXELS then
@@ -426,12 +428,13 @@ function PreviewMoverController:UpdateSnap(timeStep)
 end
 
 function PreviewMoverController:Update(timeStep)
+    local pointer = PointerInput.Get()
     if self.phase == PHASE_PENDING then
-        if not input:GetMouseButtonDown(MOUSEB_LEFT) then
+        if not pointer.down then
             self:CancelPendingAsClick()
             return false
         end
-        local mouse = input:GetMousePosition()
+        local mouse = pointer.position
         local dx = mouse.x - self.dragStartMouse.x
         local dy = mouse.y - self.dragStartMouse.y
         if dx * dx + dy * dy >= DRAG_DEADZONE_PIXELS * DRAG_DEADZONE_PIXELS then
@@ -442,7 +445,7 @@ function PreviewMoverController:Update(timeStep)
         return true
     end
     if self.phase == PHASE_DRAG then
-        if input:GetMouseButtonDown(MOUSEB_LEFT) then
+        if pointer.down then
             self:UpdateDrag(timeStep)
         else
             self:BeginSnap()
@@ -450,18 +453,18 @@ function PreviewMoverController:Update(timeStep)
         return true
     end
     if self.phase == PHASE_SNAP then
-        if input:GetMouseButtonPress(MOUSEB_LEFT) then
+        if pointer.pressed then
             local ray = GetScreenRay(self.camera)
             local part = self:PickMoverPart(ray)
             if part and self.activePart and part.id == self.activePart.id then
-                self:InterruptSnap(ray, input:GetMousePosition())
+                self:InterruptSnap(ray, pointer.position)
                 return true
             end
         end
         self:UpdateSnap(timeStep)
         return true
     end
-    if not self.autoPick or not input:GetMouseButtonPress(MOUSEB_LEFT) then
+    if not self.autoPick or not pointer.pressed then
         return false
     end
     if self.player and self.player:IsWalking() then
@@ -472,7 +475,7 @@ function PreviewMoverController:Update(timeStep)
     if not part then
         return false
     end
-    return self:BeginPending(part, ray, input:GetMousePosition())
+    return self:BeginPending(part, ray, pointer.position)
 end
 
 return PreviewMoverController
