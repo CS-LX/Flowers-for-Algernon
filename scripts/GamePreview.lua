@@ -198,7 +198,7 @@ function GamePreview:Start()
     return true
 end
 
-local HOVER_FADE_SECONDS = 0.5
+local HOVER_FADE_SECONDS = 0.25
 
 function GamePreview:GetScreenRay()
     return PointerInput.GetScreenRay(self.camera)
@@ -208,7 +208,7 @@ function GamePreview:CanMovePart(part)
     if self.inputLocked then
         return false
     end
-    if self.player and self.player.mechanismLocked then
+    if self.player and (self.player:IsWalking() or self.player.mechanismLocked) then
         return false
     end
     if not part then
