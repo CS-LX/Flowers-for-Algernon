@@ -16,6 +16,8 @@ local LevelCatalog = {}
 LevelCatalog.WHITEBOX_PATH = "Levels/whitebox-level.json"
 ---@type string
 LevelCatalog.CHAPTER_1_PATH = "Levels/chapter-1.json"
+---@type string
+LevelCatalog.CHAPTER_2_PATH = "Levels/chapter-2.json"
 
 ---@type LevelDefinition[]
 LevelCatalog.LEVELS = {
@@ -30,8 +32,8 @@ LevelCatalog.LEVELS = {
         id = "chapter_2",
         index = 2,
         title = "第二章",
-        subtitle = "同一座白膜建筑",
-        sourcePath = LevelCatalog.WHITEBOX_PATH,
+        subtitle = "编辑器导出关卡",
+        sourcePath = LevelCatalog.CHAPTER_2_PATH,
     },
     {
         id = "chapter_3",
