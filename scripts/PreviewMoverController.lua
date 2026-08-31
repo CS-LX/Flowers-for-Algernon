@@ -52,13 +52,14 @@ local function ApproachVector(current, target, follow, timeStep)
     return current + step
 end
 
-function PreviewMoverController.New(levelDocument, partRenderer, pathRuntime, camera, player)
+function PreviewMoverController.New(levelDocument, partRenderer, pathRuntime, camera, player, algernon)
     local self = setmetatable({}, PreviewMoverController)
     self.levelDocument = levelDocument
     self.partRenderer = partRenderer
     self.pathRuntime = pathRuntime
     self.camera = camera
     self.player = player
+    self.algernon = algernon
     self.phase = PHASE_IDLE
     self.activePart = nil
     self.basePosition = Vector3.ZERO
@@ -132,14 +133,29 @@ function PreviewMoverController:SetPlayerLocked(locked)
     end
 end
 
+function PreviewMoverController:IsWalkerOnPart(walker, part)
+    if not walker or not part or not walker.GetCurrentPartId then
+        return false
+    end
+    local partId = walker:GetCurrentPartId()
+    if not partId then
+        return false
+    end
+    return partId == part.id
+        or self.levelDocument:IsDescendant(partId, part.id)
+end
+
 function PreviewMoverController:FollowRider()
-    if not self.player or not self.activePart then
+    if not self.activePart then
         return
     end
-    if not self:IsPlayerOnPart(self.activePart) then
-        return
+    if self.player and self:IsPlayerOnPart(self.activePart) then
+        self.player:FollowCurrentNodeVisual(self.partRenderer)
     end
-    self.player:FollowCurrentNodeVisual(self.partRenderer)
+    if self.algernon and self.algernon.IsEnabled and self.algernon:IsEnabled()
+        and self:IsWalkerOnPart(self.algernon, self.activePart) then
+        self.algernon:FollowCurrentNodeVisual(self.partRenderer)
+    end
 end
 
 function PreviewMoverController:PickMoverPart(ray)

@@ -72,6 +72,11 @@ function LevelDirector:GetPlayer()
     return preview and preview.player or nil
 end
 
+function LevelDirector:GetAlgernon()
+    local preview = self:GetPreview()
+    return preview and preview.algernon or nil
+end
+
 ---@param channelId string
 ---@param value number
 ---@param source table|nil
@@ -123,28 +128,6 @@ end
 function LevelDirector:GetStillObject(objectId)
     local document = self:GetDocument()
     return document and document:GetStillObject(objectId) or nil
-end
-
----@param objectId string
----@return table|nil
-function LevelDirector:GetAlgernon(objectId)
-    local document = self:GetDocument()
-    if not document then
-        return nil
-    end
-    if type(objectId) == "string" and objectId ~= "" then
-        local object = document:GetStillObject(objectId)
-        if object and object.modelId == "algernon" then
-            return object
-        end
-        return nil
-    end
-    for _, object in ipairs(document:GetStillObjects()) do
-        if object.modelId == "algernon" then
-            return object
-        end
-    end
-    return nil
 end
 
 function LevelDirector:SetInputLocked(locked)
@@ -203,6 +186,89 @@ function LevelDirector:StopPlayer()
         return false
     end
     return preview:StopPlayer()
+end
+
+---@param enabled boolean
+---@param nodeKey string|nil
+---@return boolean, string|nil
+function LevelDirector:SetAlgernonEnabled(enabled, nodeKey)
+    local preview = self:GetPreview()
+    if not preview then
+        return false, "no preview"
+    end
+    return preview:SetAlgernonEnabled(enabled, nodeKey)
+end
+
+function LevelDirector:SetAlgernonVisible(visible)
+    local preview = self:GetPreview()
+    if not preview then
+        return false
+    end
+    return preview:SetAlgernonVisible(visible)
+end
+
+---@param nodeKey string
+---@return boolean, string|nil
+function LevelDirector:MoveAlgernonTo(nodeKey)
+    local preview = self:GetPreview()
+    if not preview then
+        return false, "no preview"
+    end
+    return preview:MoveAlgernonTo(nodeKey)
+end
+
+---@param worldPoint Vector3
+---@return boolean, string|nil
+function LevelDirector:MoveAlgernonToWorld(worldPoint)
+    local preview = self:GetPreview()
+    if not preview then
+        return false, "no preview"
+    end
+    return preview:MoveAlgernonToWorld(worldPoint)
+end
+
+function LevelDirector:TeleportAlgernonTo(nodeKey)
+    local preview = self:GetPreview()
+    if not preview then
+        return false, "no preview"
+    end
+    return preview:TeleportAlgernonTo(nodeKey)
+end
+
+function LevelDirector:StopAlgernon()
+    local preview = self:GetPreview()
+    if not preview then
+        return false
+    end
+    return preview:StopAlgernon()
+end
+
+function LevelDirector:SetAlgernonSpeed(speed)
+    local preview = self:GetPreview()
+    if not preview then
+        return false
+    end
+    return preview:SetAlgernonSpeed(speed)
+end
+
+---@param transform table
+---@return boolean
+function LevelDirector:SetAlgernonLocalTransform(transform)
+    local preview = self:GetPreview()
+    if not preview then
+        return false
+    end
+    return preview:SetAlgernonLocalTransform(transform)
+end
+
+---@param listener fun(nodeKey: string)|nil
+---@return boolean
+function LevelDirector:SetAlgernonOnArrived(listener)
+    local preview = self:GetPreview()
+    if not preview then
+        return false
+    end
+    return preview:SetAlgernonOnArrived(listener)
 end
 
 function LevelDirector:SetObjectEnabled(objectId, enabled)

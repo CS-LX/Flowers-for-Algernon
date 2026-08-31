@@ -87,7 +87,7 @@ local function ApproachAngle(current, target, follow, timeStep)
     return current + step
 end
 
-function PreviewRotatorController.New(levelDocument, partRenderer, pathRuntime, camera, scene, player)
+function PreviewRotatorController.New(levelDocument, partRenderer, pathRuntime, camera, scene, player, algernon)
     local self = setmetatable({}, PreviewRotatorController)
     self.levelDocument = levelDocument
     self.partRenderer = partRenderer
@@ -95,6 +95,7 @@ function PreviewRotatorController.New(levelDocument, partRenderer, pathRuntime, 
     self.camera = camera
     self.scene = scene
     self.player = player
+    self.algernon = algernon
     self.phase = PHASE_IDLE
     self.activePart = nil
     self.baseYawDegrees = 0.0
@@ -165,14 +166,29 @@ function PreviewRotatorController:SetPlayerLocked(locked)
     end
 end
 
+function PreviewRotatorController:IsWalkerOnPart(walker, part)
+    if not walker or not part or not walker.GetCurrentPartId then
+        return false
+    end
+    local partId = walker:GetCurrentPartId()
+    if not partId then
+        return false
+    end
+    return partId == part.id
+        or self.levelDocument:IsDescendant(partId, part.id)
+end
+
 function PreviewRotatorController:FollowRider()
-    if not self.player or not self.activePart then
+    if not self.activePart then
         return
     end
-    if not self:IsPlayerOnPart(self.activePart) then
-        return
+    if self.player and self:IsPlayerOnPart(self.activePart) then
+        self.player:FollowCurrentNodeVisual(self.partRenderer)
     end
-    self.player:FollowCurrentNodeVisual(self.partRenderer)
+    if self.algernon and self.algernon.IsEnabled and self.algernon:IsEnabled()
+        and self:IsWalkerOnPart(self.algernon, self.activePart) then
+        self.algernon:FollowCurrentNodeVisual(self.partRenderer)
+    end
 end
 
 function PreviewRotatorController:PickRotatorPart(ray)

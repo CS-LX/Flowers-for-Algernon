@@ -978,6 +978,26 @@ function PathRuntime:GetNode(key)
     return self.nodesByKey[key]
 end
 
+---@param worldPoint Vector3
+---@return table|nil
+function PathRuntime:FindNearestWalkableNode(worldPoint)
+    if not worldPoint then
+        return nil
+    end
+    local best = nil
+    local bestDistance = math.huge
+    for _, record in pairs(self.nodesByKey) do
+        if record.node and record.node.walkable and record.worldPoint then
+            local distance = (record.worldPoint - worldPoint):Length()
+            if distance < bestDistance then
+                bestDistance = distance
+                best = record
+            end
+        end
+    end
+    return best
+end
+
 function PathRuntime:FindNodeCandidatesAtRay(ray)
     if not ray then
         return {}

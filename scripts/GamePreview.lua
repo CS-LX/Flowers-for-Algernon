@@ -7,6 +7,8 @@ local FixedGameCamera = require "FixedGameCamera"
 local PathRuntime = require "PathRuntime"
 local PlayerController = require "PlayerController"
 local PlayerView = require "PlayerView"
+local AlgernonController = require "AlgernonController"
+local AlgernonView = require "AlgernonView"
 local PreviewRotatorController = require "PreviewRotatorController"
 local PreviewMoverController = require "PreviewMoverController"
 local LookApplier = require "LookApplier"
@@ -40,6 +42,10 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.player = nil
     ---@type table|nil
     self.playerView = nil
+    ---@type table|nil
+    self.algernon = nil
+    ---@type table|nil
+    self.algernonView = nil
     self.spawnNodeKey = nil
     self.feedbackNode = nil
     self.feedbackElapsed = 0.0
@@ -202,6 +208,7 @@ function GamePreview:Start()
         return false, playerError
     end
     self:PresentPlayer()
+    self.algernon = AlgernonController.New(self.pathRuntime, self.spawnNodeKey, self.camera)
 
     self.rotatorController = PreviewRotatorController.New(
         self.levelDocument,
@@ -209,7 +216,8 @@ function GamePreview:Start()
         self.pathRuntime,
         self.camera,
         self.scene,
-        self.player
+        self.player,
+        self.algernon
     )
     self.rotatorController.autoPick = false
     self.moverController = PreviewMoverController.New(
@@ -217,7 +225,8 @@ function GamePreview:Start()
         self.partRenderer,
         self.pathRuntime,
         self.camera,
-        self.player
+        self.player,
+        self.algernon
     )
     self.moverController.autoPick = false
     print("Game Preview: started with player, rotator and mover drag")
@@ -390,6 +399,10 @@ function GamePreview:ApplyPart(part, refreshPath)
             self.player:FollowCurrentNodeVisual(self.partRenderer)
             self:PresentPlayer()
         end
+        if self.algernon and self.algernon:IsEnabled() and not self.algernon:IsWalking() then
+            self.algernon:FollowCurrentNodeVisual(self.partRenderer)
+            self:PresentAlgernon()
+        end
     end
     return true
 end
@@ -487,6 +500,10 @@ function GamePreview:Update(timeStep)
         self.player:Update(timeStep)
         self:PresentPlayer()
     end
+    if self.algernon then
+        self.algernon:Update(timeStep)
+        self:PresentAlgernon()
+    end
     self:UpdateHoverEmission(timeStep)
     self:UpdateFeedback(timeStep)
 end
@@ -516,6 +533,112 @@ function GamePreview:ClearPlayerView()
     end
 end
 
+function GamePreview:PresentAlgernon()
+    if not self.algernon or not self.scene or not self.algernon:IsEnabled() then
+        self:ClearAlgernonView()
+        return
+    end
+    if not self.algernonView or self.algernonView.scene ~= self.scene then
+        self:ClearAlgernonView()
+        self.algernonView = AlgernonView.New(self.scene)
+    end
+    self.algernonView:SetVisible(self.algernon:IsVisible())
+    self.algernonView:Apply(self.algernon:GetPosition(), self.algernon:GetRotation())
+end
+
+function GamePreview:ClearAlgernonView()
+    if self.algernonView then
+        self.algernonView:Destroy()
+        self.algernonView = nil
+    end
+end
+
+function GamePreview:SetAlgernonEnabled(enabled, nodeKey)
+    if not self.algernon then
+        return false, "no algernon"
+    end
+    local ok, errorMessage = self.algernon:SetEnabled(enabled, nodeKey)
+    if not ok then
+        return false, errorMessage
+    end
+    self:PresentAlgernon()
+    return true
+end
+
+function GamePreview:SetAlgernonVisible(visible)
+    if not self.algernon then
+        return false
+    end
+    if not self.algernon:SetVisible(visible) then
+        return false
+    end
+    if self.algernonView then
+        self.algernonView:SetVisible(self.algernon:IsVisible())
+    end
+    return true
+end
+
+function GamePreview:MoveAlgernonTo(nodeKey)
+    if not self.algernon then
+        return false, "no algernon"
+    end
+    return self.algernon:MoveTo(nodeKey)
+end
+
+function GamePreview:MoveAlgernonToWorld(worldPoint)
+    if not self.algernon then
+        return false, "no algernon"
+    end
+    return self.algernon:MoveToWorld(worldPoint)
+end
+
+function GamePreview:TeleportAlgernonTo(nodeKey)
+    if not self.algernon then
+        return false, "no algernon"
+    end
+    local teleported, errorMessage = self.algernon:TeleportTo(nodeKey)
+    if not teleported then
+        return false, errorMessage
+    end
+    self:PresentAlgernon()
+    return true
+end
+
+function GamePreview:StopAlgernon()
+    if not self.algernon then
+        return false
+    end
+    return self.algernon:Stop()
+end
+
+function GamePreview:SetAlgernonSpeed(speed)
+    if not self.algernon then
+        return false
+    end
+    return self.algernon:SetSpeed(speed)
+end
+
+function GamePreview:SetAlgernonLocalTransform(transform)
+    if not self.algernonView then
+        if not self.algernon or not self.algernon:IsEnabled() or not self.scene then
+            return false
+        end
+        self:PresentAlgernon()
+    end
+    if not self.algernonView then
+        return false
+    end
+    return self.algernonView:SetLocalTransform(transform)
+end
+
+function GamePreview:SetAlgernonOnArrived(listener)
+    if not self.algernon then
+        return false
+    end
+    self.algernon:SetOnArrived(listener)
+    return true
+end
+
 function GamePreview:Stop()
     self.inputLocked = false
     if self.rotatorController then
@@ -530,6 +653,11 @@ function GamePreview:Stop()
         self.player = nil
     end
     self:ClearPlayerView()
+    if self.algernon then
+        self.algernon:SetEnabled(false)
+        self.algernon = nil
+    end
+    self:ClearAlgernonView()
     if self.feedbackNode then
         self.feedbackNode:Remove()
         self.feedbackNode = nil
