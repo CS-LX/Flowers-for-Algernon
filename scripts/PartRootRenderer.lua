@@ -217,6 +217,48 @@ function PartRootRenderer:ApplyStillDrivers(object)
     return true
 end
 
+function PartRootRenderer:ApplyPart(part)
+    if not part then
+        return false
+    end
+    local root = self:GetRoot(part.id)
+    if not root then
+        return false
+    end
+    self:ApplyTransform(root, part)
+    return true
+end
+
+function PartRootRenderer:ApplyStillObject(object)
+    local entry = object and self.partRoots[object.id]
+    if not entry or not entry.node then
+        return false
+    end
+    self:ApplyStillTransform(entry.node, object)
+    if entry.stillRuntime then
+        StillObjectRuntime.ApplyLooks(entry.stillRuntime, object)
+        StillObjectRuntime.ApplyDrivers(entry.stillRuntime, object)
+    end
+    return true
+end
+
+function PartRootRenderer:SetObjectEnabled(objectId, enabled)
+    local entry = objectId and self.partRoots[objectId]
+    if not entry or not entry.node then
+        return false
+    end
+    entry.node.enabled = enabled == true
+    return true
+end
+
+function PartRootRenderer:IsObjectEnabled(objectId)
+    local entry = objectId and self.partRoots[objectId]
+    if not entry or not entry.node then
+        return false
+    end
+    return entry.node.enabled
+end
+
 function PartRootRenderer:Rebuild(levelDocument)
     self:Clear()
     local function BuildNodes(parentId)

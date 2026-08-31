@@ -61,6 +61,36 @@ function PlayerController:Stop()
     self.path = nil
     self.walking = false
     self.currentEdgeIsCandidate = false
+    self.targetKey = nil
+end
+
+function PlayerController:GetTargetKey()
+    return self.targetKey
+end
+
+function PlayerController:GetSpeed()
+    return self.speed
+end
+
+function PlayerController:SetSpeed(speed)
+    local value = tonumber(speed)
+    if not value or value <= 0 then
+        return false
+    end
+    self.speed = value * 1.0
+    return true
+end
+
+function PlayerController:TeleportTo(nodeKey)
+    local record = self.pathRuntime:GetNode(nodeKey)
+    if not record or not record.worldPoint then
+        return false, "node-not-found"
+    end
+    self:Stop()
+    self.currentNodeKey = nodeKey
+    self.position = CopyVector(record.worldPoint)
+    self:SetNodeOrientation(record)
+    return true
 end
 
 function PlayerController:IsWalking()

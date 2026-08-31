@@ -1,6 +1,6 @@
 -- 固定游戏镜头下的只读关卡运行时。
 -- 自己持有 Scene、Viewport 和角色表现；不依赖 LevelEditor / OverlayViewManager。
--- 不接线关卡信号应用；信号总线由 LevelSession 持有。
+-- 信号总线与关卡演出由 LevelSession 持有；本模块提供玩家 / 静物 / Part 的运行时操控入口。
 
 local PartRootRenderer = require "PartRootRenderer"
 local FixedGameCamera = require "FixedGameCamera"
@@ -48,6 +48,7 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.rotatorController = nil
     self.hoverAmounts = {}
     self.moverController = nil
+    self.inputLocked = false
     return self
 end
 
@@ -108,11 +109,19 @@ function GamePreview:FindClickedNode()
     return candidates[1] and candidates[1].record or nil
 end
 
+function GamePreview:SetInputLocked(locked)
+    self.inputLocked = locked == true
+end
+
+function GamePreview:IsInputLocked()
+    return self.inputLocked == true
+end
+
 function GamePreview:HandlePointer()
     if not self.player then
         return
     end
-    if self.player.mechanismLocked then
+    if self.inputLocked or self.player.mechanismLocked then
         return
     end
     local fromPendingClick = (self.rotatorController and self.rotatorController:ConsumePendingClick())
@@ -225,6 +234,9 @@ function GamePreview:GetScreenRay()
 end
 
 function GamePreview:CanMovePart(part)
+    if self.inputLocked then
+        return false
+    end
     if self.player and self.player.mechanismLocked then
         return false
     end
@@ -310,7 +322,89 @@ function GamePreview:UpdateHoverEmission(timeStep)
     end
 end
 
+function GamePreview:MovePlayerTo(nodeKey)
+    if not self.player or not self.pathRuntime then
+        return false, "no player"
+    end
+    if type(nodeKey) ~= "string" or nodeKey == "" then
+        return false, "empty node key"
+    end
+    local path, errorMessage = self.pathRuntime:FindPath(
+        self.player:GetCurrentNodeKey(),
+        nodeKey
+    )
+    if not path then
+        return false, errorMessage
+    end
+    return self.player:MoveTo(path, nodeKey)
+end
+
+function GamePreview:TeleportPlayerTo(nodeKey)
+    if not self.player then
+        return false, "no player"
+    end
+    local teleported, errorMessage = self.player:TeleportTo(nodeKey)
+    if not teleported then
+        return false, errorMessage
+    end
+    self:PresentPlayer()
+    return true
+end
+
+function GamePreview:StopPlayer()
+    if not self.player then
+        return false
+    end
+    self.player:Stop()
+    return true
+end
+
+function GamePreview:SetPlayerVisible(visible)
+    if not self.playerView then
+        return false
+    end
+    return self.playerView:SetVisible(visible)
+end
+
+function GamePreview:ApplyStillObject(object)
+    if not self.partRenderer then
+        return false
+    end
+    return self.partRenderer:ApplyStillObject(object)
+end
+
+function GamePreview:ApplyPart(part, refreshPath)
+    if not self.partRenderer or not part then
+        return false
+    end
+    if not self.partRenderer:ApplyPart(part) then
+        return false
+    end
+    if refreshPath ~= false and self.pathRuntime then
+        local refreshed, errorMessage = self.pathRuntime:RefreshAfterMechanismSnap()
+        if not refreshed then
+            print("GamePreview: path refresh failed: " .. tostring(errorMessage))
+            return false, errorMessage
+        end
+        if self.player and not self.player:IsWalking() then
+            self.player:FollowCurrentNodeVisual(self.partRenderer)
+            self:PresentPlayer()
+        end
+    end
+    return true
+end
+
+function GamePreview:SetObjectEnabled(objectId, enabled)
+    if not self.partRenderer then
+        return false
+    end
+    return self.partRenderer:SetObjectEnabled(objectId, enabled)
+end
+
 function GamePreview:BeginMechanismPending()
+    if self.inputLocked then
+        return false
+    end
     if UI.IsPointerOverUI() then
         return false
     end
@@ -423,6 +517,7 @@ function GamePreview:ClearPlayerView()
 end
 
 function GamePreview:Stop()
+    self.inputLocked = false
     if self.rotatorController then
         self.rotatorController:RestoreAuthoredStates()
         self.rotatorController = nil

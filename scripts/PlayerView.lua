@@ -58,6 +58,14 @@ function PlayerView:Apply(position, rotation)
     self.node.rotation = rotation
 end
 
+function PlayerView:SetVisible(visible)
+    if not self.node then
+        return false
+    end
+    self.node.enabled = visible ~= false
+    return true
+end
+
 function PlayerView:Destroy()
     if self.node then
         self.node:Remove()

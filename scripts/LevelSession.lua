@@ -9,6 +9,7 @@ local TriPrismGrid = require "TriPrismGrid"
 local VoxelRenderer = require "VoxelRenderer"
 local LevelSignalBus = require "LevelSignalBus"
 local LevelTriggerRuntime = require "LevelTriggerRuntime"
+local LevelDirectorCatalog = require "LevelDirectorCatalog"
 
 ---@class LevelSession
 ---@field definition LevelDefinition
@@ -19,6 +20,7 @@ local LevelTriggerRuntime = require "LevelTriggerRuntime"
 ---@field preview table|nil
 ---@field signalBus table|nil
 ---@field triggerRuntime table|nil
+---@field director table|nil
 ---@field sourcePath string|nil
 ---@field started boolean
 ---@field finished boolean
@@ -115,6 +117,8 @@ function LevelSession.New(definition, edgeLength, voxelHeight)
     self.signalBus = nil
     ---@type table|nil
     self.triggerRuntime = nil
+    ---@type table|nil
+    self.director = nil
     ---@type string|nil
     self.sourcePath = nil
     self.started = false
@@ -153,6 +157,10 @@ function LevelSession:Init()
     if not started then
         self:Dispose()
         return false, startError
+    end
+    self.director = LevelDirectorCatalog.Create(self)
+    if self.director then
+        self.director:Start()
     end
     self.started = true
     print(string.format(
@@ -204,6 +212,9 @@ function LevelSession:Update(timeStep)
     if self.triggerRuntime and not self.finished then
         self.triggerRuntime:Update()
     end
+    if self.director then
+        self.director:Update(timeStep)
+    end
 end
 
 function LevelSession:Dispose()
@@ -212,6 +223,10 @@ function LevelSession:Dispose()
         self.definition and self.definition.id or "nil",
         tostring(self.started)
     ))
+    if self.director then
+        self.director:Dispose()
+        self.director = nil
+    end
     if self.triggerRuntime then
         self.triggerRuntime:Dispose()
         self.triggerRuntime = nil
