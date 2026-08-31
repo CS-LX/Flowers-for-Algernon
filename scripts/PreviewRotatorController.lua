@@ -89,7 +89,7 @@ local function ApproachAngle(current, target, follow, timeStep)
     return current + step
 end
 
-function PreviewRotatorController.New(levelDocument, partRenderer, pathRuntime, camera, scene, player, algernon)
+function PreviewRotatorController.New(levelDocument, partRenderer, pathRuntime, camera, scene, player, algernon, riderFollow)
     local self = setmetatable({}, PreviewRotatorController)
     self.levelDocument = levelDocument
     self.partRenderer = partRenderer
@@ -98,6 +98,7 @@ function PreviewRotatorController.New(levelDocument, partRenderer, pathRuntime, 
     self.scene = scene
     self.player = player
     self.algernon = algernon
+    self.riderFollow = riderFollow
     self.phase = PHASE_IDLE
     self.activePart = nil
     self.baseYawDegrees = 0.0
@@ -147,6 +148,9 @@ function PreviewRotatorController:GetPlayerPartId()
 end
 
 function PreviewRotatorController:IsPlayerOnPart(part)
+    if self.riderFollow then
+        return self.riderFollow:IsOnPart(self.player, part)
+    end
     local playerPartId = self:GetPlayerPartId()
     if not playerPartId then
         return false
@@ -157,39 +161,34 @@ end
 
 -- 只有角色正在该 Part 上走路时才禁止拖动。静止站在路径节点上允许转，并跟随 Part。
 function PreviewRotatorController:IsWalkingOnPart(part)
+    if self.riderFollow then
+        return self.riderFollow:IsWalkingOnPart(self.player, part)
+    end
     return self.player
         and self.player:IsWalking()
         and self:IsPlayerOnPart(part)
 end
 
 function PreviewRotatorController:SetPlayerLocked(locked)
+    if self.riderFollow then
+        self.riderFollow:LockPlayer(locked)
+        return
+    end
     if self.player and self.player.SetMechanismLocked then
         self.player:SetMechanismLocked(locked)
     end
-end
-
-function PreviewRotatorController:IsWalkerOnPart(walker, part)
-    if not walker or not part or not walker.GetCurrentPartId then
-        return false
-    end
-    local partId = walker:GetCurrentPartId()
-    if not partId then
-        return false
-    end
-    return partId == part.id
-        or self.levelDocument:IsDescendant(partId, part.id)
 end
 
 function PreviewRotatorController:FollowRider()
     if not self.activePart then
         return
     end
+    if self.riderFollow then
+        self.riderFollow:SyncOnPart(self.activePart)
+        return
+    end
     if self.player and self:IsPlayerOnPart(self.activePart) then
         self.player:FollowCurrentNodeVisual(self.partRenderer)
-    end
-    if self.algernon and self.algernon.IsEnabled and self.algernon:IsEnabled()
-        and self:IsWalkerOnPart(self.algernon, self.activePart) then
-        self.algernon:FollowCurrentNodeVisual(self.partRenderer)
     end
 end
 

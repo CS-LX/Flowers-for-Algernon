@@ -11,6 +11,7 @@ local AlgernonController = require "AlgernonController"
 local AlgernonView = require "AlgernonView"
 local PreviewRotatorController = require "PreviewRotatorController"
 local PreviewMoverController = require "PreviewMoverController"
+local RiderFollow = require "RiderFollow"
 local LookApplier = require "LookApplier"
 local ClickFeedbackVfx = require "ClickFeedbackVfx"
 local PointerInput = require "PointerInput"
@@ -46,6 +47,8 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.rotatorController = nil
     self.hoverAmounts = {}
     self.moverController = nil
+    ---@type table|nil
+    self.riderFollow = nil
     self.inputLocked = false
     return self
 end
@@ -174,6 +177,8 @@ function GamePreview:Start()
         end
     end)
     self.algernon = AlgernonController.New(self.pathRuntime, self.spawnNodeKey, self.camera)
+    self.riderFollow = RiderFollow.New(self.levelDocument, self.partRenderer)
+    self.riderFollow:Bind(self.player, self.algernon)
 
     self.rotatorController = PreviewRotatorController.New(
         self.levelDocument,
@@ -182,7 +187,8 @@ function GamePreview:Start()
         self.camera,
         self.scene,
         self.player,
-        self.algernon
+        self.algernon,
+        self.riderFollow
     )
     self.rotatorController.autoPick = false
     self.moverController = PreviewMoverController.New(
@@ -191,7 +197,8 @@ function GamePreview:Start()
         self.pathRuntime,
         self.camera,
         self.player,
-        self.algernon
+        self.algernon,
+        self.riderFollow
     )
     self.moverController.autoPick = false
     print("Game Preview: started with player, rotator and mover drag")
@@ -357,16 +364,19 @@ function GamePreview:ApplyPart(part, refreshPath)
             print("GamePreview: path refresh failed: " .. tostring(errorMessage))
             return false, errorMessage
         end
-        if self.player and not self.player:IsWalking() then
-            self.player:FollowCurrentNodeVisual(self.partRenderer)
-            self:PresentPlayer()
-        end
-        if self.algernon and self.algernon:IsEnabled() and not self.algernon:IsWalking() then
-            self.algernon:FollowCurrentNodeVisual(self.partRenderer)
-            self:PresentAlgernon()
-        end
     end
+    self:SyncRiders()
     return true
+end
+
+function GamePreview:SyncRiders()
+    if not self.riderFollow then
+        return false
+    end
+    local followed = self.riderFollow:Sync()
+    self:PresentPlayer()
+    self:PresentAlgernon()
+    return followed
 end
 
 function GamePreview:SetObjectEnabled(objectId, enabled)
@@ -459,12 +469,11 @@ function GamePreview:Update(timeStep)
     end
     if self.player then
         self.player:Update(timeStep)
-        self:PresentPlayer()
     end
     if self.algernon then
         self.algernon:Update(timeStep)
-        self:PresentAlgernon()
     end
+    self:SyncRiders()
     self:UpdateHoverEmission(timeStep)
     self:UpdateFeedback(timeStep)
 end
@@ -602,6 +611,7 @@ end
 
 function GamePreview:Stop()
     self.inputLocked = false
+    self.riderFollow = nil
     if self.rotatorController then
         self.rotatorController:RestoreAuthoredStates()
         self.rotatorController = nil

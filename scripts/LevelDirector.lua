@@ -140,12 +140,25 @@ function LevelDirector:SetInputLocked(locked)
 end
 
 function LevelDirector:SetPlayerLocked(locked)
+    local preview = self:GetPreview()
+    if preview and preview.riderFollow then
+        preview.riderFollow:LockPlayer(locked)
+        return true
+    end
     local player = self:GetPlayer()
     if not player then
         return false
     end
     player:SetMechanismLocked(locked)
     return true
+end
+
+function LevelDirector:SyncRiders()
+    local preview = self:GetPreview()
+    if not preview or not preview.SyncRiders then
+        return false
+    end
+    return preview:SyncRiders()
 end
 
 function LevelDirector:SetPlayerVisible(visible)

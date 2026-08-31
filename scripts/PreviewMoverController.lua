@@ -54,7 +54,7 @@ local function ApproachVector(current, target, follow, timeStep)
     return current + step
 end
 
-function PreviewMoverController.New(levelDocument, partRenderer, pathRuntime, camera, player, algernon)
+function PreviewMoverController.New(levelDocument, partRenderer, pathRuntime, camera, player, algernon, riderFollow)
     local self = setmetatable({}, PreviewMoverController)
     self.levelDocument = levelDocument
     self.partRenderer = partRenderer
@@ -62,6 +62,7 @@ function PreviewMoverController.New(levelDocument, partRenderer, pathRuntime, ca
     self.camera = camera
     self.player = player
     self.algernon = algernon
+    self.riderFollow = riderFollow
     self.phase = PHASE_IDLE
     self.activePart = nil
     self.basePosition = Vector3.ZERO
@@ -115,6 +116,9 @@ function PreviewMoverController:GetPlayerPartId()
 end
 
 function PreviewMoverController:IsPlayerOnPart(part)
+    if self.riderFollow then
+        return self.riderFollow:IsOnPart(self.player, part)
+    end
     local playerPartId = self:GetPlayerPartId()
     if not playerPartId then
         return false
@@ -124,39 +128,34 @@ function PreviewMoverController:IsPlayerOnPart(part)
 end
 
 function PreviewMoverController:IsWalkingOnPart(part)
+    if self.riderFollow then
+        return self.riderFollow:IsWalkingOnPart(self.player, part)
+    end
     return self.player
         and self.player:IsWalking()
         and self:IsPlayerOnPart(part)
 end
 
 function PreviewMoverController:SetPlayerLocked(locked)
+    if self.riderFollow then
+        self.riderFollow:LockPlayer(locked)
+        return
+    end
     if self.player and self.player.SetMechanismLocked then
         self.player:SetMechanismLocked(locked)
     end
-end
-
-function PreviewMoverController:IsWalkerOnPart(walker, part)
-    if not walker or not part or not walker.GetCurrentPartId then
-        return false
-    end
-    local partId = walker:GetCurrentPartId()
-    if not partId then
-        return false
-    end
-    return partId == part.id
-        or self.levelDocument:IsDescendant(partId, part.id)
 end
 
 function PreviewMoverController:FollowRider()
     if not self.activePart then
         return
     end
+    if self.riderFollow then
+        self.riderFollow:SyncOnPart(self.activePart)
+        return
+    end
     if self.player and self:IsPlayerOnPart(self.activePart) then
         self.player:FollowCurrentNodeVisual(self.partRenderer)
-    end
-    if self.algernon and self.algernon.IsEnabled and self.algernon:IsEnabled()
-        and self:IsWalkerOnPart(self.algernon, self.activePart) then
-        self.algernon:FollowCurrentNodeVisual(self.partRenderer)
     end
 end
 
