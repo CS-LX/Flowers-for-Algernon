@@ -60,7 +60,7 @@ function GamePreview:CreateFeedback(record, reachable)
     if not self.clickFeedback then
         self.clickFeedback = ClickFeedbackVfx.New()
     end
-    self.clickFeedback:Play(self.scene, record, reachable, self.edgeLength)
+    self.clickFeedback:Play(self.scene, record, reachable, self.edgeLength * 0.5)
 end
 
 function GamePreview:UpdateFeedback(timeStep)

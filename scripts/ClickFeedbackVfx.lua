@@ -5,9 +5,11 @@ local ClickFeedbackVfx = {}
 ClickFeedbackVfx.__index = ClickFeedbackVfx
 
 local RING_DURATION = 0.6
-local RING_RADIUS = 1.0
+local RING_RADIUS = 0.5
 local RING_WIDTH_START = 0.2
 local SPOT_SCALE = 0.2
+local SPOT_FADE_START = 0.1
+local SPOT_FADE_END = 0.4
 local LIFT = 0.03
 local SHADER_PATH = "Shaders/BLGL/ClickFeedback.shader"
 
@@ -214,10 +216,10 @@ function ClickFeedbackVfx:ApplySpot(time)
         return
     end
     local color = SPOT_BLACK
-    if time >= 0.6 then
+    if time >= SPOT_FADE_END then
         color = SPOT_WHITE
-    elseif time >= 0.2 then
-        local u = (time - 0.2) / 0.4
+    elseif time >= SPOT_FADE_START then
+        local u = (time - SPOT_FADE_START) / (SPOT_FADE_END - SPOT_FADE_START)
         color = Color(
             SPOT_BLACK.r + (SPOT_WHITE.r - SPOT_BLACK.r) * u,
             SPOT_BLACK.g + (SPOT_WHITE.g - SPOT_BLACK.g) * u,
