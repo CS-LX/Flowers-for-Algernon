@@ -1641,7 +1641,8 @@ function LevelEditor:OpenSelectedPart()
         self.voxelHeight,
         session,
         self.overlayRenderer,
-        part
+        part,
+        self.levelDocument
     )
     self.partEditor.onBackToLevel = function()
         self:BackToLevel()

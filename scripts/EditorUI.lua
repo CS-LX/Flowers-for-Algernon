@@ -170,6 +170,14 @@ function EditorUI:Build()
         value = "floor", height = 26, fontSize = 10,
         onChange = function(_, value) editor:SetSelectedPathNodeKind(value) end,
     }
+    self.pathNodeNameField = UI.TextField {
+        value = "",
+        placeholder = "节点名称",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedPathNodeId(value) end,
+        onBlur = function(field) editor:SetSelectedPathNodeId(field:GetValue()) end,
+    }
 
     self.root = UI.Panel {
         width = "100%",
@@ -212,6 +220,10 @@ function EditorUI:Build()
                     UI.Label { text = "路径节点 Inspector", fontSize = 11, fontWeight = "bold", fontColor = TEXT_COLOR },
                     editor.pathNodeTitleLabel,
                     editor.pathNodeMetaLabel,
+                    UI.Panel { flexDirection = "row", alignItems = "center", gap = 4, children = {
+                        UI.Label { text = "名称", width = 42, fontSize = 9, fontColor = MUTED_COLOR },
+                        UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.pathNodeNameField } },
+                    } },
                     self.pathNodeWalkableToggle,
                     UI.Panel { flexDirection = "row", gap = 4, children = {
                         UI.Label { text = "类型", width = 42, fontSize = 9, fontColor = MUTED_COLOR },
@@ -236,6 +248,8 @@ function EditorUI:RefreshPathNodeInspector()
     if not node then
         self.editor.pathNodeTitleLabel:SetText("未选择路径节点")
         self.editor.pathNodeMetaLabel:SetText("")
+        self.pathNodeNameField:SetValue("")
+        self.pathNodeNameField:SetDisabled(true)
         self.pathNodeWalkableToggle:SetChecked(false)
         self.pathNodeKindDropdown:SetDisabled(true)
         return
@@ -246,6 +260,8 @@ function EditorUI:RefreshPathNodeInspector()
         node.face,
         self.editor.grid:CellKey(node.voxelCell)
     ))
+    self.pathNodeNameField:SetDisabled(false)
+    self.pathNodeNameField:SetValue(node.id)
     self.pathNodeWalkableToggle:SetChecked(node.walkable)
     self.pathNodeKindDropdown:SetDisabled(false)
     self.pathNodeKindDropdown:SetValue(node.kind)

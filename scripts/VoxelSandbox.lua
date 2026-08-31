@@ -53,13 +53,14 @@ local COLORS = {
     Color(0.62, 0.38, 0.88, 1.0),
 }
 
-function VoxelSandbox.New(scene, cameraNode, camera, edgeLength, voxelHeight, session, overlayRenderer, part)
+function VoxelSandbox.New(scene, cameraNode, camera, edgeLength, voxelHeight, session, overlayRenderer, part, levelDocument)
     local self = setmetatable({}, VoxelSandbox)
     self.scene = scene
     self.cameraNode = cameraNode
     self.camera = camera
     self.overlayRenderer = overlayRenderer
     self.part = part
+    self.levelDocument = levelDocument
     self.grid = TriPrismGrid.New(edgeLength, voxelHeight)
     self.session = session or PartEditSession.CreateStarter(self.grid)
     self.document = self.session.document
@@ -201,6 +202,32 @@ function VoxelSandbox:SetSelectedPathNodeWalkable(walkable)
     self.document.dirty = true
     self:RebuildDocumentScene()
     self:UpdateDocumentStatus()
+    return true
+end
+
+function VoxelSandbox:SetSelectedPathNodeId(value)
+    local node = self:GetSelectedPathNode()
+    if not node then
+        return false
+    end
+    local oldId = node.id
+    local renamed, errorMessage = self.document:RenamePathNode(oldId, value)
+    if not renamed then
+        self.statusLabel:SetText("重命名失败：" .. tostring(errorMessage))
+        self:RefreshPathNodeInspector()
+        return false
+    end
+    if oldId == node.id then
+        return true
+    end
+    self.selectedPathNodeId = node.id
+    if self.levelDocument and self.part then
+        self.levelDocument:RenamePathNodeReferences(self.part.id, oldId, node.id)
+    end
+    self:RebuildDocumentScene()
+    self:UpdateDocumentStatus()
+    self:RefreshPathNodeInspector()
+    self.statusLabel:SetText("已重命名路径节点：" .. oldId .. " → " .. node.id)
     return true
 end
 

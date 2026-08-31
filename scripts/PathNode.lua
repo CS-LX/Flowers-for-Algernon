@@ -46,13 +46,37 @@ function PathNode.New(data)
     return self
 end
 
+function PathNode.IsValidId(id)
+    if type(id) ~= "string" then
+        return false, "PathNode id 必须是字符串"
+    end
+    local trimmed = id:match("^%s*(.-)%s*$") or ""
+    if trimmed == "" then
+        return false, "PathNode id 不能为空"
+    end
+    if trimmed:find(":", 1, true) then
+        return false, "PathNode id 不能包含 ':'"
+    end
+    return true, trimmed
+end
+
 function PathNode:Init(data)
     data = data or {}
-    self.id = data.id or "path_node"
+    local valid, idOrError = PathNode.IsValidId(data.id or "path_node")
+    self.id = valid and idOrError or "path_node"
     self.voxelCell = CopyCell(data.voxelCell or data.cell)
     self.face = FACE_INDEX[data.face] and data.face or "top"
     self.kind = VALID_KINDS[data.kind] and data.kind or "floor"
     self.walkable = data.walkable ~= false
+end
+
+function PathNode:SetId(id)
+    local valid, idOrError = PathNode.IsValidId(id)
+    if not valid then
+        return false, idOrError
+    end
+    self.id = idOrError
+    return true
 end
 
 function PathNode:GetFaceIndex()
@@ -123,9 +147,14 @@ function PathNode:ToTable()
 end
 
 function PathNode.FromTable(data)
-    if type(data) ~= "table" or type(data.id) ~= "string" or data.id == "" then
+    if type(data) ~= "table" then
         return nil, "invalid PathNode"
     end
+    local valid, idOrError = PathNode.IsValidId(data.id)
+    if not valid then
+        return nil, idOrError
+    end
+    data.id = idOrError
     return PathNode.New(data)
 end
 

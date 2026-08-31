@@ -279,6 +279,42 @@ function LevelDocument:ClearSpawnNodeIf(nodeKey)
     return true
 end
 
+function LevelDocument:RenamePathNodeReferences(partId, oldNodeId, newNodeId)
+    if type(partId) ~= "string" or partId == "" then
+        return false, "part id is required"
+    end
+    if type(oldNodeId) ~= "string" or oldNodeId == "" then
+        return false, "old PathNode id is required"
+    end
+    if type(newNodeId) ~= "string" or newNodeId == "" then
+        return false, "new PathNode id is required"
+    end
+    if oldNodeId == newNodeId then
+        return true
+    end
+    local changed = false
+    local oldKey = partId .. ":" .. oldNodeId
+    local newKey = partId .. ":" .. newNodeId
+    if self.spawnNodeKey == oldKey then
+        self.spawnNodeKey = newKey
+        changed = true
+    end
+    for _, candidate in ipairs(self:GetPathCandidates()) do
+        if candidate.from.partId == partId and candidate.from.nodeId == oldNodeId then
+            candidate.from.nodeId = newNodeId
+            changed = true
+        end
+        if candidate.to.partId == partId and candidate.to.nodeId == oldNodeId then
+            candidate.to.nodeId = newNodeId
+            changed = true
+        end
+    end
+    if changed then
+        self.dirty = true
+    end
+    return true
+end
+
 function LevelDocument:SetParent(childId, parentId)
     local child = self:GetObject(childId)
     if not child then

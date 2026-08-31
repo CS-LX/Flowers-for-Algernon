@@ -95,6 +95,38 @@ function VoxelDocument:AddPathNode(node)
     return true, node
 end
 
+function VoxelDocument:RenamePathNode(oldId, newId)
+    local node = self.pathNodes[oldId]
+    if not node then
+        return false, "PathNode does not exist: " .. tostring(oldId)
+    end
+    local valid, idOrError = PathNode.IsValidId(newId)
+    if not valid then
+        return false, idOrError
+    end
+    local renamedId = idOrError
+    if renamedId == oldId then
+        return true, node
+    end
+    if self.pathNodes[renamedId] then
+        return false, "duplicate PathNode id: " .. renamedId
+    end
+    local set, setError = node:SetId(renamedId)
+    if not set then
+        return false, setError
+    end
+    self.pathNodes[oldId] = nil
+    self.pathNodes[renamedId] = node
+    for index, nodeId in ipairs(self.pathNodeOrder) do
+        if nodeId == oldId then
+            self.pathNodeOrder[index] = renamedId
+            break
+        end
+    end
+    self.dirty = true
+    return true, node
+end
+
 function VoxelDocument:RemovePathNode(id)
     if not self.pathNodes[id] then
         return false, "PathNode does not exist: " .. tostring(id)
