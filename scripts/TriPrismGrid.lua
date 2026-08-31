@@ -186,6 +186,12 @@ function TriPrismGrid:GetCellCenter(cell)
     return (vertices[1] + vertices[2] + vertices[3]) / 3.0
 end
 
+-- 三棱柱上表面中心，与 PathNode face=top 的锚点同位置（不含 Gizmo 抬升）。
+function TriPrismGrid:GetCellTopCenter(cell)
+    local center = self:GetCellCenter(cell)
+    return Vector3(center.x, center.y + self.voxelHeight, center.z)
+end
+
 local function SnapHalfStep(value)
     return math.floor((value or 0) * 2.0 + 0.5) / 2.0
 end

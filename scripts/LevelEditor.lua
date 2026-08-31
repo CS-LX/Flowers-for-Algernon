@@ -49,6 +49,7 @@ end
 ---@field voxelHeight number
 ---@field partRenderer table
 ---@field selectedPartId string|nil
+---@field stillSceneDrag table|nil
 ---@field mode string
 ---@field partEditor table|nil
 ---@field overlayViewManager table
@@ -91,6 +92,8 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
     self.pathPickedToKey = nil
     self.selectedPartId = nil
     self.selectedStillObjectId = nil
+    ---@type table|nil
+    self.stillSceneDrag = nil
     self.mode = "level"
     self.partEditor = nil
     self.gamePreview = nil
@@ -231,6 +234,9 @@ end
 
 function LevelEditor:HandleEditorCameraInput()
     if self.mode ~= "level" or UI.IsPointerOverUI() then
+        return
+    end
+    if self.stillSceneDrag and self.stillSceneDrag.started then
         return
     end
 
@@ -1340,6 +1346,194 @@ function LevelEditor:SelectStillObject(objectId)
     return true
 end
 
+function LevelEditor:GetScreenRay(screenX, screenY)
+    local width = math.max(1, graphics:GetWidth())
+    local height = math.max(1, graphics:GetHeight())
+    return self.camera:GetScreenRay(screenX / width, screenY / height)
+end
+
+function LevelEditor:IsSelectedStillHit(ray)
+    local object = self:GetSelectedStillObject()
+    if not object then
+        return false
+    end
+    local distance = self.partRenderer:RaycastStillObject(object.id, ray)
+    return distance ~= nil
+end
+
+function LevelEditor:BeginStillSceneDrag()
+    if self.mode ~= "level" or UI.IsPointerOverUI() or self.pathPickMode then
+        return false
+    end
+    if not input:GetMouseButtonPress(MOUSEB_LEFT) then
+        return false
+    end
+    local object = self:GetSelectedStillObject()
+    if not object then
+        return false
+    end
+    local mouse = input:GetMousePosition()
+    local ray = self:GetScreenRay(mouse.x, mouse.y)
+    if not self:IsSelectedStillHit(ray) then
+        return false
+    end
+    self.stillSceneDrag = {
+        objectId = object.id,
+        started = false,
+        originX = mouse.x,
+        originY = mouse.y,
+        lastParentId = object.parentId,
+        lastCellKey = nil,
+    }
+    print("Level Editor: still scene drag begin " .. object.id)
+    return true
+end
+
+function LevelEditor:GetEmptyGridTop(ray)
+    local grid = self.partRenderer.grid
+    -- 未打到体素时，按 layer 0 空三棱柱的上表面中心吸附。
+    local plane = Plane(Vector3.UP, Vector3(0, grid.voxelHeight, 0))
+    local distance = ray:HitDistance(plane)
+    if not distance or distance < 0 or distance == M_INFINITY then
+        return nil
+    end
+    local worldPoint = ray.origin + ray.direction * distance
+    local cell = grid:WorldToCell(worldPoint, 0)
+    if not cell then
+        return nil
+    end
+    return {
+        cell = cell,
+        worldTop = grid:GetCellTopCenter(cell),
+    }
+end
+
+function LevelEditor:WorldToStillLocal(object, worldPoint)
+    local parentNode = self.partRenderer:GetParentNode(object.parentId)
+    if not parentNode or parentNode == self.scene then
+        return {
+            x = worldPoint.x,
+            y = worldPoint.y,
+            z = worldPoint.z,
+        }
+    end
+    local localPoint = parentNode.worldTransform:Inverse() * worldPoint
+    return {
+        x = localPoint.x,
+        y = localPoint.y,
+        z = localPoint.z,
+    }
+end
+
+function LevelEditor:ApplyStillSnap(object, parentId, worldPoint, cellKey)
+    local currentParent = object.parentId
+    if parentId ~= currentParent then
+        local ok, err = self.levelDocument:SetParent(object.id, parentId)
+        if not ok then
+            print("Level Editor: still parent rejected " .. tostring(err))
+            return false
+        end
+        local rebuilt, rebuildError = self.partRenderer:Rebuild(self.levelDocument)
+        if not rebuilt then
+            self:RefreshLevelUI(tostring(rebuildError))
+            return false
+        end
+        local pathRebuilt, pathError = self:RefreshPathRuntime()
+        if not pathRebuilt then
+            self:RefreshLevelUI("路径刷新失败：" .. tostring(pathError))
+            return false
+        end
+    end
+    object:SetPosition(self:WorldToStillLocal(object, worldPoint))
+    self.levelDocument.dirty = true
+    local root = self.partRenderer:GetRoot(object.id)
+    if root then
+        self.partRenderer:ApplyStillTransform(root, object)
+    end
+    if self.stillSceneDrag then
+        self.stillSceneDrag.lastParentId = object.parentId
+        self.stillSceneDrag.lastCellKey = cellKey
+    end
+    return true
+end
+
+function LevelEditor:UpdateStillSceneDrag()
+    local drag = self.stillSceneDrag
+    if not drag then
+        return false
+    end
+    if not input:GetMouseButtonDown(MOUSEB_LEFT) then
+        self:EndStillSceneDrag()
+        return true
+    end
+    local mouse = input:GetMousePosition()
+    if not drag.started then
+        local dx = mouse.x - drag.originX
+        local dy = mouse.y - drag.originY
+        if (dx * dx + dy * dy) < 16 then
+            return true
+        end
+        drag.started = true
+        print("Level Editor: still scene drag started " .. drag.objectId)
+    end
+    local object = self.levelDocument:GetStillObject(drag.objectId)
+    if not object then
+        self.stillSceneDrag = nil
+        return false
+    end
+    local ray = self:GetScreenRay(mouse.x, mouse.y)
+    local voxelHit = self.partRenderer:RaycastVoxel(ray)
+    local parentId = nil
+    local worldPoint = nil
+    local cellKey = nil
+    if voxelHit then
+        parentId = voxelHit.partId
+        worldPoint = voxelHit.worldTop
+        cellKey = voxelHit.partId .. ":" .. self.partRenderer.grid:CellKey(voxelHit.cell)
+    else
+        local empty = self:GetEmptyGridTop(ray)
+        if not empty then
+            return true
+        end
+        worldPoint = empty.worldTop
+        cellKey = "world:" .. self.partRenderer.grid:CellKey(empty.cell)
+    end
+    if cellKey == drag.lastCellKey and parentId == drag.lastParentId then
+        return true
+    end
+    self:ApplyStillSnap(object, parentId, worldPoint, cellKey)
+    local parentPart = parentId and self.levelDocument:GetPart(parentId) or nil
+    local parentName = parentPart and parentPart.name or "世界网格"
+    if self.ui then
+        self.ui:SetStatus(string.format("静物吸附：%s → %s", object.name, parentName))
+    end
+    return true
+end
+
+function LevelEditor:EndStillSceneDrag()
+    local drag = self.stillSceneDrag
+    if not drag then
+        return
+    end
+    self.stillSceneDrag = nil
+    local object = self.levelDocument:GetStillObject(drag.objectId)
+    if drag.started and object then
+        self:RefreshLevelUI(string.format(
+            "静物已吸附：%s  parent=%s",
+            object.name,
+            object.parentId or "世界"
+        ))
+        print(string.format(
+            "Level Editor: still scene drag end id=%s parent=%s pos=(%.3f, %.3f, %.3f)",
+            object.id,
+            tostring(object.parentId),
+            object.transform.position.x,
+            object.transform.position.y,
+            object.transform.position.z
+        ))
+    end
+end
+
 function LevelEditor:FindPathNodeAtScreenPoint(screenX, screenY, radius)
     if not self.pathRuntime then
         return nil
@@ -1610,6 +1804,7 @@ function LevelEditor:RefreshLevelUI(status)
 end
 
 function LevelEditor:OpenSelectedPart()
+    self.stillSceneDrag = nil
     if self:GetSelectedStillObject() then
         self:RefreshLevelUI("静物不能打开体素编辑器")
         return false
@@ -1837,10 +2032,14 @@ function LevelEditor:Refresh(timeStep)
             self.pathRuntime:EvaluateCandidates()
         end
         self:UpdatePathNodeHover()
-        if input:GetMouseButtonPress(MOUSEB_LEFT) and not UI.IsPointerOverUI() then
-            local mouse = input:GetMousePosition()
-            if self:TryPickPathNode(mouse.x, mouse.y) then
-                return
+        if self.stillSceneDrag then
+            self:UpdateStillSceneDrag()
+        elseif not UI.IsPointerOverUI() and input:GetMouseButtonPress(MOUSEB_LEFT) then
+            if not self:BeginStillSceneDrag() then
+                local mouse = input:GetMousePosition()
+                if self:TryPickPathNode(mouse.x, mouse.y) then
+                    return
+                end
             end
         end
         local root = self.partRenderer:GetRoot(self.selectedStillObjectId or self.selectedPartId)
@@ -1875,6 +2074,7 @@ function LevelEditor:Refresh(timeStep)
 end
 
 function LevelEditor:Stop()
+    self.stillSceneDrag = nil
     if self.gamePreview then
         self.gamePreview:Stop()
         self.gamePreview = nil

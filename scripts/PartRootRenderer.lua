@@ -127,6 +127,8 @@ function PartRootRenderer:BuildPart(part)
         maxPoint = maxPoint,
         lookMaterial = lookMaterial,
         hoverAmount = 0.0,
+        kind = "part",
+        voxelDocument = session.document,
     }
     return true, root
 end
@@ -383,6 +385,53 @@ function PartRootRenderer:RaycastPart(partId, ray)
         return nil
     end
     return distance
+end
+
+function PartRootRenderer:RaycastStillObject(objectId, ray)
+    local entry = self.partRoots[objectId]
+    if not entry or entry.kind ~= "stillObject" or not entry.node or not entry.minPoint or not entry.maxPoint then
+        return nil
+    end
+    local inverse = entry.node.worldTransform:Inverse()
+    local localRay = ray:Transformed(inverse)
+    local box = BoundingBox(entry.minPoint, entry.maxPoint)
+    local distance = localRay:HitDistance(box)
+    if not distance or distance < 0 or distance == M_INFINITY then
+        return nil
+    end
+    return distance
+end
+
+-- 鼠标射线打到的最近体素。吸附点是该体素上表面中心（PathNode top 锚点）。
+function PartRootRenderer:RaycastVoxel(ray)
+    if not ray then
+        return nil
+    end
+    local best = nil
+    local bestDistance = math.huge
+    for partId, entry in pairs(self.partRoots) do
+        if entry.kind ~= "stillObject" and entry.voxelDocument and entry.contentRoot then
+            local inverse = entry.contentRoot.worldTransform:Inverse()
+            local localRay = ray:Transformed(inverse)
+            local hit = self.grid:Raycast(localRay, entry.voxelDocument)
+            if hit and hit.cell then
+                local localPoint = localRay.origin + localRay.direction * hit.distance
+                local worldPoint = entry.contentRoot.worldTransform * localPoint
+                local worldDistance = (worldPoint - ray.origin):Length()
+                if worldDistance < bestDistance then
+                    bestDistance = worldDistance
+                    best = {
+                        partId = partId,
+                        cell = hit.cell,
+                        distance = worldDistance,
+                        localTop = self.grid:GetCellTopCenter(hit.cell),
+                        worldTop = entry.contentRoot.worldTransform * self.grid:GetCellTopCenter(hit.cell),
+                    }
+                end
+            end
+        end
+    end
+    return best
 end
 
 function PartRootRenderer:Clear()
