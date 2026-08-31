@@ -12,7 +12,10 @@
 local LevelCatalog = {}
 
 -- 玩法只读资源根下的关卡 JSON。docs/level.txt 是编辑器导出通道，不进 ResourceCache。
-LevelCatalog.SOURCE_PATH = "Levels/whitebox-level.json"
+---@type string
+LevelCatalog.WHITEBOX_PATH = "Levels/whitebox-level.json"
+---@type string
+LevelCatalog.CHAPTER_1_PATH = "Levels/chapter-1.json"
 
 ---@type LevelDefinition[]
 LevelCatalog.LEVELS = {
@@ -20,22 +23,22 @@ LevelCatalog.LEVELS = {
         id = "chapter_1",
         index = 1,
         title = "第一章",
-        subtitle = "静基座与旋转塔",
-        sourcePath = LevelCatalog.SOURCE_PATH,
+        subtitle = "静态基座与旋转塔",
+        sourcePath = LevelCatalog.CHAPTER_1_PATH,
     },
     {
         id = "chapter_2",
         index = 2,
         title = "第二章",
         subtitle = "同一座白膜建筑",
-        sourcePath = LevelCatalog.SOURCE_PATH,
+        sourcePath = LevelCatalog.WHITEBOX_PATH,
     },
     {
         id = "chapter_3",
         index = 3,
         title = "第三章",
         subtitle = "同一座白膜建筑",
-        sourcePath = LevelCatalog.SOURCE_PATH,
+        sourcePath = LevelCatalog.WHITEBOX_PATH,
     },
 }
 
