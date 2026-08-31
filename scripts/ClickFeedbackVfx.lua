@@ -7,9 +7,9 @@ ClickFeedbackVfx.__index = ClickFeedbackVfx
 local RING_DURATION = 0.6
 local RING_RADIUS = 0.5
 local RING_WIDTH_START = 0.2
-local SPOT_SCALE = 0.2
-local SPOT_FADE_START = 0.1
-local SPOT_FADE_END = 0.4
+local SPOT_SCALE = 0.4
+local SPOT_FADE_START = 0.0
+local SPOT_FADE_END = 0.2
 local LIFT = 0.03
 local SHADER_PATH = "Shaders/BLGL/ClickFeedback.shader"
 
