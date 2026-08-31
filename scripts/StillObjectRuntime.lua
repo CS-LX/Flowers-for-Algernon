@@ -3,6 +3,7 @@
 
 local LookApplier = require "LookApplier"
 local StillModelCatalog = require "StillModelCatalog"
+local StillBuilders = require "StillBuilders"
 
 ---@class StillRuntimeEntry
 ---@field node Node
@@ -112,26 +113,27 @@ local function SlotVisible(slot, drivers)
 end
 
 function StillObjectRuntime.ApplyVisibility(entry, object)
-    if not entry or not entry.model or not entry.asset then
+    if not entry or not entry.asset then
         return
     end
     local drivers = object:GetDriverState()
-    local geoCount = entry.model:GetNumGeometries()
-    for _, slot in ipairs(entry.asset.slots) do
-        if slot.index >= 0 and slot.index < geoCount then
-            local visible = SlotVisible(slot, drivers)
-            if visible then
-                entry.model:SetMaterial(slot.index, entry.slotMaterials[slot.id])
-            else
-                entry.model:SetMaterial(slot.index, HiddenMaterial())
+    if entry.model then
+        local geoCount = entry.model:GetNumGeometries()
+        for _, slot in ipairs(entry.asset.slots) do
+            if slot.index >= 0 and slot.index < geoCount then
+                local visible = SlotVisible(slot, drivers)
+                if visible then
+                    entry.model:SetMaterial(slot.index, entry.slotMaterials[slot.id])
+                else
+                    entry.model:SetMaterial(slot.index, HiddenMaterial())
+                end
             end
-            if slot.visibleWhen then
-                print(string.format(
-                    "StillObjectRuntime: slot %s visible=%s driver=%s",
-                    slot.id,
-                    tostring(visible),
-                    tostring(drivers[slot.visibleWhen.driver])
-                ))
+        end
+    elseif entry.partNodes then
+        for _, slot in ipairs(entry.asset.slots) do
+            local visible = SlotVisible(slot, drivers)
+            for _, node in ipairs(entry.partNodes[slot.id] or {}) do
+                node.enabled = visible
             end
         end
     end
@@ -141,16 +143,27 @@ function StillObjectRuntime.ApplyLooks(entry, object)
     if not entry or not entry.asset then
         return
     end
-    if not entry.model then
-        return
-    end
     local overrides = object:GetActiveParams()
     entry.slotMaterials = {}
-    local geoCount = entry.model:GetNumGeometries()
-    for _, slot in ipairs(entry.asset.slots) do
-        if slot.index >= 0 and slot.index < geoCount then
+    if entry.model then
+        local geoCount = entry.model:GetNumGeometries()
+        for _, slot in ipairs(entry.asset.slots) do
+            if slot.index >= 0 and slot.index < geoCount then
+                local look = StillModelCatalog.SlotLook(entry.asset, slot, overrides)
+                entry.slotMaterials[slot.id] = CreateSlotMaterial(slot, look)
+            end
+        end
+    elseif entry.partNodes then
+        for _, slot in ipairs(entry.asset.slots) do
             local look = StillModelCatalog.SlotLook(entry.asset, slot, overrides)
-            entry.slotMaterials[slot.id] = CreateSlotMaterial(slot, look)
+            local material = CreateSlotMaterial(slot, look)
+            entry.slotMaterials[slot.id] = material
+            for _, node in ipairs(entry.partNodes[slot.id] or {}) do
+                local model = node:GetComponent("StaticModel")
+                if model then
+                    model:SetMaterial(material)
+                end
+            end
         end
     end
     StillObjectRuntime.ApplyVisibility(entry, object)
@@ -190,11 +203,6 @@ function StillObjectRuntime.Bind(parent, object)
         print("StillObjectRuntime: unknown modelId " .. tostring(object and object.modelId))
         return nil
     end
-    local resource = cache:GetResource("Model", asset.modelPath)
-    if not resource then
-        print("StillObjectRuntime: missing model " .. asset.modelPath)
-        return nil
-    end
 
     local node = parent:CreateChild("StillModel_" .. object.id)
     local rotation = asset.rootRotation
@@ -206,14 +214,33 @@ function StillObjectRuntime.Bind(parent, object)
     local scale = asset.rootScale or { x = 1, y = 1, z = 1 }
     node.scale = Vector3(scale.x, scale.y, scale.z)
 
-    ---@type AnimatedModel|StaticModel
-    local model
-    if asset.component == "AnimatedModel" then
-        model = node:CreateComponent("AnimatedModel")
+    ---@type AnimatedModel|StaticModel|nil
+    local model = nil
+    local localBounds = nil
+    if asset.modelPath ~= "" then
+        local resource = cache:GetResource("Model", asset.modelPath)
+        if not resource then
+            print("StillObjectRuntime: missing model " .. asset.modelPath)
+            return nil
+        end
+        if asset.component == "AnimatedModel" then
+            model = node:CreateComponent("AnimatedModel")
+        else
+            model = node:CreateComponent("StaticModel")
+        end
+        model:SetModel(resource)
+    elseif asset.builder ~= "" then
+        local built = StillBuilders.Build(asset.builder, node)
+        if not built then
+            print("StillObjectRuntime: builder failed " .. asset.builder)
+            return nil
+        end
+        model = built.model
+        localBounds = built.localBounds
     else
-        model = node:CreateComponent("StaticModel")
+        print("StillObjectRuntime: asset has neither modelPath nor builder " .. asset.id)
+        return nil
     end
-    model:SetModel(resource)
 
     local entry = {
         node = node,
@@ -224,9 +251,10 @@ function StillObjectRuntime.Bind(parent, object)
         animCtrl = nil,
         animationName = nil,
         animationLength = 1.0,
+        localBounds = localBounds,
     }
 
-    if asset.component == "AnimatedModel" then
+    if model and asset.component == "AnimatedModel" then
         ---@cast model AnimatedModel
         for _, driver in ipairs(asset.drivers) do
             if driver.type == "boneTranslate" and driver.bone ~= "" then
@@ -247,11 +275,13 @@ function StillObjectRuntime.Bind(parent, object)
 
     StillObjectRuntime.ApplyLooks(entry, object)
     StillObjectRuntime.ApplyDrivers(entry, object)
+    local geometryCount = model and model:GetNumGeometries() or 0
     print(string.format(
-        "StillObjectRuntime: bound %s geos=%d drivers=%d",
+        "StillObjectRuntime: bound %s geos=%d drivers=%d builder=%s",
         asset.id,
-        model:GetNumGeometries(),
-        #asset.drivers
+        geometryCount,
+        #asset.drivers,
+        tostring(asset.builder ~= "")
     ))
     return entry
 end

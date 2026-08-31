@@ -31,8 +31,8 @@ local LEVEL_ATMOSPHERE_PATH = "levels/default-level.json"
 
 local CAMERA = {
     pitch = 30.0,
-    orthoSize = 2.4,
-    target = { x = 0.0, y = 0.16, z = 0.0 },
+    orthoSize = 2.2,
+    target = { x = 0.0, y = 0.22, z = 0.0 },
     nearClip = 0.1,
     farClip = 100.0,
 }
@@ -58,52 +58,34 @@ local function LoadLevelAtmosphere()
     return LookApplier.CopyAtmosphere(data.atmosphere)
 end
 
-local function CreateAlgernon()
+local function CreatePrimitiveStills()
     if not scene_ then
         error("StillImportLab: scene is missing")
     end
-    stillObject_ = StillObject.New({
-        id = "lab_algernon",
-        name = "阿尔吉侬",
-        modelId = "algernon",
-        transform = {
-            position = { x = 0, y = 0, z = 0 },
-            rotation = { x = 0, y = 0, z = 0 },
-            scale = { x = 1, y = 1, z = 1 },
-        },
-    })
-    stillRoot_ = scene_:CreateChild("Algernon")
-    stillRuntime_ = StillObjectRuntime.Bind(stillRoot_, stillObject_)
-    if not stillRuntime_ then
-        error("StillImportLab: failed to bind algernon asset")
+    local samples = {
+        { id = "lab_cube", modelId = "still_cube", name = "立方体", x = -0.66 },
+        { id = "lab_capsule", modelId = "still_capsule", name = "胶囊", x = -0.22 },
+        { id = "lab_cylinder", modelId = "still_cylinder", name = "圆柱", x = 0.22 },
+        { id = "lab_tri_prism", modelId = "still_tri_prism", name = "三棱柱", x = 0.66 },
+    }
+    for _, sample in ipairs(samples) do
+        local object = StillObject.New({
+            id = sample.id,
+            name = sample.name,
+            modelId = sample.modelId,
+            transform = {
+                position = { x = sample.x, y = 0, z = 0 },
+                rotation = { x = 0, y = 0, z = 0 },
+                scale = { x = 1, y = 1, z = 1 },
+            },
+        })
+        local root = scene_:CreateChild("Still_" .. sample.modelId)
+        local runtime = StillObjectRuntime.Bind(root, object)
+        if not runtime then
+            error("StillImportLab: failed to bind " .. sample.modelId)
+        end
+        print("StillImportLab: bound primitive " .. sample.modelId)
     end
-    print("StillImportLab: Algernon Mouse.glb bound")
-end
-
-local function CreateCharlieReference()
-    if not scene_ then
-        return
-    end
-    local node = scene_:CreateChild("CharlieRef")
-    node.position = Vector3(0.45, 0, 0)
-    local body = node:CreateChild("Body")
-    body.position = Vector3(0, 0.22, 0)
-    local bodyModel = body:CreateComponent("StaticModel")
-    bodyModel.model = CapsuleGeometry(0.16, 0.38, 12, 6):ToModel()
-    local material = LookApplier.CreateStillObjectUnlitMaterial({
-        color = "#F5DB5C",
-        opaque = true,
-    })
-    bodyModel.material = material
-    local head = node:CreateChild("Head")
-    head.position = Vector3(0, 0.46, 0)
-    head.scale = Vector3(0.72, 0.72, 0.72)
-    local headModel = head:CreateComponent("StaticModel")
-    headModel.model = SphereGeometry(0.16, 16, 8):ToModel()
-    headModel.material = LookApplier.CreateStillObjectUnlitMaterial({
-        color = "#FAB87A",
-        opaque = true,
-    })
 end
 
 local function CreateGroundMark()
@@ -131,7 +113,7 @@ local function CreateUI()
     })
 
     statusLabel_ = UI.Label {
-        text = "Toy Mouse · 白身体 / 粉内耳尾巴 / 黑眼睛 / 红鼻子",
+        text = "立方体 / 胶囊 / 圆柱 / 三棱柱 · 统一 still_object_base 面光 shader",
         fontSize = 13,
         fontColor = { 231, 238, 248, 255 },
         whiteSpace = "normal",
@@ -159,7 +141,7 @@ local function CreateUI()
                         fontColor = { 231, 238, 248, 255 },
                     },
                     UI.Label {
-                        text = "Poly Pizza Toy Mouse。身体白、内耳/尾巴粉、眼睛黑、鼻子红。右侧胶囊是查理对照。",
+                        text = "四种基础 3D 静物，每个图形一个 StaticModel、一个 shader。",
                         fontSize = 11,
                         fontColor = { 145, 160, 184, 255 },
                         whiteSpace = "normal",
@@ -207,13 +189,12 @@ function StillImportLab.Start()
     renderer:SetViewport(0, viewport_)
 
     CreateGroundMark()
-    CreateAlgernon()
-    CreateCharlieReference()
+    CreatePrimitiveStills()
     CreateUI()
     ApplyCamera()
 
     SubscribeToEvent("Update", "HandleStillImportLabUpdate")
-    print("StillImportLab: Algernon bound from StillModels/Algernon.json")
+    print("StillImportLab: primitive stills bound")
 end
 
 function StillImportLab.Stop()

@@ -12,6 +12,10 @@ local CATALOG_DIR = "StillModels/"
 local KNOWN_SIDECARS = {
     "StillModels/Door.json",
     "StillModels/Algernon.json",
+    "StillModels/StillCube.json",
+    "StillModels/StillCapsule.json",
+    "StillModels/StillCylinder.json",
+    "StillModels/StillTriPrism.json",
 }
 local cached_ = nil
 
