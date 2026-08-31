@@ -18,10 +18,10 @@ local LevelDirector = require "LevelDirector"
 
 local LevelDirectorCatalog = {}
 
--- 具体关卡演出类按关卡 id 登记。当前为空：框架先落地，不写某一关剧情。
+-- 具体关卡演出类按关卡 id 登记。没有登记的关卡不创建导演。
 ---@type table<string, string>
 LevelDirectorCatalog.MODULES = {
-    -- chapter_1_3 = "LevelDirectors.Chapter13",
+    chapter_1 = "LevelDirectors.Chapter1",
 }
 
 ---@param session table
