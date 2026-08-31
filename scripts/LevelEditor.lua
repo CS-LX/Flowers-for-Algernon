@@ -2122,6 +2122,9 @@ function LevelEditor:Refresh(timeStep)
             self.overlayViewManager:GetEditorCamera()
         )
         self.partEditor:Refresh()
+        if input:GetKeyPress(KEY_ESCAPE) then
+            self:BackToLevel()
+        end
     elseif self.mode == "preview" then
         if input:GetKeyPress(KEY_ESCAPE) then
             self:StopGamePreview()

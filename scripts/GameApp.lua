@@ -225,8 +225,8 @@ function GameApp:Update(timeStep)
     if self.state == STATE_EDITOR and self.levelEditor then
         local modeBefore = self.levelEditor.mode
         self.levelEditor:Refresh(timeStep)
-        -- Preview 自己用 Esc 退出试玩；只有 Level/Part 编辑态 Esc 才回选关。
-        if self.levelEditor and modeBefore ~= "preview" and input:GetKeyPress(KEY_ESCAPE) then
+        -- Preview / Part 各自消费 Esc；只有关卡 Object Tree 态才回选关。
+        if self.levelEditor and modeBefore == "level" and input:GetKeyPress(KEY_ESCAPE) then
             self:BackToLevelSelect()
         end
     end
