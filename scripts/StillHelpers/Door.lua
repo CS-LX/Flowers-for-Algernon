@@ -5,8 +5,8 @@
 local Door = {}
 
 Door.OPEN_THRESHOLD = 0.95
--- 门板打开后包围盒会变；略微外扩，让站在门槛上的角色也算进入。
-Door.BOUNDS_INFLATE = 0.35
+-- 门板打开后包围盒会变；只略微外扩到门槛，不要把体积撑成整段楼梯。
+Door.BOUNDS_INFLATE = 0.08
 
 ---@class DoorTriggerContext
 ---@field playerPosition Vector3|nil

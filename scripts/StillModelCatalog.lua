@@ -195,12 +195,28 @@ local function NormalizeAsset(source, fallbackId)
     local rootRotation = source.rootRotation or {}
     local rootOffset = source.rootOffset or {}
     local rootScale = source.rootScale or {}
+    local bounds = nil
+    if type(source.bounds) == "table" and type(source.bounds.min) == "table" and type(source.bounds.max) == "table" then
+        bounds = {
+            min = {
+                x = tonumber(source.bounds.min.x) or 0.0,
+                y = tonumber(source.bounds.min.y) or 0.0,
+                z = tonumber(source.bounds.min.z) or 0.0,
+            },
+            max = {
+                x = tonumber(source.bounds.max.x) or 0.0,
+                y = tonumber(source.bounds.max.y) or 0.0,
+                z = tonumber(source.bounds.max.z) or 0.0,
+            },
+        }
+    end
     return {
         id = id,
         label = type(source.label) == "string" and source.label or id,
         builder = builder,
         modelPath = modelPath,
         component = source.component == "AnimatedModel" and "AnimatedModel" or "StaticModel",
+        bounds = bounds,
         rootRotation = {
             x = tonumber(rootRotation.x) or 0.0,
             y = tonumber(rootRotation.y) or 0.0,

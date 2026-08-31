@@ -292,18 +292,11 @@ function PartRootRenderer:GetRoot(partId)
     return entry and entry.node or nil
 end
 
--- 静物世界包围盒：优先用模型 worldBoundingBox，便于“角色进入”判定。
+-- 静物世界包围盒：用根节点空间的 localBounds，避免模型局部盒未旋转时撑大。
 function PartRootRenderer:GetStillWorldBoundingBox(objectId)
     local entry = self.partRoots[objectId]
     if not entry or entry.kind ~= "stillObject" then
         return nil
-    end
-    local runtime = entry.stillRuntime
-    if runtime and runtime.localBounds and runtime.node then
-        return runtime.localBounds:Transformed(runtime.node.worldTransform)
-    end
-    if runtime and runtime.model then
-        return runtime.model.worldBoundingBox
     end
     if not entry.node or not entry.minPoint or not entry.maxPoint then
         return nil

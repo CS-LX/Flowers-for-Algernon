@@ -5,6 +5,10 @@
   "component": "AnimatedModel",
   "rootRotation": { "x": 90, "y": 0, "z": 0 },
   "rootOffset": { "x": 0, "y": 0.02, "z": 0 },
+  "bounds": {
+    "min": { "x": -0.9, "y": -0.08, "z": -1.9 },
+    "max": { "x": 0.9, "y": 0.22, "z": 0.02 }
+  },
   "slots": [
     {
       "index": 0,

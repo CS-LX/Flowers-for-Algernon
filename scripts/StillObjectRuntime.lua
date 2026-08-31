@@ -216,7 +216,8 @@ function StillObjectRuntime.Bind(parent, object)
 
     ---@type AnimatedModel|StaticModel|nil
     local model = nil
-    local localBounds = nil
+    ---@type BoundingBox|nil
+    local modelSpaceBounds = nil
     if asset.modelPath ~= "" then
         local resource = cache:GetResource("Model", asset.modelPath)
         if not resource then
@@ -229,6 +230,7 @@ function StillObjectRuntime.Bind(parent, object)
             model = node:CreateComponent("StaticModel")
         end
         model:SetModel(resource)
+        modelSpaceBounds = resource.boundingBox
     elseif asset.builder ~= "" then
         local built = StillBuilders.Build(asset.builder, node)
         if not built then
@@ -236,10 +238,16 @@ function StillObjectRuntime.Bind(parent, object)
             return nil
         end
         model = built.model
-        localBounds = built.localBounds
+        modelSpaceBounds = built.localBounds
     else
         print("StillObjectRuntime: asset has neither modelPath nor builder " .. asset.id)
         return nil
+    end
+    if asset.bounds then
+        modelSpaceBounds = BoundingBox(
+            Vector3(asset.bounds.min.x, asset.bounds.min.y, asset.bounds.min.z),
+            Vector3(asset.bounds.max.x, asset.bounds.max.y, asset.bounds.max.z)
+        )
     end
 
     local entry = {
@@ -251,8 +259,9 @@ function StillObjectRuntime.Bind(parent, object)
         animCtrl = nil,
         animationName = nil,
         animationLength = 1.0,
-        localBounds = localBounds,
     }
+    ---@type BoundingBox|nil
+    entry.localBounds = nil
 
     if model and asset.component == "AnimatedModel" then
         ---@cast model AnimatedModel
@@ -275,6 +284,21 @@ function StillObjectRuntime.Bind(parent, object)
 
     StillObjectRuntime.ApplyLooks(entry, object)
     StillObjectRuntime.ApplyDrivers(entry, object)
+    -- 选中/触发箱在静物根节点空间。用静止姿态盒子乘上模型节点局部变换，
+    -- 避免门的 90° 旋转、开门骨骼和丁达尔光把盒子撑成横躺长方体。
+    if modelSpaceBounds then
+        entry.localBounds = modelSpaceBounds:Transformed(node.transform)
+        print(string.format(
+            "StillObjectRuntime: bounds %s min=(%.3f, %.3f, %.3f) max=(%.3f, %.3f, %.3f)",
+            asset.id,
+            entry.localBounds.min.x,
+            entry.localBounds.min.y,
+            entry.localBounds.min.z,
+            entry.localBounds.max.x,
+            entry.localBounds.max.y,
+            entry.localBounds.max.z
+        ))
+    end
     local geometryCount = model and model:GetNumGeometries() or 0
     print(string.format(
         "StillObjectRuntime: bound %s geos=%d drivers=%d builder=%s",
