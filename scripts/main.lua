@@ -1,38 +1,29 @@
--- 六边形视觉闯关游戏入口。
--- 默认进入白膜选关；关卡容器负责 Init / Dispose。
+-- 临时入口：自研 stencil RT 实验。
+-- 正式玩法入口仍在 Git 历史的 GameApp；本分支只跑实验室。
 
-local GameApp = require "GameApp"
-local ScreenColorPicker = require "ScreenColorPicker"
+local StencilRtLab = require "StencilRtLab"
 
----@type GameApp|nil
-local app_ = nil
+---@type StencilRtLab|nil
+local lab_ = nil
 
 function Start()
-    graphics.windowTitle = "Hexagon Visual Challenge"
-    app_ = GameApp.New()
-    app_:Start()
+    lab_ = StencilRtLab.New()
+    lab_:Start()
     SubscribeToEvent("Update", "HandleUpdate")
-    SubscribeToEvent("EndRendering", "HandleEndRendering")
-    print("Game entry: level select")
+    print("Game entry: StencilRtLab")
 end
 
 function Stop()
-    if app_ then
-        app_:Stop()
-        app_ = nil
+    if lab_ then
+        lab_:Stop()
+        lab_ = nil
     end
 end
 
 ---@param eventType string
 ---@param eventData UpdateEventData
 function HandleUpdate(eventType, eventData)
-    if app_ then
-        app_:Update(eventData["TimeStep"]:GetFloat())
+    if lab_ then
+        lab_:Update(eventData["TimeStep"]:GetFloat())
     end
-end
-
----@param eventType string
----@param eventData EndRenderingEventData
-function HandleEndRendering(eventType, eventData)
-    ScreenColorPicker.CaptureIfPending()
 end
