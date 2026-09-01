@@ -1,6 +1,8 @@
 -- 轻剧情播放器。
 -- 排队、打字、点击翻页、阻塞输入、完成回调。不写某关台词。
 
+local StoryTextStyle = require "StoryTextStyle"
+
 local StoryPlayer = {}
 StoryPlayer.__index = StoryPlayer
 
@@ -34,15 +36,19 @@ local function CopyLine(source)
     elseif blockInput == nil then
         blockInput = false
     end
+    local text = tostring(source.text or "")
+    local style = source.style or source.speaker
     return {
         id = source.id,
         speaker = source.speaker,
-        text = tostring(source.text or ""),
+        style = StoryTextStyle.ResolveName(style),
+        text = text,
         image = source.image,
         background = source.background,
         mode = mode,
         typeSpeed = tonumber(source.typeSpeed) or DEFAULT_TYPE_SPEED,
         blockInput = blockInput == true,
+        layout = StoryTextStyle.Layout(text, style, { id = source.id }),
     }
 end
 
@@ -152,7 +158,7 @@ function StoryPlayer:Advance()
     if not line then
         return false
     end
-    if line.mode == "banner" or self.exiting then
+    if self.exiting then
         return false
     end
     if not self.lineComplete then
@@ -240,12 +246,7 @@ function StoryPlayer:Update(timeStep)
         if line.mode == "banner" then
             self.holdElapsed = self.holdElapsed + timeStep
             if self.holdElapsed >= BANNER_HOLD then
-                self.index = self.index + 1
-                if self.index > #self.lines then
-                    self:Finish()
-                else
-                    self:ShowCurrent(true)
-                end
+                self:Advance()
             end
             return
         end

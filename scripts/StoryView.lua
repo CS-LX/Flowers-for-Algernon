@@ -7,35 +7,9 @@ local StoryHexPrompt = require "StoryHexPrompt"
 local StoryView = {}
 StoryView.__index = StoryView
 
-local WHITE = { 255, 255, 255, 255 }
-local TEXT_SHADOW = {
-    offsetX = 0,
-    offsetY = 1,
-    blur = 10,
-    color = { 18, 14, 10, 150 },
-}
 local EXIT_SECONDS = 0.35
 local EXIT_SLIDE = 28
 local WAVE_WAIT = 0.45
-
-local function VisibleText(line, visibleChars)
-    local text = line and line.text or ""
-    local total = utf8.len(text)
-    if type(total) ~= "number" then
-        total = #text
-    end
-    if visibleChars >= total then
-        return text
-    end
-    if visibleChars <= 0 then
-        return ""
-    end
-    local index = utf8.offset(text, math.floor(visibleChars) + 1)
-    if not index then
-        return text
-    end
-    return text:sub(1, index - 1)
-end
 
 function StoryView.New()
     local self = setmetatable({}, StoryView)
@@ -43,12 +17,12 @@ function StoryView.New()
     self.root = nil
     ---@type Widget|nil
     self.bottom = nil
-    ---@type Label|nil
-    self.bottomText = nil
     ---@type Widget|nil
     self.bottomTextHost = nil
     ---@type table|nil
     self.bottomPrompt = nil
+    self.glyphViews = {}
+    self.layout = nil
     self.mode = nil
     self.lineComplete = false
     self.exitElapsed = -1.0
@@ -71,20 +45,14 @@ function StoryView:RequestAdvance()
 end
 
 function StoryView:Build()
-    self.bottomText = UI.Label {
-        text = "",
-        fontSize = 18,
-        fontColor = WHITE,
-        whiteSpace = "normal",
-        textAlign = "center",
-        textShadow = TEXT_SHADOW,
-    }
     self.bottomTextHost = UI.Panel {
         width = "80%",
         maxWidth = 720,
-        alignItems = "center",
+        flexDirection = "row",
+        flexWrap = "wrap",
+        justifyContent = "center",
+        alignItems = "flex-end",
         pointerEvents = "none",
-        children = { self.bottomText },
     }
     self.bottomPrompt = StoryHexPrompt {
         width = 56,
@@ -214,13 +182,13 @@ function StoryView:ShowLine(line, visibleChars, complete, isNewLine)
         self:CancelExit()
         self:ResetContentMotion()
     end
-    local shown = VisibleText(line, visibleChars)
+    if line.layout then
+        self:EnsureGlyphs(line.layout)
+        self:SetVisibleGlyphs(visibleChars or 0)
+    end
     if self.bottom then
         self.bottom:SetVisible(true)
         self.bottom:SetProp("pointerEvents", mode == "modal" and "auto" or "none")
-    end
-    if self.bottomText then
-        self.bottomText:SetText(shown)
     end
     if self.exitElapsed < 0.0 then
         self:SyncPrompt()
@@ -245,11 +213,54 @@ function StoryView:Update(timeStep)
     end
 end
 
+function StoryView:ClearGlyphs()
+    if not self.bottomTextHost then
+        self.glyphViews = {}
+        self.layout = nil
+        return
+    end
+    local children = self.bottomTextHost.children or {}
+    for i = #children, 1, -1 do
+        self.bottomTextHost:RemoveChild(children[i])
+    end
+    self.glyphViews = {}
+    self.layout = nil
+end
+
+function StoryView:EnsureGlyphs(layout)
+    if self.layout == layout and #self.glyphViews == #(layout.glyphs or {}) then
+        return
+    end
+    self:ClearGlyphs()
+    self.layout = layout
+    local glyphs = layout and layout.glyphs or {}
+    for i = 1, #glyphs do
+        local glyph = glyphs[i]
+        local label = UI.Label {
+            text = glyph.text,
+            fontSize = glyph.fontSize,
+            fontColor = glyph.fontColor,
+            textShadow = glyph.textShadow,
+            rotate = glyph.rotate or 0,
+            visible = false,
+            pointerEvents = "none",
+        }
+        self.bottomTextHost:AddChild(label)
+        self.glyphViews[i] = label
+    end
+end
+
+function StoryView:SetVisibleGlyphs(count)
+    for i = 1, #self.glyphViews do
+        self.glyphViews[i]:SetVisible(i <= count)
+    end
+end
+
 function StoryView:Destroy()
     self:Hide()
+    self:ClearGlyphs()
     self.root = nil
     self.bottom = nil
-    self.bottomText = nil
     self.bottomTextHost = nil
     self.bottomPrompt = nil
     self.onAdvance = nil

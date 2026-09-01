@@ -25,6 +25,7 @@ return {
         {
             id = "ch1.test.banner",
             speaker = "测试",
+            style = "normal",
             text = "这是底部 banner 打字测试。它会自动打完，不锁走路。",
             mode = "banner",
         },
@@ -33,7 +34,14 @@ return {
         {
             id = "ch1.test.modal",
             speaker = "测试",
+            style = "normal",
             text = "这是 modal 打字测试。必须点完才能继续玩。",
+            mode = "modal",
+        },
+        {
+            id = "ch1.test.charlie",
+            style = "charlie",
+            text = "门还在。我想走到那扇门那里。",
             mode = "modal",
         },
     },
