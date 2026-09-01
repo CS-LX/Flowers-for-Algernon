@@ -5,6 +5,7 @@ local StoryPlayer = {}
 StoryPlayer.__index = StoryPlayer
 
 local DEFAULT_TYPE_SPEED = 28
+local BANNER_HOLD = 1.2
 
 local function LineCharCount(text)
     if type(text) ~= "string" or text == "" then
@@ -52,6 +53,7 @@ function StoryPlayer.New(view)
     self.charProgress = 0.0
     self.playing = false
     self.lineComplete = false
+    self.holdElapsed = 0.0
     ---@type fun()|nil
     self.onComplete = nil
     if self.view then
@@ -129,6 +131,7 @@ function StoryPlayer:ShowCurrent(reset)
     if reset then
         self.visibleChars = 0
         self.charProgress = 0.0
+        self.holdElapsed = 0.0
         self.lineComplete = LineCharCount(line.text) <= 0
     end
     if self.view and self.view.ShowLine then
@@ -142,6 +145,9 @@ function StoryPlayer:Advance()
     end
     local line = self.lines[self.index]
     if not line then
+        return false
+    end
+    if line.mode == "banner" then
         return false
     end
     if not self.lineComplete then
@@ -184,6 +190,7 @@ function StoryPlayer:Stop(hide)
     self.visibleChars = 0
     self.charProgress = 0.0
     self.lineComplete = false
+    self.holdElapsed = 0.0
     self.onComplete = nil
     if hide ~= false and self.view and self.view.Hide then
         self.view:Hide()
@@ -191,14 +198,29 @@ function StoryPlayer:Stop(hide)
 end
 
 function StoryPlayer:Update(timeStep)
-    if not self.playing or self.lineComplete then
-        if self.playing and input:GetKeyPress(KEY_SPACE) then
-            self:Advance()
-        end
+    if not self.playing then
         return
     end
     local line = self.lines[self.index]
     if not line then
+        return
+    end
+    if self.lineComplete then
+        if line.mode == "banner" then
+            self.holdElapsed = self.holdElapsed + timeStep
+            if self.holdElapsed >= BANNER_HOLD then
+                self.index = self.index + 1
+                if self.index > #self.lines then
+                    self:Finish()
+                else
+                    self:ShowCurrent(true)
+                end
+            end
+            return
+        end
+        if input:GetKeyPress(KEY_SPACE) then
+            self:Advance()
+        end
         return
     end
     local total = LineCharCount(line.text)
@@ -218,7 +240,7 @@ function StoryPlayer:Update(timeStep)
         end
         self:ShowCurrent(false)
     end
-    if input:GetKeyPress(KEY_SPACE) then
+    if line.mode ~= "banner" and input:GetKeyPress(KEY_SPACE) then
         self:Advance()
     end
 end

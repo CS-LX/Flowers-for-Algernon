@@ -136,11 +136,9 @@ function StoryView:Build()
         backgroundColor = BANNER_BG,
         borderRadius = 10,
         visible = false,
-        pointerEvents = "auto",
+        pointerEvents = "none",
         onClick = function()
             if self.mode == "modal" and self.onAdvance then
-                self.onAdvance()
-            elseif self.mode == "banner" and self.onAdvance then
                 self.onAdvance()
             end
         end,
@@ -209,6 +207,7 @@ function StoryView:ShowLine(line, visibleChars, complete)
     end
     if self.bottom then
         self.bottom:SetVisible(true)
+        self.bottom:SetProp("pointerEvents", mode == "modal" and "auto" or "none")
     end
     if self.bottomSpeaker then
         self.bottomSpeaker:SetVisible(speaker ~= "")
@@ -218,7 +217,7 @@ function StoryView:ShowLine(line, visibleChars, complete)
         self.bottomText:SetText(shown)
     end
     if self.bottomHint then
-        self.bottomHint:SetVisible(mode == "modal" or line.blockInput == true)
+        self.bottomHint:SetVisible(mode == "modal")
         self.bottomHint:SetText(hint)
     end
 end

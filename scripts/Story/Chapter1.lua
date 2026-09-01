@@ -9,6 +9,22 @@ return {
             mode = "fullscreen",
         },
     },
+    bannerTest = {
+        {
+            id = "ch1.test.banner",
+            speaker = "测试",
+            text = "这是底部 banner 打字测试。它会自动打完，不锁走路。",
+            mode = "banner",
+        },
+    },
+    modalTest = {
+        {
+            id = "ch1.test.modal",
+            speaker = "测试",
+            text = "这是 modal 打字测试。必须点完才能继续玩。",
+            mode = "modal",
+        },
+    },
     clear = {
         {
             id = "ch1.clear.1",

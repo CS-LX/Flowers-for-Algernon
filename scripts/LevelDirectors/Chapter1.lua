@@ -8,6 +8,7 @@ local Chapter1 = LevelDirector.Extend()
 
 local LIFT_DURATION = 2.0
 local LIFT_OFFSET = 0.6
+local TEST_STORY_DELAY = 5.0
 
 -- 慢-快-慢。自研公式，未接入缓动库。
 local function QuadInOut(t)
@@ -25,6 +26,8 @@ function Chapter1:OnStart()
     self.authoredY = 0.0
     self.authoredX = 0.0
     self.authoredZ = 0.0
+    self.elapsed = 0.0
+    self.testStoryPlayed = false
 
     local document = self:GetDocument()
     if not document then
@@ -80,6 +83,19 @@ function Chapter1:BeginLift()
 end
 
 function Chapter1:OnUpdate(timeStep)
+    self.elapsed = (self.elapsed or 0.0) + timeStep
+    if not self.testStoryPlayed
+        and self.elapsed >= TEST_STORY_DELAY
+        and not self.lifting
+        and not self:IsStoryPlaying() then
+        self.testStoryPlayed = true
+        print("Chapter1: start banner/modal test")
+        self:PlayStory(Story.bannerTest, {
+            onComplete = function()
+                self:PlayStory(Story.modalTest)
+            end,
+        })
+    end
     if not self.lifting or not self.partId then
         return
     end
