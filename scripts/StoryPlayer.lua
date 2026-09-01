@@ -37,6 +37,7 @@ local function CopyLine(source)
         speaker = source.speaker,
         text = tostring(source.text or ""),
         image = source.image,
+        background = source.background,
         mode = mode,
         typeSpeed = tonumber(source.typeSpeed) or DEFAULT_TYPE_SPEED,
         blockInput = blockInput == true,
@@ -54,6 +55,7 @@ function StoryPlayer.New(view)
     self.playing = false
     self.lineComplete = false
     self.holdElapsed = 0.0
+    self.exiting = false
     ---@type fun()|nil
     self.onComplete = nil
     if self.view then
@@ -111,6 +113,7 @@ function StoryPlayer:Play(lines, options)
     self.lines = copied
     self.index = 1
     self.playing = true
+    self.exiting = false
     self.onComplete = options.onComplete
     self:ShowCurrent(true)
     print(string.format(
@@ -135,7 +138,7 @@ function StoryPlayer:ShowCurrent(reset)
         self.lineComplete = LineCharCount(line.text) <= 0
     end
     if self.view and self.view.ShowLine then
-        self.view:ShowLine(line, self.visibleChars, self.lineComplete)
+        self.view:ShowLine(line, self.visibleChars, self.lineComplete, reset == true)
     end
 end
 
@@ -147,21 +150,36 @@ function StoryPlayer:Advance()
     if not line then
         return false
     end
-    if line.mode == "banner" then
+    if line.mode == "banner" or self.exiting then
         return false
     end
     if not self.lineComplete then
         self.visibleChars = LineCharCount(line.text)
         self.lineComplete = true
+        if self.view and self.view.NotifyAdvance then
+            self.view:NotifyAdvance("reveal")
+        end
         self:ShowCurrent(false)
         return true
     end
-    self.index = self.index + 1
-    if self.index > #self.lines then
-        self:Finish()
+    self.exiting = true
+    local function Continue()
+        if not self.playing then
+            return
+        end
+        self.exiting = false
+        self.index = self.index + 1
+        if self.index > #self.lines then
+            self:Finish()
+            return
+        end
+        self:ShowCurrent(true)
+    end
+    if self.view and self.view.NotifyAdvance then
+        self.view:NotifyAdvance("advance", Continue)
         return true
     end
-    self:ShowCurrent(true)
+    Continue()
     return true
 end
 
@@ -185,6 +203,7 @@ end
 ---@param hide boolean|nil
 function StoryPlayer:Stop(hide)
     self.playing = false
+    self.exiting = false
     self.lines = {}
     self.index = 1
     self.visibleChars = 0
@@ -197,12 +216,22 @@ function StoryPlayer:Stop(hide)
     end
 end
 
+function StoryPlayer:WantsAdvance()
+    return input:GetKeyPress(KEY_SPACE)
+end
+
 function StoryPlayer:Update(timeStep)
+    if self.view and self.view.Update then
+        self.view:Update(timeStep)
+    end
     if not self.playing then
         return
     end
     local line = self.lines[self.index]
     if not line then
+        return
+    end
+    if self.exiting then
         return
     end
     if self.lineComplete then
@@ -218,7 +247,7 @@ function StoryPlayer:Update(timeStep)
             end
             return
         end
-        if input:GetKeyPress(KEY_SPACE) then
+        if line.mode ~= "banner" and self:WantsAdvance() then
             self:Advance()
         end
         return
@@ -240,7 +269,7 @@ function StoryPlayer:Update(timeStep)
         end
         self:ShowCurrent(false)
     end
-    if line.mode ~= "banner" and input:GetKeyPress(KEY_SPACE) then
+    if line.mode ~= "banner" and self:WantsAdvance() then
         self:Advance()
     end
 end

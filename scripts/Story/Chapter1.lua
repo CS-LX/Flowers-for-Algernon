@@ -4,9 +4,21 @@ return {
     intro = {
         {
             id = "ch1.intro.1",
-            speaker = "查理",
-            text = "我想走到那扇门那里。",
+            text = "门还在。",
             mode = "fullscreen",
+            background = { 18, 16, 14, 236 },
+        },
+        {
+            id = "ch1.intro.2",
+            text = "我想过去。",
+            mode = "fullscreen",
+            background = { 24, 20, 16, 236 },
+        },
+        {
+            id = "ch1.intro.3",
+            text = "我想走到那扇门那里。路还没连上，但它已经站在另一边等了。",
+            mode = "fullscreen",
+            background = { 32, 24, 18, 236 },
         },
     },
     bannerTest = {
@@ -31,12 +43,14 @@ return {
             speaker = nil,
             text = "门后还是迷宫。",
             mode = "fullscreen",
+            background = { 18, 16, 14, 236 },
         },
         {
             id = "ch1.clear.2",
             speaker = "查理",
             text = "它已经先走过去了吗？",
             mode = "fullscreen",
+            background = { 28, 22, 18, 236 },
         },
     },
 }
