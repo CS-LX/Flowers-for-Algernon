@@ -18,6 +18,8 @@ local LookApplier = require "LookApplier"
 ---@field hintLabel Text|nil
 ---@field algernonView table|nil
 ---@field quadModel StaticModel|nil
+---@field rtWidth integer
+---@field rtHeight integer
 ---@field yaw number
 ---@field pitch number
 local StencilRtLab = {}
@@ -25,9 +27,8 @@ StencilRtLab.__index = StencilRtLab
 
 local MASK_BIT = 1
 local WORLD_BIT = 2
-local RT_SIZE = 256
-local PREVIEW_SIZE = 180
-local CAMERA_SPEED = 8.0
+local PREVIEW_HEIGHT = 180
+local CAMERA_SPEED = 10.0
 local MOUSE_SENSITIVITY = 0.12
 
 local function CreateUnlitMaterial(color)
@@ -78,16 +79,49 @@ function StencilRtLab.New()
     self.algernonView = nil
     ---@type StaticModel|nil
     self.quadModel = nil
+    self.rtWidth = 0
+    self.rtHeight = 0
     self.yaw = 0.0
     self.pitch = 8.0
     return self
 end
 
+local function CurrentViewportSize()
+    local width = graphics:GetWidth()
+    local height = graphics:GetHeight()
+    if width < 8 then
+        width = 8
+    end
+    if height < 8 then
+        height = 8
+    end
+    return width, height
+end
+
 function StencilRtLab:CreateScene()
     self.scene = Scene()
     self.scene:CreateComponent("Octree")
-    LookApplier.ApplyAtmosphere(self.scene, LookApplier.DefaultAtmosphere())
+    local atmosphere = LookApplier.CopyAtmosphere(LookApplier.DefaultAtmosphere())
+    -- 实验室天空用近距雾色顶成蓝；不新建 Zone，避免盖掉 LightGroup。
+    atmosphere.fog.color = "#5BA3E8"
+    atmosphere.fog.start = 8.0
+    atmosphere.fog.finish = 40.0
+    LookApplier.ApplyAtmosphere(self.scene, atmosphere)
     renderer.hdrRendering = false
+    self:LockSkyboxToWorld()
+end
+
+function StencilRtLab:LockSkyboxToWorld()
+    if not self.scene then
+        return
+    end
+    local skyboxes = self.scene:GetComponents("Skybox", true)
+    local count = 0
+    for _, skybox in ipairs(skyboxes or {}) do
+        skybox.viewMask = WORLD_BIT
+        count = count + 1
+    end
+    print("StencilRtLab: locked Skybox viewMask count=" .. tostring(count))
 end
 
 function StencilRtLab:CreateCameras()
@@ -122,6 +156,7 @@ function StencilRtLab:CreateMaskRenderPath()
         local command = path:GetCommand(index)
         if command.type == CMD_CLEAR then
             command.clearFlags = CLEAR_COLOR | CLEAR_DEPTH | CLEAR_STENCIL
+            command.useFogColor = false
             command.clearColor = Color(0.0, 0.0, 0.0, 1.0)
             command.clearDepth = 1.0
             command.clearStencil = 0
@@ -137,12 +172,14 @@ function StencilRtLab:CreateMaskRenderPath()
 end
 
 function StencilRtLab:CreateRt()
+    local width, height = CurrentViewportSize()
     self.rtTexture = Texture2D:new()
     self.rtTexture:SetNumLevels(1)
     self.rtTexture:SetFilterMode(FILTER_NEAREST)
     self.rtTexture:SetAddressMode(COORD_U, ADDRESS_CLAMP)
     self.rtTexture:SetAddressMode(COORD_V, ADDRESS_CLAMP)
-    local created = self.rtTexture:SetSize(RT_SIZE, RT_SIZE, graphics:GetRGBAFormat(), TEXTURE_RENDERTARGET)
+    -- 格式查询是 Graphics 类静态方法；用实例 graphics: 会把 userdata 当成 self 传进去。
+    local created = self.rtTexture:SetSize(width, height, Graphics:GetRGBAFormat(), TEXTURE_RENDERTARGET)
     if not created then
         print("StencilRtLab: failed to create color RT")
         return false
@@ -151,9 +188,9 @@ function StencilRtLab:CreateRt()
     self.rtDepth = Texture2D:new()
     self.rtDepth:SetNumLevels(1)
     local depthCreated = self.rtDepth:SetSize(
-        RT_SIZE,
-        RT_SIZE,
-        graphics:GetDepthStencilFormat(),
+        width,
+        height,
+        Graphics:GetDepthStencilFormat(),
         TEXTURE_DEPTHSTENCIL
     )
     if not depthCreated then
@@ -166,8 +203,36 @@ function StencilRtLab:CreateRt()
     self.rtViewport = Viewport:new(self.scene, self.rtCamera, self:CreateMaskRenderPath())
     surface:SetViewport(0, self.rtViewport)
     surface:SetUpdateMode(SURFACE_UPDATEALWAYS)
-    print(string.format("StencilRtLab: RT %dx%d color+depth created", RT_SIZE, RT_SIZE))
+    self.rtWidth = width
+    self.rtHeight = height
+    print(string.format("StencilRtLab: RT %dx%d color+depth created", width, height))
     return true
+end
+
+function StencilRtLab:ResizeRtIfNeeded()
+    if not self.rtTexture or not self.rtDepth then
+        return
+    end
+    local width, height = CurrentViewportSize()
+    if width == self.rtWidth and height == self.rtHeight then
+        return
+    end
+    local colorOk = self.rtTexture:SetSize(width, height, Graphics:GetRGBAFormat(), TEXTURE_RENDERTARGET)
+    local depthOk = self.rtDepth:SetSize(width, height, Graphics:GetDepthStencilFormat(), TEXTURE_DEPTHSTENCIL)
+    if not colorOk or not depthOk then
+        print(string.format("StencilRtLab: RT resize failed %dx%d", width, height))
+        return
+    end
+    local surface = self.rtTexture:GetRenderSurface()
+    surface:SetLinkedDepthStencil(self.rtDepth:GetRenderSurface())
+    if self.rtViewport then
+        surface:SetViewport(0, self.rtViewport)
+    end
+    surface:SetUpdateMode(SURFACE_UPDATEALWAYS)
+    self.rtWidth = width
+    self.rtHeight = height
+    self:SyncPreviewSize()
+    print(string.format("StencilRtLab: RT resized to %dx%d", width, height))
 end
 
 function StencilRtLab:CreateWorld()
@@ -176,7 +241,7 @@ function StencilRtLab:CreateWorld()
     floorNode.scale = Vector3(12.0, 0.1, 12.0)
     local floorModel = floorNode:CreateComponent("StaticModel")
     floorModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-    floorModel:SetMaterial(CreateUnlitMaterial(Color(0.72, 0.68, 0.60, 1.0)))
+    floorModel:SetMaterial(CreateUnlitMaterial(Color(1.0, 0.88, 0.18, 1.0)))
     floorModel.viewMask = WORLD_BIT
     floorModel.castShadows = false
 
@@ -247,10 +312,10 @@ function StencilRtLab:CreatePreview()
     self.preview = BorderImage:new()
     self.preview:SetTexture(rtTexture)
     self.preview:SetFullImageRect()
-    self.preview:SetSize(PREVIEW_SIZE, PREVIEW_SIZE)
     self.preview:SetAlignment(HA_RIGHT, VA_BOTTOM)
     self.preview:SetPosition(-16, -16)
     ui.root:AddChild(self.preview)
+    self:SyncPreviewSize()
 
     self.hintLabel = Text:new()
     self.hintLabel:SetFont(cache:GetResource("Font", "Fonts/MiSans-Regular.ttf"), 12)
@@ -260,6 +325,18 @@ function StencilRtLab:CreatePreview()
     self.hintLabel:SetPosition(16, 12)
     ui.root:AddChild(self.hintLabel)
     print("StencilRtLab: RT preview attached to ui.root")
+end
+
+function StencilRtLab:SyncPreviewSize()
+    if not self.preview or self.rtWidth <= 0 or self.rtHeight <= 0 then
+        return
+    end
+    local height = PREVIEW_HEIGHT
+    local width = math.floor(height * self.rtWidth / self.rtHeight + 0.5)
+    if width < 8 then
+        width = 8
+    end
+    self.preview:SetSize(width, height)
 end
 
 function StencilRtLab:Start()
@@ -298,17 +375,28 @@ function StencilRtLab:HandleCamera(dt)
     if input:GetKeyDown(KEY_SHIFT) then
         speed = speed * 2.0
     end
+    -- 飞跃式：WASD 沿水平面移动，不跟着俯仰钻进地面。
+    local rotation = self.cameraNode.rotation
+    local rawForward = rotation * Vector3.FORWARD
+    local planarForward = Vector3(rawForward.x, 0.0, rawForward.z)
+    local forward = planarForward:Length() < 0.001 and Vector3.FORWARD or planarForward:Normalized()
+    local rawRight = Vector3.UP:CrossProduct(forward)
+    local right = rawRight:Length() < 0.001 and Vector3.RIGHT or rawRight:Normalized()
+    local move = Vector3.ZERO
     if input:GetKeyDown(KEY_W) then
-        self.cameraNode:Translate(Vector3(0.0, 0.0, 1.0) * dt * speed)
+        move = move + forward
     end
     if input:GetKeyDown(KEY_S) then
-        self.cameraNode:Translate(Vector3(0.0, 0.0, -1.0) * dt * speed)
+        move = move - forward
     end
     if input:GetKeyDown(KEY_A) then
-        self.cameraNode:Translate(Vector3(-1.0, 0.0, 0.0) * dt * speed)
+        move = move - right
     end
     if input:GetKeyDown(KEY_D) then
-        self.cameraNode:Translate(Vector3(1.0, 0.0, 0.0) * dt * speed)
+        move = move + right
+    end
+    if move:Length() > 0.001 then
+        self.cameraNode:Translate(move:Normalized() * dt * speed, TS_WORLD)
     end
     if input:GetKeyDown(KEY_SPACE) then
         self.cameraNode:Translate(Vector3(0.0, 1.0, 0.0) * dt * speed, TS_WORLD)
@@ -319,7 +407,12 @@ function StencilRtLab:HandleCamera(dt)
     self:SyncRtCamera()
 end
 
+function StencilRtLab:HandleScreenMode()
+    self:ResizeRtIfNeeded()
+end
+
 function StencilRtLab:Update(dt)
+    self:ResizeRtIfNeeded()
     self:HandleCamera(dt)
     if self.rtTexture then
         local surface = self.rtTexture:GetRenderSurface()

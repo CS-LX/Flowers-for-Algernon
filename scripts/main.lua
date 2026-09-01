@@ -10,6 +10,7 @@ function Start()
     lab_ = StencilRtLab.New()
     lab_:Start()
     SubscribeToEvent("Update", "HandleUpdate")
+    SubscribeToEvent("ScreenMode", "HandleScreenMode")
     print("Game entry: StencilRtLab")
 end
 
@@ -25,5 +26,13 @@ end
 function HandleUpdate(eventType, eventData)
     if lab_ then
         lab_:Update(eventData["TimeStep"]:GetFloat())
+    end
+end
+
+---@param eventType string
+---@param eventData ScreenModeEventData
+function HandleScreenMode(eventType, eventData)
+    if lab_ then
+        lab_:HandleScreenMode()
     end
 end
