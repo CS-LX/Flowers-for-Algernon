@@ -1,5 +1,5 @@
--- 轻剧情外壳：fullscreen / banner / modal。
--- 只负责显示当前句、背景 crossfade 和六边形提示，不排队、不打字。
+-- 轻剧情外壳：banner / modal。
+-- 字浮在关卡下沿，柔和暗影保证暖色场景可读。fullscreen 暂不使用。
 
 local UI = require("urhox-libs/UI")
 local StoryHexPrompt = require "StoryHexPrompt"
@@ -8,40 +8,15 @@ local StoryView = {}
 StoryView.__index = StoryView
 
 local WHITE = { 255, 255, 255, 255 }
-local DEFAULT_FULLSCREEN_BG = { 18, 16, 14, 236 }
-local CROSSFADE_SECONDS = 0.45
-local BANNER_HEIGHT = 168
+local TEXT_SHADOW = {
+    offsetX = 0,
+    offsetY = 1,
+    blur = 10,
+    color = { 18, 14, 10, 150 },
+}
 local EXIT_SECONDS = 0.35
 local EXIT_SLIDE = 28
 local WAVE_WAIT = 0.45
-
-local function CopyColor(color, fallback)
-    local source = color
-    if type(source) ~= "table" then
-        source = fallback
-    end
-    return {
-        source[1] or 0,
-        source[2] or 0,
-        source[3] or 0,
-        source[4] or 255,
-    }
-end
-
-local function MixColor(fromColor, toColor, t)
-    if t <= 0.0 then
-        return CopyColor(fromColor)
-    end
-    if t >= 1.0 then
-        return CopyColor(toColor)
-    end
-    return {
-        fromColor[1] + (toColor[1] - fromColor[1]) * t,
-        fromColor[2] + (toColor[2] - fromColor[2]) * t,
-        fromColor[3] + (toColor[3] - fromColor[3]) * t,
-        fromColor[4] + (toColor[4] - fromColor[4]) * t,
-    }
-end
 
 local function VisibleText(line, visibleChars)
     local text = line and line.text or ""
@@ -67,23 +42,7 @@ function StoryView.New()
     ---@type Widget|nil
     self.root = nil
     ---@type Widget|nil
-    self.fullscreen = nil
-    ---@type Widget|nil
-    self.fullBgFrom = nil
-    ---@type Widget|nil
-    self.fullBgTo = nil
-    ---@type Widget|nil
-    self.fullContent = nil
-    ---@type Label|nil
-    self.fullText = nil
-    ---@type Widget|nil
-    self.fullTextHost = nil
-    ---@type table|nil
-    self.fullPrompt = nil
-    ---@type Widget|nil
     self.bottom = nil
-    ---@type Widget|nil
-    self.bannerFade = nil
     ---@type Label|nil
     self.bottomText = nil
     ---@type Widget|nil
@@ -92,9 +51,6 @@ function StoryView.New()
     self.bottomPrompt = nil
     self.mode = nil
     self.lineComplete = false
-    self.bgFrom = CopyColor(DEFAULT_FULLSCREEN_BG)
-    self.bgTo = CopyColor(DEFAULT_FULLSCREEN_BG)
-    self.bgMix = 1.0
     self.exitElapsed = -1.0
     self.exitKind = nil
     ---@type fun()|nil
@@ -106,7 +62,7 @@ function StoryView.New()
 end
 
 function StoryView:RequestAdvance()
-    if self.mode == "banner" then
+    if self.mode ~= "modal" then
         return
     end
     if self.onAdvance then
@@ -115,94 +71,13 @@ function StoryView:RequestAdvance()
 end
 
 function StoryView:Build()
-    self.fullBgFrom = UI.Panel {
-        position = "absolute",
-        left = 0,
-        right = 0,
-        top = 0,
-        bottom = 0,
-        backgroundColor = DEFAULT_FULLSCREEN_BG,
-        pointerEvents = "none",
-    }
-    self.fullBgTo = UI.Panel {
-        position = "absolute",
-        left = 0,
-        right = 0,
-        top = 0,
-        bottom = 0,
-        backgroundColor = DEFAULT_FULLSCREEN_BG,
-        pointerEvents = "none",
-    }
-    self.fullText = UI.Label {
-        text = "",
-        fontSize = 22,
-        fontColor = WHITE,
-        whiteSpace = "normal",
-        textAlign = "center",
-    }
-    self.fullPrompt = StoryHexPrompt {
-        width = 56,
-        height = 56,
-        marginTop = 18,
-    }
-    self.fullTextHost = UI.Panel {
-        width = "76%",
-        maxWidth = 720,
-        alignItems = "center",
-        pointerEvents = "none",
-        children = { self.fullText },
-    }
-    self.fullContent = UI.Panel {
-        position = "absolute",
-        left = 0,
-        right = 0,
-        bottom = 56,
-        paddingHorizontal = 48,
-        alignItems = "center",
-        gap = 8,
-        pointerEvents = "none",
-        children = {
-            self.fullTextHost,
-            self.fullPrompt,
-        },
-    }
-    self.fullscreen = UI.Panel {
-        position = "absolute",
-        left = 0,
-        right = 0,
-        top = 0,
-        bottom = 0,
-        visible = false,
-        pointerEvents = "auto",
-        onClick = function()
-            self:RequestAdvance()
-        end,
-        children = {
-            self.fullBgFrom,
-            self.fullBgTo,
-            self.fullContent,
-        },
-    }
-
-    self.bannerFade = UI.Panel {
-        position = "absolute",
-        left = 0,
-        right = 0,
-        top = 0,
-        bottom = 0,
-        pointerEvents = "none",
-        backgroundGradient = {
-            direction = "to-top",
-            from = { 0, 0, 0, 220 },
-            to = { 0, 0, 0, 0 },
-        },
-    }
     self.bottomText = UI.Label {
         text = "",
-        fontSize = 16,
+        fontSize = 18,
         fontColor = WHITE,
         whiteSpace = "normal",
         textAlign = "center",
+        textShadow = TEXT_SHADOW,
     }
     self.bottomTextHost = UI.Panel {
         width = "80%",
@@ -221,23 +96,19 @@ function StoryView:Build()
         position = "absolute",
         left = 0,
         right = 0,
+        top = 0,
         bottom = 0,
-        height = BANNER_HEIGHT,
         paddingHorizontal = 36,
         paddingBottom = 28,
-        paddingTop = 36,
         alignItems = "center",
         justifyContent = "flex-end",
         gap = 8,
         visible = false,
         pointerEvents = "none",
         onClick = function()
-            if self.mode == "modal" then
-                self:RequestAdvance()
-            end
+            self:RequestAdvance()
         end,
         children = {
-            self.bannerFade,
             self.bottomTextHost,
             self.bottomPrompt,
         },
@@ -251,51 +122,17 @@ function StoryView:Build()
         bottom = 0,
         pointerEvents = "box-none",
         children = {
-            self.fullscreen,
             self.bottom,
         },
     }
     return self.root
 end
 
-function StoryView:ApplyBackgroundMix()
-    if not self.fullBgFrom or not self.fullBgTo then
-        return
-    end
-    self.fullBgFrom:SetBackgroundColor(self.bgFrom)
-    self.fullBgTo:SetBackgroundColor(self.bgTo)
-    self.fullBgFrom:SetOpacity(1.0)
-    self.fullBgTo:SetOpacity(self.bgMix)
-end
-
-function StoryView:BeginBackground(color)
-    local nextColor = CopyColor(color, DEFAULT_FULLSCREEN_BG)
-    if self.bgMix < 1.0 then
-        self.bgFrom = MixColor(self.bgFrom, self.bgTo, self.bgMix)
-    else
-        self.bgFrom = CopyColor(self.bgTo)
-    end
-    self.bgTo = nextColor
-    self.bgMix = 0.0
-    self:ApplyBackgroundMix()
-end
-
-function StoryView:ActiveContent()
-    if self.mode == "fullscreen" then
-        return self.fullTextHost
-    end
-    if self.mode == "banner" or self.mode == "modal" then
-        return self.bottomTextHost
-    end
-    return nil
-end
-
 function StoryView:ApplyContentMotion()
-    local content = self:ActiveContent()
-    if not content then
+    if not self.bottomTextHost then
         return
     end
-    content:SetStyle({
+    self.bottomTextHost:SetStyle({
         opacity = self.contentOpacity,
         translateY = self.contentTranslateY,
     })
@@ -308,9 +145,6 @@ function StoryView:ResetContentMotion()
 end
 
 function StoryView:HidePrompts()
-    if self.fullPrompt then
-        self.fullPrompt:HideImmediate()
-    end
     if self.bottomPrompt then
         self.bottomPrompt:HideImmediate()
         self.bottomPrompt:SetVisible(false)
@@ -329,9 +163,6 @@ function StoryView:Hide()
     self:CancelExit()
     self:HidePrompts()
     self:ResetContentMotion()
-    if self.fullscreen then
-        self.fullscreen:SetVisible(false)
-    end
     if self.bottom then
         self.bottom:SetVisible(false)
         self.bottom:SetProp("pointerEvents", "none")
@@ -341,9 +172,8 @@ end
 ---@param kind string
 ---@param onDone fun()|nil
 function StoryView:NotifyAdvance(kind, onDone)
-    local prompt = self.mode == "fullscreen" and self.fullPrompt or self.bottomPrompt
-    if prompt and prompt.PlayWave then
-        prompt:PlayWave(kind)
+    if self.bottomPrompt and self.bottomPrompt.PlayWave then
+        self.bottomPrompt:PlayWave(kind)
     end
     if kind ~= "advance" then
         if type(onDone) == "function" then
@@ -357,22 +187,15 @@ function StoryView:NotifyAdvance(kind, onDone)
 end
 
 function StoryView:SyncPrompt()
-    local clickable = self.mode == "fullscreen" or self.mode == "modal"
-    if self.fullPrompt then
-        if self.mode == "fullscreen" and clickable then
-            self.fullPrompt:SetPrompt(true, self.lineComplete)
-        else
-            self.fullPrompt:SetPrompt(false, false)
-        end
+    if not self.bottomPrompt then
+        return
     end
-    if self.bottomPrompt then
-        local show = self.mode == "modal"
-        self.bottomPrompt:SetVisible(show)
-        if show then
-            self.bottomPrompt:SetPrompt(true, self.lineComplete)
-        else
-            self.bottomPrompt:SetPrompt(false, false)
-        end
+    local show = self.mode == "modal"
+    self.bottomPrompt:SetVisible(show)
+    if show then
+        self.bottomPrompt:SetPrompt(true, self.lineComplete)
+    else
+        self.bottomPrompt:SetPrompt(false, false)
     end
 end
 
@@ -382,7 +205,9 @@ end
 ---@param isNewLine boolean|nil
 function StoryView:ShowLine(line, visibleChars, complete, isNewLine)
     local mode = line.mode or "banner"
-    local modeChanged = self.mode ~= mode
+    if mode == "fullscreen" then
+        mode = "banner"
+    end
     self.mode = mode
     self.lineComplete = complete == true
     if isNewLine then
@@ -390,29 +215,6 @@ function StoryView:ShowLine(line, visibleChars, complete, isNewLine)
         self:ResetContentMotion()
     end
     local shown = VisibleText(line, visibleChars)
-    local skipPrompt = self.exitElapsed >= 0.0
-    if mode == "fullscreen" then
-        if isNewLine or modeChanged then
-            self:BeginBackground(line.background or DEFAULT_FULLSCREEN_BG)
-        end
-        if self.fullscreen then
-            self.fullscreen:SetVisible(true)
-        end
-        if self.bottom then
-            self.bottom:SetVisible(false)
-            self.bottom:SetProp("pointerEvents", "none")
-        end
-        if self.fullText then
-            self.fullText:SetText(shown)
-        end
-        if not skipPrompt then
-            self:SyncPrompt()
-        end
-        return
-    end
-    if self.fullscreen then
-        self.fullscreen:SetVisible(false)
-    end
     if self.bottom then
         self.bottom:SetVisible(true)
         self.bottom:SetProp("pointerEvents", mode == "modal" and "auto" or "none")
@@ -420,16 +222,12 @@ function StoryView:ShowLine(line, visibleChars, complete, isNewLine)
     if self.bottomText then
         self.bottomText:SetText(shown)
     end
-    if not skipPrompt then
+    if self.exitElapsed < 0.0 then
         self:SyncPrompt()
     end
 end
 
 function StoryView:Update(timeStep)
-    if self.mode == "fullscreen" and self.bgMix < 1.0 then
-        self.bgMix = math.min(1.0, self.bgMix + timeStep / CROSSFADE_SECONDS)
-        self:ApplyBackgroundMix()
-    end
     if self.exitElapsed < 0.0 then
         return
     end
@@ -450,15 +248,7 @@ end
 function StoryView:Destroy()
     self:Hide()
     self.root = nil
-    self.fullscreen = nil
-    self.fullBgFrom = nil
-    self.fullBgTo = nil
-    self.fullContent = nil
-    self.fullText = nil
-    self.fullTextHost = nil
-    self.fullPrompt = nil
     self.bottom = nil
-    self.bannerFade = nil
     self.bottomText = nil
     self.bottomTextHost = nil
     self.bottomPrompt = nil

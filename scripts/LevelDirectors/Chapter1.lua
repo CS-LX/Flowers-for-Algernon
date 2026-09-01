@@ -46,13 +46,7 @@ function Chapter1:OnStart()
     self.authoredY = position.y
     self.authoredZ = position.z
 
-    self:SetInputLocked(true)
-    self:SetPlayerLocked(true)
-    self:PlayStory(Story.intro, {
-        onComplete = function()
-            self:BeginLift()
-        end,
-    })
+    self:BeginLift()
 end
 
 function Chapter1:BeginLift()
@@ -135,14 +129,10 @@ end
 function Chapter1:OnFinish(payload)
     self:SetInputLocked(true)
     self:SetPlayerLocked(true)
-    self:PlayStory(Story.clear, {
-        onComplete = function()
-            local session = self.session
-            if session and session.onFinish then
-                session.onFinish(session, payload)
-            end
-        end,
-    })
+    local session = self.session
+    if session and session.onFinish then
+        session.onFinish(session, payload)
+    end
 end
 
 function Chapter1:OnDispose()

@@ -1,5 +1,5 @@
--- 关卡内白膜 HUD。
--- 显示当前章节、退出提示，以及过关结果。不拦截 3D 点击。
+-- 关卡内 HUD：只挂剧情层。
+-- 调试信息、返回按钮、过关面板不进关卡画面；Esc 仍由 GameApp 处理。
 
 local UI = require("urhox-libs/UI")
 local StoryView = require "StoryView"
@@ -7,25 +7,14 @@ local StoryView = require "StoryView"
 ---@class PlayHud
 ---@field onExit fun()|nil
 ---@field root Widget|nil
----@field statusLabel Label|nil
----@field finishPanel Widget|nil
 local PlayHud = {}
 PlayHud.__index = PlayHud
-
-local PANEL = { 21, 27, 38, 220 }
-local TEXT = { 231, 238, 248, 255 }
-local MUTED = { 145, 160, 184, 255 }
-local FINISH = { 80, 210, 160, 255 }
 
 function PlayHud.New(onExit)
     local self = setmetatable({}, PlayHud)
     self.onExit = onExit
     ---@type Widget|nil
     self.root = nil
-    ---@type Label|nil
-    self.statusLabel = nil
-    ---@type Widget|nil
-    self.finishPanel = nil
     ---@type table|nil
     self.storyView = nil
     ---@type Widget|nil
@@ -34,110 +23,26 @@ function PlayHud.New(onExit)
 end
 
 function PlayHud:Show(definition)
-    local onExit = self.onExit
-    self.statusLabel = UI.Label {
-        text = definition.subtitle .. "  ·  " .. definition.sourcePath,
-        fontSize = 12,
-        fontColor = MUTED,
-        whiteSpace = "normal",
-    }
     self.storyView = StoryView.New()
     self.storyHost = self.storyView:Build()
-    self.finishPanel = UI.Panel {
-        position = "absolute",
-        left = 0,
-        right = 0,
-        top = 0,
-        bottom = 0,
-        justifyContent = "center",
-        alignItems = "center",
-        pointerEvents = "box-none",
-        visible = false,
-        children = {
-            UI.Panel {
-                paddingHorizontal = 28,
-                paddingVertical = 18,
-                gap = 8,
-                backgroundColor = PANEL,
-                borderRadius = 12,
-                alignItems = "center",
-                children = {
-                    UI.Label {
-                        text = "过关",
-                        fontSize = 28,
-                        fontWeight = "bold",
-                        fontColor = FINISH,
-                    },
-                    UI.Label {
-                        text = "level.finish +1",
-                        fontSize = 12,
-                        fontColor = MUTED,
-                    },
-                },
-            },
-        },
-    }
     self.root = UI.Panel {
         width = "100%",
         height = "100%",
         pointerEvents = "box-none",
         children = {
-            UI.Panel {
-                position = "absolute",
-                top = 12,
-                left = 12,
-                paddingHorizontal = 14,
-                paddingVertical = 10,
-                gap = 4,
-                backgroundColor = PANEL,
-                borderRadius = 8,
-                children = {
-                    UI.Label {
-                        text = definition.title,
-                        fontSize = 16,
-                        fontWeight = "bold",
-                        fontColor = TEXT,
-                    },
-                    self.statusLabel,
-                },
-            },
-            UI.Panel {
-                position = "absolute",
-                top = 12,
-                right = 12,
-                children = {
-                    UI.Button {
-                        text = "返回选关  Esc",
-                        height = 34,
-                        fontSize = 12,
-                        variant = "secondary",
-                        onClick = function()
-                            if onExit then
-                                onExit()
-                            end
-                        end,
-                    },
-                },
-            },
-            self.finishPanel,
             self.storyHost,
         },
     }
     UI.SetRoot(self.root, true)
+    print("PlayHud: story-only hud for " .. tostring(definition and definition.id))
 end
 
 function PlayHud:SetStatus(text)
-    if self.statusLabel then
-        self.statusLabel:SetText(text)
-    end
+    -- 关内不再显示调试状态条。
 end
 
 function PlayHud:ShowFinish()
-    print("PlayHud: show finish")
-    if self.finishPanel then
-        self.finishPanel:SetVisible(true)
-    end
-    self:SetStatus("过关  ·  按 Esc 返回选关")
+    print("PlayHud: finish acknowledged without overlay")
 end
 
 function PlayHud:Hide()
@@ -145,8 +50,6 @@ function PlayHud:Hide()
         UI.SetRoot(nil, true)
         self.root = nil
     end
-    self.statusLabel = nil
-    self.finishPanel = nil
     if self.storyView then
         self.storyView:Destroy()
         self.storyView = nil

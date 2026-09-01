@@ -23,11 +23,13 @@ local function CopyLine(source)
         return nil
     end
     local mode = source.mode
-    if mode ~= "fullscreen" and mode ~= "modal" and mode ~= "banner" then
+    if mode == "fullscreen" then
+        mode = "banner"
+    elseif mode ~= "modal" and mode ~= "banner" then
         mode = "banner"
     end
     local blockInput = source.blockInput
-    if mode == "fullscreen" or mode == "modal" then
+    if mode == "modal" then
         blockInput = true
     elseif blockInput == nil then
         blockInput = false
