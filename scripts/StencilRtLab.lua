@@ -3,6 +3,7 @@
 
 local AlgernonView = require "AlgernonView"
 local LookApplier = require "LookApplier"
+local StillModelCatalog = require "StillModelCatalog"
 
 ---@class StencilRtLab
 ---@field scene Scene|nil
@@ -17,6 +18,7 @@ local LookApplier = require "LookApplier"
 ---@field preview BorderImage|nil
 ---@field hintLabel Text|nil
 ---@field algernonView table|nil
+---@field algernonClipMaterials Material[]
 ---@field quadModel StaticModel|nil
 ---@field rtWidth integer
 ---@field rtHeight integer
@@ -41,6 +43,23 @@ local function CreateUnlitMaterial(color)
     end
     material:SetShaderParameter("base_color", Variant(color))
     return material
+end
+
+local function HexToColor(hex, fallback)
+    if type(hex) ~= "string" then
+        return fallback
+    end
+    local cleaned = hex:gsub("#", "")
+    if #cleaned ~= 6 and #cleaned ~= 8 then
+        return fallback
+    end
+    local r = tonumber(cleaned:sub(1, 2), 16)
+    local g = tonumber(cleaned:sub(3, 4), 16)
+    local b = tonumber(cleaned:sub(5, 6), 16)
+    if not r or not g or not b then
+        return fallback
+    end
+    return Color(r / 255.0, g / 255.0, b / 255.0, 1.0)
 end
 
 local function CopyCamera(source, target)
@@ -77,6 +96,8 @@ function StencilRtLab.New()
     self.hintLabel = nil
     ---@type table|nil
     self.algernonView = nil
+    ---@type Material[]
+    self.algernonClipMaterials = {}
     ---@type StaticModel|nil
     self.quadModel = nil
     self.rtWidth = 0
@@ -231,6 +252,7 @@ function StencilRtLab:ResizeRtIfNeeded()
     surface:SetUpdateMode(SURFACE_UPDATEALWAYS)
     self.rtWidth = width
     self.rtHeight = height
+    self:BindMaskToMaterials()
     self:SyncPreviewSize()
     print(string.format("StencilRtLab: RT resized to %dx%d", width, height))
 end
@@ -256,15 +278,53 @@ function StencilRtLab:CreateWorld()
     self.quadModel.castShadows = false
 
     self.algernonView = AlgernonView.New(self.scene)
+    self.algernonView:SetLocalTransform({ scale = 2.5 })
     self.algernonView:Apply(Vector3(0.0, 0.0, 1.2), Quaternion(180.0, Vector3.UP))
     self.algernonView:SetVisible(true)
-    local algernonModel = self.algernonView.node:GetComponent("StaticModel", true)
-    if algernonModel then
-        algernonModel.viewMask = WORLD_BIT
-        print("StencilRtLab: algernon viewMask set on first StaticModel")
-    end
     self:SetSubtreeViewMask(self.algernonView.node, WORLD_BIT)
+    self:ApplyAlgernonClipMaterials()
     print("StencilRtLab: floor + mask quad + algernon created")
+end
+
+function StencilRtLab:BindMaskToMaterials()
+    local rtTexture = self.rtTexture
+    if not rtTexture then
+        return
+    end
+    for _, material in ipairs(self.algernonClipMaterials) do
+        material:SetSurfaceTexture("mask_rt", rtTexture)
+        material:SetShaderParameter("clip_threshold", Variant(0.5))
+    end
+end
+
+function StencilRtLab:ApplyAlgernonClipMaterials()
+    self.algernonClipMaterials = {}
+    local view = self.algernonView
+    if not view or not view.runtime or not view.runtime.model then
+        print("StencilRtLab: algernon runtime missing, skip clip shader")
+        return
+    end
+    local model = view.runtime.model
+    -- Material 没有 GetShaderParameter；槽色从资产 look 读。
+    for _, slot in ipairs(view.runtime.asset.slots or {}) do
+        local look = StillModelCatalog.SlotLook(view.runtime.asset, slot, view.dummyObject:GetActiveParams())
+        local material = Material:new()
+        if not material:SetSurfaceShader("Shaders/BLGL/AlgernonRtClip.shader") then
+            print("StencilRtLab: failed to load AlgernonRtClip.shader")
+            return
+        end
+        material:SetShaderParameter("base_color", Variant(HexToColor(look.color or look.baseColor, Color(0.957, 0.945, 0.918, 1.0))))
+        local technique = material:GetTechnique(0)
+        if technique and technique:HasPass("base") then
+            local pass = technique:GetPass("base")
+            pass:SetDepthWrite(true)
+            pass:SetBlendMode(BLEND_REPLACE)
+        end
+        self.algernonClipMaterials[#self.algernonClipMaterials + 1] = material
+        model:SetMaterial(slot.index, material)
+    end
+    self:BindMaskToMaterials()
+    print("StencilRtLab: algernon clip materials=" .. tostring(#self.algernonClipMaterials))
 end
 
 ---@param node Node
@@ -449,6 +509,7 @@ function StencilRtLab:Stop()
     self.rtTexture = nil
     self.rtDepth = nil
     self.quadModel = nil
+    self.algernonClipMaterials = {}
     print("StencilRtLab: stopped")
 end
 
