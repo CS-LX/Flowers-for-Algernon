@@ -19,7 +19,10 @@ local StillModelCatalog = require "StillModelCatalog"
 ---@field hintLabel Text|nil
 ---@field algernonView table|nil
 ---@field algernonClipMaterials Material[]
+---@field voxelClipMaterials Material[]
 ---@field quadModel StaticModel|nil
+---@field quadModelGreen StaticModel|nil
+---@field voxelModel StaticModel|nil
 ---@field rtWidth integer
 ---@field rtHeight integer
 ---@field yaw number
@@ -43,6 +46,31 @@ local function CreateUnlitMaterial(color)
     end
     material:SetShaderParameter("base_color", Variant(color))
     return material
+end
+
+local function CreateMaskQuadMaterial(color, additive)
+    local material = CreateUnlitMaterial(color)
+    local technique = material:GetTechnique(0)
+    if technique and technique:HasPass("base") then
+        local pass = technique:GetPass("base")
+        if additive then
+            pass:SetBlendMode(BLEND_ADD)
+            pass:SetDepthWrite(false)
+        else
+            pass:SetBlendMode(BLEND_REPLACE)
+            pass:SetDepthWrite(true)
+        end
+    end
+    return material
+end
+
+local function ForceOpaqueClipPass(material)
+    local technique = material:GetTechnique(0)
+    if technique and technique:HasPass("base") then
+        local pass = technique:GetPass("base")
+        pass:SetDepthWrite(true)
+        pass:SetBlendMode(BLEND_REPLACE)
+    end
 end
 
 local function HexToColor(hex, fallback)
@@ -98,8 +126,14 @@ function StencilRtLab.New()
     self.algernonView = nil
     ---@type Material[]
     self.algernonClipMaterials = {}
+    ---@type Material[]
+    self.voxelClipMaterials = {}
     ---@type StaticModel|nil
     self.quadModel = nil
+    ---@type StaticModel|nil
+    self.quadModelGreen = nil
+    ---@type StaticModel|nil
+    self.voxelModel = nil
     self.rtWidth = 0
     self.rtHeight = 0
     self.yaw = 0.0
@@ -267,15 +301,40 @@ function StencilRtLab:CreateWorld()
     floorModel.viewMask = WORLD_BIT
     floorModel.castShadows = false
 
-    local quadNode = self.scene:CreateChild("MaskQuad")
-    quadNode.position = Vector3(0.0, 1.1, 0.0)
-    quadNode.scale = Vector3(1.6, 2.2, 0.02)
-    self.quadModel = quadNode:CreateComponent("StaticModel")
+    local redQuadNode = self.scene:CreateChild("MaskQuadRed")
+    -- 两片在角上只碰边，不互相穿进对方厚度，避免 RT 里叠成黄。
+    redQuadNode.position = Vector3(-0.01, 1.1, 0.0)
+    redQuadNode.scale = Vector3(1.6, 2.2, 0.02)
+    self.quadModel = redQuadNode:CreateComponent("StaticModel")
     self.quadModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-    -- 面片只进 RT。RT 里画成白覆盖；主视口看不见它。
-    self.quadModel:SetMaterial(CreateUnlitMaterial(Color(1.0, 1.0, 1.0, 1.0)))
+    -- 红面片只进 RT，写 R 通道。
+    local redMaterial = CreateMaskQuadMaterial(Color(1.0, 0.0, 0.0, 1.0), false)
+    redMaterial:SetRenderOrder(0)
+    self.quadModel:SetMaterial(redMaterial)
     self.quadModel.viewMask = MASK_BIT
     self.quadModel.castShadows = false
+
+    local greenQuadNode = self.scene:CreateChild("MaskQuadGreen")
+    greenQuadNode.position = Vector3(0.8, 1.1, 0.81)
+    greenQuadNode.rotation = Quaternion(90.0, Vector3.UP)
+    greenQuadNode.scale = Vector3(1.6, 2.2, 0.02)
+    self.quadModelGreen = greenQuadNode:CreateComponent("StaticModel")
+    self.quadModelGreen:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+    -- Replace 写 G。两片几何错开，不再靠 Additive 叠通道。
+    local greenMaterial = CreateMaskQuadMaterial(Color(0.0, 1.0, 0.0, 1.0), false)
+    greenMaterial:SetRenderOrder(10)
+    self.quadModelGreen:SetMaterial(greenMaterial)
+    self.quadModelGreen.viewMask = MASK_BIT
+    self.quadModelGreen.castShadows = false
+
+    local voxelNode = self.scene:CreateChild("VoxelCube")
+    voxelNode.position = Vector3(0.0, 0.275, 1.2)
+    voxelNode.scale = Vector3(0.55, 0.55, 0.55)
+    self.voxelModel = voxelNode:CreateComponent("StaticModel")
+    self.voxelModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+    self.voxelModel.viewMask = WORLD_BIT
+    self.voxelModel.castShadows = false
+    self:ApplyVoxelClipMaterial()
 
     self.algernonView = AlgernonView.New(self.scene)
     self.algernonView:SetLocalTransform({ scale = 2.5 })
@@ -283,7 +342,7 @@ function StencilRtLab:CreateWorld()
     self.algernonView:SetVisible(true)
     self:SetSubtreeViewMask(self.algernonView.node, WORLD_BIT)
     self:ApplyAlgernonClipMaterials()
-    print("StencilRtLab: floor + mask quad + algernon created")
+    print("StencilRtLab: floor + L mask quads + voxel cube + algernon created")
 end
 
 function StencilRtLab:BindMaskToMaterials()
@@ -292,6 +351,10 @@ function StencilRtLab:BindMaskToMaterials()
         return
     end
     for _, material in ipairs(self.algernonClipMaterials) do
+        material:SetSurfaceTexture("mask_rt", rtTexture)
+        material:SetShaderParameter("clip_threshold", Variant(0.5))
+    end
+    for _, material in ipairs(self.voxelClipMaterials) do
         material:SetSurfaceTexture("mask_rt", rtTexture)
         material:SetShaderParameter("clip_threshold", Variant(0.5))
     end
@@ -314,17 +377,34 @@ function StencilRtLab:ApplyAlgernonClipMaterials()
             return
         end
         material:SetShaderParameter("base_color", Variant(HexToColor(look.color or look.baseColor, Color(0.957, 0.945, 0.918, 1.0))))
-        local technique = material:GetTechnique(0)
-        if technique and technique:HasPass("base") then
-            local pass = technique:GetPass("base")
-            pass:SetDepthWrite(true)
-            pass:SetBlendMode(BLEND_REPLACE)
-        end
+        ForceOpaqueClipPass(material)
         self.algernonClipMaterials[#self.algernonClipMaterials + 1] = material
         model:SetMaterial(slot.index, material)
     end
     self:BindMaskToMaterials()
     print("StencilRtLab: algernon clip materials=" .. tostring(#self.algernonClipMaterials))
+end
+
+function StencilRtLab:ApplyVoxelClipMaterial()
+    self.voxelClipMaterials = {}
+    if not self.voxelModel then
+        return
+    end
+    local look = LookApplier.DefaultPartLook()
+    local material = Material:new()
+    if not material:SetSurfaceShader("Shaders/BLGL/VoxelRtClip.shader") then
+        print("StencilRtLab: failed to load VoxelRtClip.shader")
+        return
+    end
+    material:SetShaderParameter("color_neg", Variant(HexToColor(look.colorNeg, Color(0.561, 0.518, 0.471, 1.0))))
+    material:SetShaderParameter("color_mid", Variant(HexToColor(look.colorMid, Color(0.769, 0.714, 0.651, 1.0))))
+    material:SetShaderParameter("color_pos", Variant(HexToColor(look.colorPos, Color(0.945, 0.902, 0.835, 1.0))))
+    material:SetShaderParameter("light_axis", Variant(Vector3(look.lightAxis.x, look.lightAxis.y, look.lightAxis.z)))
+    ForceOpaqueClipPass(material)
+    self.voxelClipMaterials[1] = material
+    self.voxelModel:SetMaterial(material)
+    self:BindMaskToMaterials()
+    print("StencilRtLab: voxel clip material bound")
 end
 
 ---@param node Node
@@ -509,7 +589,10 @@ function StencilRtLab:Stop()
     self.rtTexture = nil
     self.rtDepth = nil
     self.quadModel = nil
+    self.quadModelGreen = nil
+    self.voxelModel = nil
     self.algernonClipMaterials = {}
+    self.voxelClipMaterials = {}
     print("StencilRtLab: stopped")
 end
 
