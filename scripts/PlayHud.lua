@@ -2,6 +2,7 @@
 -- 显示当前章节、退出提示，以及过关结果。不拦截 3D 点击。
 
 local UI = require("urhox-libs/UI")
+local StoryView = require "StoryView"
 
 ---@class PlayHud
 ---@field onExit fun()|nil
@@ -25,6 +26,10 @@ function PlayHud.New(onExit)
     self.statusLabel = nil
     ---@type Widget|nil
     self.finishPanel = nil
+    ---@type table|nil
+    self.storyView = nil
+    ---@type Widget|nil
+    self.storyHost = nil
     return self
 end
 
@@ -36,6 +41,8 @@ function PlayHud:Show(definition)
         fontColor = MUTED,
         whiteSpace = "normal",
     }
+    self.storyView = StoryView.New()
+    self.storyHost = self.storyView:Build()
     self.finishPanel = UI.Panel {
         position = "absolute",
         left = 0,
@@ -113,6 +120,7 @@ function PlayHud:Show(definition)
                 },
             },
             self.finishPanel,
+            self.storyHost,
         },
     }
     UI.SetRoot(self.root, true)
@@ -139,6 +147,11 @@ function PlayHud:Hide()
     end
     self.statusLabel = nil
     self.finishPanel = nil
+    if self.storyView then
+        self.storyView:Destroy()
+        self.storyView = nil
+    end
+    self.storyHost = nil
 end
 
 return PlayHud

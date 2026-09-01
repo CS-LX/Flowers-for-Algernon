@@ -50,6 +50,7 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     ---@type table|nil
     self.riderFollow = nil
     self.inputLocked = false
+    self.storyBlocked = false
     return self
 end
 
@@ -82,6 +83,10 @@ function GamePreview:SetInputLocked(locked)
     self.inputLocked = locked == true
 end
 
+function GamePreview:SetStoryBlocked(blocked)
+    self.storyBlocked = blocked == true
+end
+
 function GamePreview:IsInputLocked()
     return self.inputLocked == true
 end
@@ -90,7 +95,7 @@ function GamePreview:HandlePointer()
     if not self.player then
         return
     end
-    if self.inputLocked or self.player.mechanismLocked then
+    if self.inputLocked or self.storyBlocked or self.player.mechanismLocked then
         return
     end
     local fromPendingClick = (self.rotatorController and self.rotatorController:ConsumePendingClick())
@@ -212,7 +217,7 @@ function GamePreview:GetScreenRay()
 end
 
 function GamePreview:CanMovePart(part)
-    if self.inputLocked then
+    if self.inputLocked or self.storyBlocked then
         return false
     end
     if self.player and (self.player:IsWalking() or self.player.mechanismLocked) then
@@ -387,7 +392,7 @@ function GamePreview:SetObjectEnabled(objectId, enabled)
 end
 
 function GamePreview:BeginMechanismPending()
-    if self.inputLocked then
+    if self.inputLocked or self.storyBlocked then
         return false
     end
     if PointerInput.IsOverUI() then
@@ -611,6 +616,7 @@ end
 
 function GamePreview:Stop()
     self.inputLocked = false
+    self.storyBlocked = false
     self.riderFollow = nil
     if self.rotatorController then
         self.rotatorController:RestoreAuthoredStates()

@@ -59,4 +59,17 @@ function LevelCatalog.GetById(id)
     return nil
 end
 
+function LevelCatalog.GetNext(id)
+    local current = LevelCatalog.GetById(id)
+    if not current then
+        return nil
+    end
+    for _, definition in ipairs(LevelCatalog.LEVELS) do
+        if definition.index == current.index + 1 then
+            return definition
+        end
+    end
+    return nil
+end
+
 return LevelCatalog

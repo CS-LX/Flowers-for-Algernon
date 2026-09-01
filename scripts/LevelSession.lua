@@ -158,10 +158,6 @@ function LevelSession:Init()
         self:Dispose()
         return false, startError
     end
-    self.director = LevelDirectorCatalog.Create(self)
-    if self.director then
-        self.director:Start()
-    end
     self.started = true
     print(string.format(
         "LevelSession Init: id=%s title=%s name=%s parts=%d source=%s finish=%s",
@@ -196,6 +192,13 @@ function LevelSession:OnFinishSignal(payload)
     if preview and preview.player then
         preview.player:SetMechanismLocked(true)
     end
+    if preview and preview.SetInputLocked then
+        preview:SetInputLocked(true)
+    end
+    if self.director and self.director.OnFinish then
+        self.director:OnFinish(payload)
+        return
+    end
     if self.onFinish then
         self.onFinish(self, payload)
     end
@@ -203,6 +206,30 @@ end
 
 function LevelSession:GetSignalBus()
     return self.signalBus
+end
+
+function LevelSession:CreateDirector()
+    if self.director then
+        return self.director
+    end
+    self.director = LevelDirectorCatalog.Create(self)
+    return self.director
+end
+
+function LevelSession:StartDirector()
+    local director = self:CreateDirector()
+    if not director then
+        return false
+    end
+    if director.started then
+        return true
+    end
+    director:Start()
+    return true
+end
+
+function LevelSession:IsStoryPlaying()
+    return self.director ~= nil and self.director:IsStoryPlaying()
 end
 
 function LevelSession:Update(timeStep)

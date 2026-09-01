@@ -2,6 +2,7 @@
 -- 只服务 chapter_1。Part 先落到配置高度减 0.6 米，再 2 秒 QuadInOut 抬回配置位置。
 
 local LevelDirector = require "LevelDirector"
+local Story = require "Story.Chapter1"
 
 local Chapter1 = LevelDirector.Extend()
 
@@ -44,6 +45,19 @@ function Chapter1:OnStart()
 
     self:SetInputLocked(true)
     self:SetPlayerLocked(true)
+    self:PlayStory(Story.intro, {
+        onComplete = function()
+            self:BeginLift()
+        end,
+    })
+end
+
+function Chapter1:BeginLift()
+    if not self.partId then
+        return
+    end
+    self:SetInputLocked(true)
+    self:SetPlayerLocked(true)
     local dropped, dropError = self:SetPartPosition(self.partId, {
         x = self.authoredX,
         y = self.authoredY - LIFT_OFFSET,
@@ -55,6 +69,7 @@ function Chapter1:OnStart()
         self:SetInputLocked(false)
         return
     end
+    self.liftElapsed = 0.0
     self.lifting = true
     print(string.format(
         "Chapter1: lift start part=%s from y=%.3f to y=%.3f",
@@ -99,6 +114,19 @@ function Chapter1:FinishLift()
         tostring(self.partId),
         self.authoredY
     ))
+end
+
+function Chapter1:OnFinish(payload)
+    self:SetInputLocked(true)
+    self:SetPlayerLocked(true)
+    self:PlayStory(Story.clear, {
+        onComplete = function()
+            local session = self.session
+            if session and session.onFinish then
+                session.onFinish(session, payload)
+            end
+        end,
+    })
 end
 
 function Chapter1:OnDispose()

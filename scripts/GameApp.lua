@@ -132,14 +132,9 @@ function GameApp:EnterLevel(definition)
     self.session = session
     self.state = STATE_PLAYING
     session.onFinish = function()
-        print("GameApp: chapter finished " .. definition.id)
-        if self.playHud then
-            self.playHud:ShowFinish()
-        end
+        self:CompleteLevel(definition)
     end
-    if self.playHud then
-        self.playHud:Show(definition)
-    end
+    self:PresentSession(session, definition)
     return true
 end
 
@@ -199,6 +194,48 @@ function GameApp:StopEditor()
     end
 end
 
+function GameApp:CompleteLevel(definition)
+    print("GameApp: chapter finished " .. definition.id)
+    local nextDefinition = LevelCatalog.GetNext(definition.id)
+    if nextDefinition then
+        self:EnterNextLevel(nextDefinition)
+        return
+    end
+    if self.playHud then
+        self.playHud:ShowFinish()
+    end
+end
+
+function GameApp:EnterNextLevel(definition)
+    print("GameApp: entering next chapter " .. definition.id)
+    self:DisposeSession()
+    local session = LevelSession.New(definition, self.edgeLength, self.voxelHeight)
+    local started, errorMessage = session:Init()
+    if not started then
+        print("GameApp: next level init failed: " .. tostring(errorMessage))
+        self:ShowLevelSelect("进入失败：" .. tostring(errorMessage))
+        return false
+    end
+    self.session = session
+    self.state = STATE_PLAYING
+    session.onFinish = function()
+        self:CompleteLevel(definition)
+    end
+    self:PresentSession(session, definition)
+    return true
+end
+
+function GameApp:PresentSession(session, definition)
+    if self.playHud then
+        self.playHud:Show(definition)
+    end
+    session:CreateDirector()
+    if session.director and self.playHud and self.playHud.storyView then
+        session.director:AttachStoryView(self.playHud.storyView)
+    end
+    session:StartDirector()
+end
+
 function GameApp:BackToLevelSelect()
     if self.state == STATE_PLAYING then
         self:DisposeSession()
@@ -214,7 +251,12 @@ end
 function GameApp:Update(timeStep)
     if self.state == STATE_PLAYING then
         if input:GetKeyPress(KEY_ESCAPE) then
-            self:BackToLevelSelect()
+            local director = self.session and self.session.director
+            if director and director:IsStoryPlaying() then
+                director:StopStory()
+            else
+                self:BackToLevelSelect()
+            end
             return
         end
         if self.session then

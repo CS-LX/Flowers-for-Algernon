@@ -3,6 +3,7 @@
 -- 具体关卡演出继承本类；不要改这个文件去加某一关的剧情。
 
 local LevelSignalBus = require "LevelSignalBus"
+local StoryPlayer = require "StoryPlayer"
 
 ---@class LevelDirector
 ---@field session table
@@ -41,6 +42,9 @@ function LevelDirector:Init(session)
     self.definition = session and session.definition or nil
     self.started = false
     self.subscriptions = {}
+    ---@type table|nil
+    self.storyPlayer = nil
+    self.storyInputLocked = false
 end
 
 function LevelDirector:GetSession()
@@ -394,6 +398,84 @@ function LevelDirector:FinishLevel()
     })
 end
 
+function LevelDirector:AttachStoryView(view)
+    if not view then
+        return false
+    end
+    if not self.storyPlayer then
+        self.storyPlayer = StoryPlayer.New(view)
+    else
+        self.storyPlayer:AttachView(view)
+    end
+    return true
+end
+
+function LevelDirector:IsStoryPlaying()
+    return self.storyPlayer ~= nil and self.storyPlayer:IsPlaying()
+end
+
+function LevelDirector:IsStoryBlocking()
+    return self.storyPlayer ~= nil and self.storyPlayer:IsBlocking()
+end
+
+function LevelDirector:SyncStoryInputLock()
+    local preview = self:GetPreview()
+    if not preview then
+        return false
+    end
+    local shouldLock = self:IsStoryBlocking()
+    if shouldLock == self.storyInputLocked then
+        return true
+    end
+    self.storyInputLocked = shouldLock
+    if preview.SetStoryBlocked then
+        preview:SetStoryBlocked(shouldLock)
+    elseif shouldLock then
+        preview:SetInputLocked(true)
+    end
+    return true
+end
+
+---@param lines table
+---@param options table|nil
+---@return boolean
+function LevelDirector:PlayStory(lines, options)
+    if not self.storyPlayer then
+        print("LevelDirector: PlayStory ignored, no story view")
+        if options and type(options.onComplete) == "function" then
+            options.onComplete()
+        end
+        return false
+    end
+    local wrapped = options or {}
+    local userComplete = wrapped.onComplete
+    wrapped.onComplete = function()
+        self:SyncStoryInputLock()
+        if type(userComplete) == "function" then
+            userComplete()
+        end
+    end
+    local started = self.storyPlayer:Play(lines, wrapped)
+    self:SyncStoryInputLock()
+    return started
+end
+
+function LevelDirector:StopStory()
+    if self.storyPlayer and self.storyPlayer:IsPlaying() then
+        self.storyPlayer:Skip()
+    end
+    self:SyncStoryInputLock()
+end
+
+--- 过关后由导演决定收尾剧情。默认立刻交给 GameApp。
+---@param payload table|nil
+function LevelDirector:OnFinish(payload)
+    local session = self.session
+    if session and session.onFinish then
+        session.onFinish(session, payload)
+    end
+end
+
 --- 子类覆盖：关卡场景已启动，可订阅信号并做开场准备。
 function LevelDirector:OnStart()
 end
@@ -422,6 +504,10 @@ function LevelDirector:Update(timeStep)
     if not self.started then
         return
     end
+    if self.storyPlayer then
+        self.storyPlayer:Update(timeStep)
+        self:SyncStoryInputLock()
+    end
     self:OnUpdate(timeStep)
 end
 
@@ -432,6 +518,11 @@ function LevelDirector:Dispose()
     ))
     self:OnDispose()
     self:UnsubscribeAll()
+    if self.storyPlayer then
+        self.storyPlayer:Dispose()
+        self.storyPlayer = nil
+    end
+    self.storyInputLocked = false
     self.started = false
     self.session = nil
     self.definition = nil
