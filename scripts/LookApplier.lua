@@ -122,6 +122,22 @@ function LookApplier.SetFogColor(scene, color)
     return true
 end
 
+function LookApplier.MixColor(fromColor, toColor, t)
+    if t < 0.0 then
+        t = 0.0
+    elseif t > 1.0 then
+        t = 1.0
+    end
+    fromColor = fromColor or Color(0.79, 0.76, 0.71, 1)
+    toColor = toColor or fromColor
+    return Color(
+        fromColor.r + (toColor.r - fromColor.r) * t,
+        fromColor.g + (toColor.g - fromColor.g) * t,
+        fromColor.b + (toColor.b - fromColor.b) * t,
+        1.0
+    )
+end
+
 function LookApplier.SetCoverFog(scene, color, density)
     local zone = LookApplier.GetZone(scene)
     if not zone or not color then

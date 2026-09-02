@@ -17,6 +17,16 @@ local ClickFeedbackVfx = require "ClickFeedbackVfx"
 local PointerInput = require "PointerInput"
 local UI = require("urhox-libs/UI")
 
+local FOG_REVEAL_DURATION = 1.0
+local COVER_FOG_START = 0.1
+local COVER_FOG_END = 2.0
+local COVER_FOG_DENSITY = 1.0
+-- 卡顿帧 dt 远大于 50ms；连续 3 帧正常后再散雾。
+local SETTLE_STABLE_DT = 0.05
+local SETTLE_NEEDED = 3
+-- 散雾期间再卡一帧也不把 1s tween 一次吃完。
+local MAX_REVEAL_DT = 1.0 / 30.0
+
 local GamePreview = {}
 GamePreview.__index = GamePreview
 
@@ -62,6 +72,8 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     ---@type fun()|nil
     self.onFogCoverFinished = nil
     self.coverOnStart = false
+    ---@type Color|nil
+    self.coverColor = nil
     return self
 end
 
@@ -71,7 +83,7 @@ function GamePreview:CreateScene()
     LookApplier.ApplyAtmosphere(self.scene, self.levelDocument.atmosphere)
     -- 玩法进关时立刻盖近雾，避免 hitch 期间露出关卡配置雾。编辑器 Preview 不盖。
     if self.coverOnStart then
-        self:ApplyCoverFog()
+        self:ApplyCoverFog(COVER_FOG_DENSITY)
         self:SetInputLocked(true)
     end
 end
@@ -186,7 +198,7 @@ function GamePreview:Start()
     renderer:SetViewport(0, self.viewport)
     renderer:SetNumViewports(1)
     if self.coverOnStart then
-        self:ApplyCoverFog()
+        self:ApplyCoverFog(COVER_FOG_DENSITY)
         self:SetInputLocked(true)
     end
     self.player = PlayerController.New(self.pathRuntime, self.spawnNodeKey, self.camera)
@@ -635,30 +647,29 @@ function GamePreview:SetAlgernonOnArrived(listener)
     return true
 end
 
-local FOG_REVEAL_DURATION = 1.0
-local COVER_FOG_START = 0.1
-local COVER_FOG_END = 2.0
-local COVER_FOG_DENSITY = 1.0
--- 卡顿帧 dt 远大于 50ms；连续 3 帧正常后再散雾。
-local SETTLE_STABLE_DT = 0.05
-local SETTLE_NEEDED = 3
--- 散雾期间再卡一帧也不把 1s tween 一次吃完。
-local MAX_REVEAL_DT = 1.0 / 30.0
-
-function GamePreview:ApplyCoverFog()
-    if not self.scene or not self.levelDocument then
-        return false
+function GamePreview:CoverFogColor()
+    if self.coverColor then
+        return self.coverColor
     end
-    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
-    local cover = LookApplier.HexToColor(atmosphere.fog.color, Color(0.79, 0.76, 0.71, 1))
-    return LookApplier.SetCoverFog(self.scene, cover)
+    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument and self.levelDocument.atmosphere)
+    return LookApplier.HexToColor(atmosphere.fog.color, Color(0.79, 0.76, 0.71, 1))
 end
 
-function GamePreview:BeginFogCover()
+function GamePreview:ApplyCoverFog(density)
     if not self.scene or not self.levelDocument then
         return false
     end
-    self:ApplyCoverFog()
+    return LookApplier.SetCoverFog(self.scene, self:CoverFogColor(), density)
+end
+
+function GamePreview:BeginFogCover(coverColor)
+    if not self.scene or not self.levelDocument then
+        return false
+    end
+    if coverColor then
+        self.coverColor = coverColor
+    end
+    self:ApplyCoverFog(COVER_FOG_DENSITY)
     self:SetInputLocked(true)
     self.fogReveal = nil
     self.waitingSettle = true
@@ -667,15 +678,16 @@ function GamePreview:BeginFogCover()
     return true
 end
 
-function GamePreview:BeginFogConceal()
+function GamePreview:BeginFogConceal(toColor)
     if not self.scene or not self.levelDocument then
         return false
     end
     local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
-    local cover = LookApplier.HexToColor(atmosphere.fog.color, Color(0.79, 0.76, 0.71, 1))
     local zone = LookApplier.GetZone(self.scene)
+    local fromColor = zone and zone.fogColor or self:CoverFogColor()
+    local cover = toColor or fromColor
     local fromDensity = zone and zone.fogDensity or atmosphere.fog.density
-    LookApplier.SetCoverFog(self.scene, cover, fromDensity)
+    LookApplier.SetCoverFog(self.scene, fromColor, fromDensity)
     self:SetInputLocked(true)
     self.waitingSettle = false
     self.fogReveal = {
@@ -683,6 +695,8 @@ function GamePreview:BeginFogConceal()
         clock = 0.0,
         fromDensity = fromDensity,
         toDensity = COVER_FOG_DENSITY,
+        fromColor = fromColor,
+        toColor = cover,
         conceal = true,
     }
     print(string.format(
@@ -698,7 +712,7 @@ function GamePreview:StartFogReveal()
         return false
     end
     local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
-    self:ApplyCoverFog()
+    self:ApplyCoverFog(COVER_FOG_DENSITY)
     -- 镜头大约 18m。线性把 fogEnd 从 2 拉到 2000，几十毫秒雾就已经出画面。
     -- 散雾期间锁住 0.1/2，只把 density 从 1 收到关卡值。
     self.fogReveal = {
@@ -706,6 +720,9 @@ function GamePreview:StartFogReveal()
         clock = 0.0,
         fromDensity = COVER_FOG_DENSITY,
         toDensity = atmosphere.fog.density,
+        fromColor = self:CoverFogColor(),
+        toColor = self:CoverFogColor(),
+        conceal = false,
     }
     print(string.format(
         "GamePreview: fog reveal 1s density %.2f -> %.2f, keep cover 0.1/2",
@@ -717,7 +734,7 @@ end
 
 function GamePreview:UpdateFogReveal(timeStep)
     if self.waitingSettle then
-        self:ApplyCoverFog()
+        self:ApplyCoverFog(COVER_FOG_DENSITY)
         if timeStep > 0.0 and timeStep <= SETTLE_STABLE_DT then
             local settled = self.settleCount + 1
             self.settleCount = settled
@@ -736,7 +753,7 @@ function GamePreview:UpdateFogReveal(timeStep)
                 self.onLevelSettled = nil
                 settled()
             end
-            self:ApplyCoverFog()
+            self:ApplyCoverFog(COVER_FOG_DENSITY)
             self:StartFogReveal()
         end
         return
@@ -760,21 +777,18 @@ function GamePreview:UpdateFogReveal(timeStep)
     -- 散雾 t^2 后半段才清；盖雾 (1-(1-t)^2) 前半段就迅速盖住。
     local mix = reveal.conceal and (1.0 - (1.0 - t) * (1.0 - t)) or (t * t)
     local zone = LookApplier.GetZone(self.scene)
+    local fogColor = LookApplier.MixColor(reveal.fromColor, reveal.toColor, mix)
     if zone then
         zone.fogStart = COVER_FOG_START
         zone.fogEnd = COVER_FOG_END
         zone.fogDensity = reveal.fromDensity + (reveal.toDensity - reveal.fromDensity) * mix
+        zone.fogColor = fogColor
     end
     if t >= 1.0 then
         self.fogReveal = nil
         if reveal.conceal then
-            LookApplier.SetCoverFog(
-                self.scene,
-                LookApplier.HexToColor(
-                    self.levelDocument.atmosphere.fog.color,
-                    Color(0.79, 0.76, 0.71, 1)
-                )
-            )
+            self.coverColor = reveal.toColor
+            LookApplier.SetCoverFog(self.scene, reveal.toColor, COVER_FOG_DENSITY)
             print("GamePreview: fog conceal finished")
             if self.onFogCoverFinished then
                 local finished = self.onFogCoverFinished
@@ -804,6 +818,7 @@ function GamePreview:Stop()
     self.onFogRevealFinished = nil
     self.onLevelSettled = nil
     self.onFogCoverFinished = nil
+    self.coverColor = nil
     self.riderFollow = nil
     if self.rotatorController then
         self.rotatorController:RestoreAuthoredStates()

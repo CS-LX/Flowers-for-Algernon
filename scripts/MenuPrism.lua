@@ -46,9 +46,11 @@ local StillModelCatalog = require "StillModelCatalog"
 ---@field onExitReady fun(definition: LevelDefinition)|nil
 ---@field fogTween {duration: number, clock: number, from: Color, to: Color}|nil
 ---@field exitTween {duration: number, clock: number, fromY: number, toY: number, definition: LevelDefinition}|nil
+---@field enterTween {duration: number, clock: number, fromY: number, toY: number}|nil
 ---@field restY number
 ---@field pendingExit LevelDefinition|nil
 ---@field pendingDrop LevelDefinition|nil
+---@field skipFogTween boolean
 local MenuPrism = {}
 MenuPrism.__index = MenuPrism
 
@@ -76,6 +78,7 @@ local PHASE_PENDING = "pending"
 local PHASE_DRAG = "drag"
 local PHASE_SNAP = "snap"
 local PHASE_EXIT = "exit"
+local PHASE_ENTER = "enter"
 local FOG_TWEEN_DURATION = 0.45
 local EXIT_DROP = 8.0
 local EXIT_DURATION = 0.85
@@ -185,11 +188,14 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.fogTween = nil
     ---@type table|nil
     self.exitTween = nil
+    ---@type table|nil
+    self.enterTween = nil
     self.restY = -PRISM_DROP
     ---@type LevelDefinition|nil
     self.pendingExit = nil
     ---@type LevelDefinition|nil
     self.pendingDrop = nil
+    self.skipFogTween = false
     return self
 end
 
@@ -330,8 +336,19 @@ function MenuPrism:PlaceholderFogColor()
     return LevelCatalog.CONFIG.placeholderFogColor
 end
 
+function MenuPrism:SetFogColorNow(color)
+    self.fogTween = nil
+    if not self.scene or not color then
+        return
+    end
+    LookApplier.SetFogColor(self.scene, color)
+end
+
 function MenuPrism:TweenFogToFront(definition)
     if not self.scene then
+        return
+    end
+    if self.skipFogTween then
         return
     end
     local fromColor = LookApplier.GetFogColor(self.scene, self:PlaceholderFogColor())
@@ -357,6 +374,74 @@ function MenuPrism:UpdateFogTween(timeStep)
     end
 end
 
+function MenuPrism:YawForCenterIndex(centerIndex)
+    local count = #LevelCatalog.GetAll()
+    if count <= 0 then
+        return SNAP_OFFSET_DEGREES
+    end
+    local wrapped = ((centerIndex - 1) % count + count) % count
+    return wrapped * STEP_DEGREES + SNAP_OFFSET_DEGREES
+end
+
+function MenuPrism:FocusLevel(definition, fogColor)
+    if not definition then
+        return
+    end
+    local yaw = self:YawForCenterIndex(definition.index)
+    self.skipFogTween = true
+    self:ApplyVisualYaw(yaw)
+    self.yawDegrees = yaw
+    self.targetYawDegrees = yaw
+    self.snapYawDegrees = yaw
+    self.skipFogTween = false
+    self:SetFogColorNow(fogColor or LevelCatalog.GetFogColor(definition, self:PlaceholderFogColor()))
+    print(string.format(
+        "MenuPrism: focus %s yaw=%.1f",
+        definition.code,
+        yaw
+    ))
+end
+
+function MenuPrism:BeginEnterRise()
+    if not self.root then
+        return false
+    end
+    self.phase = PHASE_ENTER
+    self.dragStartMouse = nil
+    self.exitTween = nil
+    local restY = self.restY
+    self.root.position = Vector3(0.0, restY - EXIT_DROP, 0.0)
+    self.enterTween = {
+        duration = EXIT_DURATION,
+        clock = 0.0,
+        fromY = restY - EXIT_DROP,
+        toY = restY,
+    }
+    print(string.format("MenuPrism: enter rise from y=%.3f", restY - EXIT_DROP))
+    return true
+end
+
+function MenuPrism:UpdateEnterRise(timeStep)
+    local tween = self.enterTween
+    local root = self.root
+    if not tween or not root then
+        return
+    end
+    local nextClock = tween.clock + timeStep
+    tween.clock = nextClock
+    local t = Clamp01(nextClock / tween.duration)
+    -- 下落 t^3 由慢到快；升起 (1-(1-t)^3) 由快到慢。
+    local eased = 1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t)
+    local y = tween.fromY + (tween.toY - tween.fromY) * eased
+    local pos = root.position
+    root.position = Vector3(pos.x, y, pos.z)
+    if t >= 1.0 then
+        self.enterTween = nil
+        self.phase = PHASE_IDLE
+        print("MenuPrism: enter rise finished")
+    end
+end
+
 function MenuPrism:BeginExitDrop(definition)
     if self.phase == PHASE_EXIT then
         return true
@@ -369,6 +454,7 @@ function MenuPrism:BeginExitDrop(definition)
     end
     self.phase = PHASE_EXIT
     self.dragStartMouse = nil
+    self.enterTween = nil
     local fromY = self.root.position.y
     self.exitTween = {
         duration = EXIT_DURATION,
@@ -995,6 +1081,10 @@ function MenuPrism:Update(timeStep)
     self:UpdateFogTween(timeStep)
     if self.phase == PHASE_EXIT then
         self:UpdateExitDrop(timeStep)
+        return
+    end
+    if self.phase == PHASE_ENTER then
+        self:UpdateEnterRise(timeStep)
         return
     end
     PointerInput.BeginFrame()

@@ -28,8 +28,7 @@ local UI = require("urhox-libs/UI")
 ---@field levelEditor LevelEditor|nil
 ---@field editorDocument table|nil
 ---@field pendingEnter LevelDefinition|nil
----@field menuFogReveal table|nil
----@field menuFogSettle number
+---@field lastDefinition LevelDefinition|nil
 local GameApp = {}
 GameApp.__index = GameApp
 
@@ -66,9 +65,8 @@ function GameApp.New()
     self.editorDocument = nil
     ---@type LevelDefinition|nil
     self.pendingEnter = nil
-    ---@type table|nil
-    self.menuFogReveal = nil
-    self.menuFogSettle = 0
+    ---@type LevelDefinition|nil
+    self.lastDefinition = nil
     return self
 end
 
@@ -145,86 +143,19 @@ function GameApp:DestroyMenuPrism()
     end
 end
 
-function GameApp:MenuCoverColor()
-    return LookApplier.HexToColor(
-        LookApplier.DefaultAtmosphere().fog.color,
-        Color(0.79, 0.76, 0.71, 1)
-    )
+function GameApp:FogColorFor(definition)
+    return LevelCatalog.GetFogColor(definition, LevelCatalog.CONFIG.placeholderFogColor)
 end
 
-function GameApp:BeginMenuFogReveal()
-    if not self.menuScene then
-        return false
-    end
-    LookApplier.SetCoverFog(self.menuScene, self:MenuCoverColor(), 1.0)
-    self.menuFogReveal = {
-        duration = 1.0,
-        clock = 0.0,
-        fromDensity = 1.0,
-        toDensity = 0.0,
-    }
-    self.menuFogSettle = 3
-    print("GameApp: menu cover fog on, wait for stable frames then reveal")
-    return true
-end
-
-function GameApp:UpdateMenuFogReveal(timeStep)
-    if self.menuFogSettle > 0 then
-        LookApplier.SetCoverFog(self.menuScene, self:MenuCoverColor(), 1.0)
-        if timeStep > 0.0 and timeStep <= 0.05 then
-            local remaining = self.menuFogSettle - 1
-            self.menuFogSettle = remaining
-            if remaining <= 0 then
-                print("GameApp: menu settled, start fog reveal")
-            end
-        else
-            self.menuFogSettle = 3
-        end
-        return
-    end
-    local reveal = self.menuFogReveal
-    if not reveal then
-        return
-    end
-    local dt = timeStep
-    if dt > (1.0 / 30.0) then
-        dt = 1.0 / 30.0
-    end
-    local nextClock = reveal.clock + dt
-    reveal.clock = nextClock
-    local t = nextClock / reveal.duration
-    if t < 0.0 then
-        t = 0.0
-    elseif t > 1.0 then
-        t = 1.0
-    end
-    local mix = t * t
-    LookApplier.SetCoverFog(
-        self.menuScene,
-        self:MenuCoverColor(),
-        reveal.fromDensity + (reveal.toDensity - reveal.fromDensity) * mix
-    )
-    if t >= 1.0 then
-        LookApplier.ApplyAtmosphere(self.menuScene, LookApplier.DefaultAtmosphere())
-        self.menuFogReveal = nil
-        print("GameApp: menu fog reveal finished")
-    end
-end
-
-function GameApp:ShowLevelSelect(status, covered)
+function GameApp:ShowLevelSelect(status, returnDefinition)
     self.state = STATE_LEVEL_SELECT
     self:RestoreMenuCamera()
     self:BindMenuViewport()
-    if covered then
-        LookApplier.ApplyAtmosphere(self.menuScene, LookApplier.DefaultAtmosphere())
-        LookApplier.SetCoverFog(self.menuScene, self:MenuCoverColor(), 1.0)
-        self:EnsureMenuPrism()
-        self:BeginMenuFogReveal()
-    else
-        LookApplier.ApplyAtmosphere(self.menuScene, LookApplier.DefaultAtmosphere())
-        self.menuFogReveal = nil
-        self.menuFogSettle = 0
-        self:EnsureMenuPrism()
+    LookApplier.ApplyAtmosphere(self.menuScene, LookApplier.DefaultAtmosphere())
+    self:EnsureMenuPrism()
+    if returnDefinition and self.menuPrism then
+        self.menuPrism:FocusLevel(returnDefinition, self:FogColorFor(returnDefinition))
+        self.menuPrism:BeginEnterRise()
     end
     if status then
         print("GameApp: levelselect " .. tostring(status))
@@ -257,11 +188,12 @@ function GameApp:FinishEnterLevel(definition)
         return false
     end
     self.session = session
+    self.lastDefinition = definition
     self.state = STATE_PLAYING
     session.onFinish = function()
         self:CompleteLevel(definition)
     end
-    self:PresentSession(session, definition)
+    self:PresentSession(session, definition, self:FogColorFor(definition))
     return true
 end
 
@@ -353,25 +285,12 @@ function GameApp:CompleteLevel(definition)
 end
 
 function GameApp:EnterNextLevel(definition)
-    print("GameApp: entering next chapter " .. definition.id)
-    self:DisposeSession()
-    local session = LevelSession.New(definition, self.edgeLength, self.voxelHeight)
-    local started, errorMessage = session:Init()
-    if not started then
-        print("GameApp: next level init failed: " .. tostring(errorMessage))
-        self:ShowLevelSelect("进入失败：" .. tostring(errorMessage))
-        return false
-    end
-    self.session = session
-    self.state = STATE_PLAYING
-    session.onFinish = function()
-        self:CompleteLevel(definition)
-    end
-    self:PresentSession(session, definition)
+    print("GameApp: conceal then enter next chapter " .. definition.id)
+    self:BeginLevelTransition(definition)
     return true
 end
 
-function GameApp:PresentSession(session, definition)
+function GameApp:PresentSession(session, definition, coverColor)
     if self.playHud then
         self.playHud:Show(definition)
     end
@@ -388,15 +307,61 @@ function GameApp:PresentSession(session, definition)
                 session.preview:SetInputLocked(false)
             end
         end
-        session.preview:BeginFogCover()
+        session.preview:BeginFogCover(coverColor)
     else
         session:RunDirector()
     end
 end
 
-function GameApp:FinishBackToLevelSelect()
+function GameApp:StartNextSession(definition, coverColor)
     self:DisposeSession()
-    self:ShowLevelSelect("已返回选关", true)
+    local session = LevelSession.New(definition, self.edgeLength, self.voxelHeight)
+    local started, errorMessage = session:Init()
+    if not started then
+        print("GameApp: next level init failed: " .. tostring(errorMessage))
+        self:ShowLevelSelect("进入失败：" .. tostring(errorMessage))
+        return false
+    end
+    self.session = session
+    self.lastDefinition = definition
+    self.state = STATE_PLAYING
+    session.onFinish = function()
+        self:CompleteLevel(definition)
+    end
+    self:PresentSession(session, definition, coverColor)
+    return true
+end
+
+function GameApp:BeginLevelTransition(nextDefinition)
+    if self.state ~= STATE_PLAYING then
+        return false
+    end
+    local preview = self.session and self.session.preview
+    local nextColor = self:FogColorFor(nextDefinition)
+    if preview and preview.BeginFogConceal then
+        if preview.fogReveal and preview.fogReveal.conceal then
+            return true
+        end
+        local director = self.session and self.session.director
+        if director and director:IsStoryPlaying() then
+            director:StopStory()
+        end
+        if self.playHud then
+            self.playHud:Hide()
+        end
+        preview.onFogCoverFinished = function()
+            self:StartNextSession(nextDefinition, nextColor)
+        end
+        print("GameApp: conceal current level then enter " .. nextDefinition.id)
+        return preview:BeginFogConceal(nextColor)
+    end
+    return self:StartNextSession(nextDefinition, nextColor)
+end
+
+function GameApp:FinishBackToLevelSelect()
+    local definition = self.lastDefinition
+    self:DisposeSession()
+    self:ShowLevelSelect("已返回选关", definition)
 end
 
 function GameApp:BeginExitToLevelSelect()
@@ -469,11 +434,10 @@ function GameApp:Update(timeStep)
             self:FinishEnterLevel(pending)
             return
         end
-        self:UpdateMenuFogReveal(timeStep)
-        if self.menuPrism and not self.menuFogReveal and self.menuFogSettle <= 0 then
+        if self.menuPrism then
             self.menuPrism:Update(timeStep)
         end
-        if not self.menuFogReveal and self.menuFogSettle <= 0 then
+        if not (self.menuPrism and self.menuPrism.phase == "enter") then
             self:HandleLevelSelectHotkeys()
         end
         return
