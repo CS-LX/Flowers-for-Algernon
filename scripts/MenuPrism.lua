@@ -13,6 +13,9 @@ local PointerInput = require "PointerInput"
 ---@field root Node|nil
 ---@field voxelNodes Node[]
 ---@field maskRoot Node|nil
+---@field maskMaterials Material[]
+---@field maskLocalYaws number[]
+---@field lastStepIndex number|nil
 ---@field rtCameraNode Node|nil
 ---@field rtCamera Camera|nil
 ---@field rtViewport Viewport|nil
@@ -106,6 +109,12 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.voxelNodes = {}
     ---@type Node|nil
     self.maskRoot = nil
+    ---@type Material[]
+    self.maskMaterials = {}
+    ---@type number[]
+    self.maskLocalYaws = {}
+    ---@type number|nil
+    self.lastStepIndex = nil
     ---@type Node|nil
     self.rtCameraNode = nil
     ---@type Camera|nil
@@ -130,10 +139,48 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     return self
 end
 
+local GREEN_COLOR = Color(0.0, 1.0, 0.0, 1.0)
+local RED_COLOR = Color(1.0, 0.0, 0.0, 1.0)
+local CAMERA_FRONT_YAW = 180.0
+
+function MenuPrism:StepIndexFromYaw(yawDegrees)
+    return math.floor(yawDegrees / STEP_DEGREES)
+end
+
+function MenuPrism:UpdateFrontFaceColors()
+    if #self.maskMaterials == 0 then
+        return
+    end
+    local frontIndex = 1
+    local bestDelta = 999.0
+    for i = 1, #self.maskLocalYaws do
+        local worldYaw = self.maskLocalYaws[i] + self.visualYawDegrees
+        local delta = math.abs(WrapDegrees(worldYaw - CAMERA_FRONT_YAW))
+        if delta < bestDelta then
+            bestDelta = delta
+            frontIndex = i
+        end
+    end
+    for i = 1, #self.maskMaterials do
+        local color = i == frontIndex and GREEN_COLOR or RED_COLOR
+        self.maskMaterials[i]:SetShaderParameter("base_color", Variant(color))
+    end
+    print(string.format(
+        "MenuPrism: front face=%d worldYaw=%.0f",
+        frontIndex,
+        self.maskLocalYaws[frontIndex] + self.visualYawDegrees
+    ))
+end
+
 function MenuPrism:ApplyVisualYaw(yawDegrees)
     self.visualYawDegrees = yawDegrees
     if self.root then
         self.root.rotation = Quaternion(yawDegrees, Vector3.UP)
+    end
+    local stepIndex = self:StepIndexFromYaw(yawDegrees)
+    if stepIndex ~= self.lastStepIndex then
+        self.lastStepIndex = stepIndex
+        self:UpdateFrontFaceColors()
     end
 end
 
@@ -322,15 +369,16 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
     -- 六个三棱柱中心距 = edge/√3，整体外接半径 = 2*edge/√3。
     -- 面宽取外接六边形边长 = 2*edge/√3，面心距 = √3/2 * 边长 = edge。
     -- 本地 yaw 加 30°，与下方棱柱侧面中点对齐。
-    -- 根再转 30° 后世界 yaw = i*60+60。相机朝 +Z，正对相机的是世界 180°，即 i=2。
+    -- 颜色只在 floor(yaw/60) 整档变化时更新：正对相机的面绿，其余红。
     self.maskRoot = self.root:CreateChild("MenuMaskQuads")
+    self.maskMaterials = {}
+    self.maskLocalYaws = {}
     local hexSide = edgeLength * 2.0 / math.sqrt(3.0)
     local radius = hexSide * math.sqrt(3.0) * 0.5
     local faceWidth = hexSide
     local faceHeight = prismHeight * 0.85
     local thickness = 0.02
     local centerY = prismHeight + faceHeight * 0.5
-    local FRONT_FACE_INDEX = 2
     for i = 0, 5 do
         local yaw = i * 60.0 + SNAP_OFFSET_DEGREES
         local rad = math.rad(yaw)
@@ -338,9 +386,8 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
         node.position = Vector3(math.sin(rad) * radius, centerY, math.cos(rad) * radius)
         node.rotation = Quaternion(yaw, Vector3.UP)
         node.scale = Vector3(faceWidth, faceHeight, thickness)
-        local hex = i == FRONT_FACE_INDEX and "#00FF00" or "#FF0000"
         local material = LookApplier.CreateStillObjectUnlitMaterial({
-            color = hex,
+            color = "#FF0000",
             opaque = true,
         })
         local technique = material:GetTechnique(0)
@@ -354,8 +401,10 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
         model:SetMaterial(material)
         model.viewMask = MASK_BIT
         model.castShadows = false
+        self.maskMaterials[#self.maskMaterials + 1] = material
+        self.maskLocalYaws[#self.maskLocalYaws + 1] = yaw
     end
-    print("MenuPrism: front face i=2 green, others red")
+    print("MenuPrism: six mask faces ready")
 end
 
 function MenuPrism:CreatePreview()
@@ -511,6 +560,9 @@ function MenuPrism:Destroy()
         self.preview = nil
     end
     self.maskRoot = nil
+    self.maskMaterials = {}
+    self.maskLocalYaws = {}
+    self.lastStepIndex = nil
     if self.rtCameraNode then
         self.rtCameraNode:Remove()
         self.rtCameraNode = nil
