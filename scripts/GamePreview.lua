@@ -57,6 +57,8 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.settleCount = 0
     ---@type fun()|nil
     self.onFogRevealFinished = nil
+    ---@type fun()|nil
+    self.onLevelSettled = nil
     self.coverOnStart = false
     return self
 end
@@ -701,6 +703,12 @@ function GamePreview:UpdateFogReveal(timeStep)
                 SETTLE_NEEDED,
                 timeStep
             ))
+            if self.onLevelSettled then
+                local settled = self.onLevelSettled
+                self.onLevelSettled = nil
+                settled()
+            end
+            self:ApplyCoverFog()
             self:StartFogReveal()
         end
         return
@@ -732,12 +740,13 @@ function GamePreview:UpdateFogReveal(timeStep)
     if t >= 1.0 then
         LookApplier.ApplyAtmosphere(self.scene, self.levelDocument.atmosphere)
         self.fogReveal = nil
-        self:SetInputLocked(false)
         print("GamePreview: fog reveal finished")
         if self.onFogRevealFinished then
             local finished = self.onFogRevealFinished
             self.onFogRevealFinished = nil
             finished()
+        else
+            self:SetInputLocked(false)
         end
     end
 end
@@ -749,6 +758,7 @@ function GamePreview:Stop()
     self.waitingSettle = false
     self.settleCount = 0
     self.onFogRevealFinished = nil
+    self.onLevelSettled = nil
     self.riderFollow = nil
     if self.rotatorController then
         self.rotatorController:RestoreAuthoredStates()

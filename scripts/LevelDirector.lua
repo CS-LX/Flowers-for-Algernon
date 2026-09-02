@@ -9,7 +9,9 @@ local StoryPlayer = require "StoryPlayer"
 ---@field session table
 ---@field definition table
 ---@field started boolean
+---@field running boolean
 ---@field subscriptions table[]
+---@field pendingStory table|nil
 local LevelDirector = {}
 LevelDirector.__index = LevelDirector
 
@@ -41,10 +43,13 @@ function LevelDirector:Init(session)
     self.session = session
     self.definition = session and session.definition or nil
     self.started = false
+    self.running = false
     self.subscriptions = {}
     ---@type table|nil
     self.storyPlayer = nil
     self.storyInputLocked = false
+    ---@type table|nil
+    self.pendingStory = nil
 end
 
 function LevelDirector:GetSession()
@@ -468,6 +473,11 @@ end
 ---@param options table|nil
 ---@return boolean
 function LevelDirector:PlayStory(lines, options)
+    if not self.running then
+        self.pendingStory = { lines = lines, options = options }
+        print("LevelDirector: story queued until run")
+        return true
+    end
     if not self.storyPlayer then
         print("LevelDirector: PlayStory ignored, no story view")
         if options and type(options.onComplete) == "function" then
@@ -522,14 +532,31 @@ function LevelDirector:Start()
         return false, "director already started"
     end
     self.started = true
-    print("LevelDirector: start level=" .. tostring(self:GetLevelId()))
+    print("LevelDirector: setup level=" .. tostring(self:GetLevelId()))
     self:OnStart()
+    return true
+end
+
+function LevelDirector:BeginRun()
+    if self.running then
+        return true
+    end
+    if not self.started then
+        self:Start()
+    end
+    self.running = true
+    print("LevelDirector: run level=" .. tostring(self:GetLevelId()))
+    local pending = self.pendingStory
+    self.pendingStory = nil
+    if pending then
+        self:PlayStory(pending.lines, pending.options)
+    end
     return true
 end
 
 ---@param timeStep number
 function LevelDirector:Update(timeStep)
-    if not self.started then
+    if not self.running then
         return
     end
     if self.storyPlayer then
@@ -551,6 +578,8 @@ function LevelDirector:Dispose()
         self.storyPlayer = nil
     end
     self.storyInputLocked = false
+    self.pendingStory = nil
+    self.running = false
     self.started = false
     self.session = nil
     self.definition = nil

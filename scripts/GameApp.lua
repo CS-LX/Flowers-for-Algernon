@@ -300,12 +300,17 @@ function GameApp:PresentSession(session, definition)
         session.director:AttachStoryView(self.playHud.storyView)
     end
     if session.preview then
-        session.preview.onFogRevealFinished = function()
+        session.preview.onLevelSettled = function()
             session:StartDirector()
+        end
+        session.preview.onFogRevealFinished = function()
+            if not session:RunDirector() then
+                session.preview:SetInputLocked(false)
+            end
         end
         session.preview:BeginFogCover()
     else
-        session:StartDirector()
+        session:RunDirector()
     end
 end
 

@@ -222,10 +222,21 @@ function LevelSession:StartDirector()
     if not director then
         return false
     end
-    if director.started then
-        return true
+    if not director.started then
+        director:Start()
     end
-    director:Start()
+    return true
+end
+
+function LevelSession:RunDirector()
+    local director = self:CreateDirector()
+    if not director then
+        return false
+    end
+    if not director.started then
+        director:Start()
+    end
+    director:BeginRun()
     return true
 end
 
@@ -240,7 +251,7 @@ function LevelSession:Update(timeStep)
     if self.triggerRuntime and not self.finished then
         self.triggerRuntime:Update()
     end
-    if self.director and self.director.started then
+    if self.director and self.director.running then
         self.director:Update(timeStep)
     end
 end
