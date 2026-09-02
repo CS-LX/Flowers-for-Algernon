@@ -41,6 +41,7 @@ local StillModelCatalog = require "StillModelCatalog"
 ---@field snapYawDegrees number
 ---@field phase string
 ---@field dragStartMouse Vector2|nil
+---@field onFrontClicked fun(definition: LevelDefinition)|nil
 local MenuPrism = {}
 MenuPrism.__index = MenuPrism
 
@@ -163,6 +164,8 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.phase = PHASE_IDLE
     ---@type Vector2|nil
     self.dragStartMouse = nil
+    ---@type fun(definition: LevelDefinition)|nil
+    self.onFrontClicked = nil
     return self
 end
 
@@ -798,6 +801,33 @@ function MenuPrism:UpdateSnap(timeStep)
     ))
 end
 
+function MenuPrism:FrontLevel()
+    return self.window and self.window[2] or nil
+end
+
+function MenuPrism:IsPlayable(definition)
+    if not definition then
+        return false
+    end
+    if definition.placeholder then
+        return false
+    end
+    return type(definition.sourcePath) == "string" and definition.sourcePath ~= ""
+end
+
+function MenuPrism:TryEnterFrontLevel()
+    local definition = self:FrontLevel()
+    if not definition or not self:IsPlayable(definition) then
+        print("MenuPrism: front click ignored, placeholder or empty")
+        return false
+    end
+    print("MenuPrism: front click " .. definition.code)
+    if self.onFrontClicked then
+        self.onFrontClicked(definition)
+    end
+    return true
+end
+
 function MenuPrism:CancelPending()
     self.phase = PHASE_IDLE
     self.dragStartMouse = nil
@@ -822,6 +852,7 @@ function MenuPrism:Update(timeStep)
     end
     if self.phase == PHASE_PENDING then
         if not pointer.down then
+            self:TryEnterFrontLevel()
             self:CancelPending()
             return
         end
@@ -865,6 +896,7 @@ function MenuPrism:Destroy()
     self.exhibitNodes = {}
     self.faceLabels = {}
     self.labelLocalYaws = {}
+    self.onFrontClicked = nil
     if self.rtCameraNode then
         self.rtCameraNode:Remove()
         self.rtCameraNode = nil
