@@ -12,7 +12,6 @@ local LevelEditor = require "LevelEditor"
 local StarterLevel = require "StarterLevel"
 local TriPrismGrid = require "TriPrismGrid"
 local MenuPrism = require "MenuPrism"
-local MenuWindowHud = require "MenuWindowHud"
 local UI = require("urhox-libs/UI")
 
 ---@class GameApp
@@ -24,7 +23,6 @@ local UI = require("urhox-libs/UI")
 ---@field menuCamera Camera|nil
 ---@field menuViewport Viewport|nil
 ---@field menuPrism MenuPrism|nil
----@field menuWindowHud MenuWindowHud|nil
 ---@field playHud PlayHud|nil
 ---@field session table|nil
 ---@field levelEditor LevelEditor|nil
@@ -51,8 +49,6 @@ function GameApp.New()
     self.menuViewport = nil
     ---@type MenuPrism|nil
     self.menuPrism = nil
-    ---@type MenuWindowHud|nil
-    self.menuWindowHud = nil
     ---@type PlayHud|nil
     self.playHud = nil
     ---@type table|nil
@@ -103,42 +99,15 @@ function GameApp:Start()
     print("GameApp: started in levelselect, chapters=" .. tostring(#LevelCatalog.GetAll()))
 end
 
-function GameApp:EnsureMenuWindowHud()
-    if self.menuWindowHud then
-        return
-    end
-    self.menuWindowHud = MenuWindowHud.New()
-    if self.menuPrism then
-        self.menuWindowHud:SetWindow(self.menuPrism.window)
-        self.menuPrism.onWindowChanged = function(window)
-            if self.menuWindowHud then
-                self.menuWindowHud:SetWindow(window)
-            end
-        end
-    end
-end
-
-function GameApp:DestroyMenuWindowHud()
-    if self.menuPrism then
-        self.menuPrism.onWindowChanged = nil
-    end
-    if self.menuWindowHud then
-        self.menuWindowHud:Hide()
-        self.menuWindowHud = nil
-    end
-end
-
 function GameApp:EnsureMenuPrism()
     if self.menuPrism or not self.menuScene or not self.menuCamera or not self.menuViewport then
         return
     end
     self.menuPrism = MenuPrism.New(self.menuScene, self.menuCamera, self.menuCameraNode, self.menuViewport)
     self.menuPrism:Build()
-    self:EnsureMenuWindowHud()
 end
 
 function GameApp:DestroyMenuPrism()
-    self:DestroyMenuWindowHud()
     if self.menuPrism then
         self.menuPrism:Destroy()
         self.menuPrism = nil
@@ -160,7 +129,6 @@ function GameApp:EnterLevel(definition)
         return false
     end
     print("GameApp: entering chapter " .. definition.id .. " source=" .. definition.sourcePath)
-    self:DestroyMenuWindowHud()
     self:DestroyMenuPrism()
     self:DisposeSession()
     local session = LevelSession.New(definition, self.edgeLength, self.voxelHeight)

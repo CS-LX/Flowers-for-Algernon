@@ -1,6 +1,6 @@
 -- 选关菜单里的淡蓝六棱柱。
 -- 只服务选关场景：拖转表现层，松手后 Snap 到 60°。
--- 整档换色时同步循环三格窗口：[左][正][右]。
+-- 整档时把循环三格窗口的关卡色涂到左/正/右三面。
 
 local VoxelRenderer = require "VoxelRenderer"
 local LookApplier = require "LookApplier"
@@ -19,7 +19,6 @@ local LevelCatalog = require "LevelCatalog"
 ---@field maskLocalYaws number[]
 ---@field lastStepIndex number|nil
 ---@field window LevelDefinition[]
----@field onWindowChanged fun(window: LevelDefinition[])|nil
 ---@field rtCameraNode Node|nil
 ---@field rtCamera Camera|nil
 ---@field rtViewport Viewport|nil
@@ -121,8 +120,6 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.lastStepIndex = nil
     ---@type LevelDefinition[]
     self.window = {}
-    ---@type fun(window: LevelDefinition[])|nil
-    self.onWindowChanged = nil
     ---@type Node|nil
     self.rtCameraNode = nil
     ---@type Camera|nil
@@ -147,11 +144,24 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     return self
 end
 
-local GREEN_COLOR = Color(0.0, 1.0, 0.0, 1.0)
-local YELLOW_COLOR = Color(1.0, 1.0, 0.0, 1.0)
-local CYAN_COLOR = Color(0.0, 1.0, 1.0, 1.0)
-local RED_COLOR = Color(1.0, 0.0, 0.0, 1.0)
+local EMPTY_COLOR = Color(1.0, 1.0, 1.0, 1.0)
+local BACK_COLOR = Color(1.0, 0.0, 0.0, 1.0)
 local CAMERA_FRONT_YAW = 180.0
+local CHAPTER_COLORS = {
+    Color(1.0, 0.0, 0.0, 1.0),
+    Color(1.0, 1.0, 0.0, 1.0),
+    Color(0.0, 1.0, 0.0, 1.0),
+    Color(0.0, 1.0, 1.0, 1.0),
+    Color(0.0, 0.0, 1.0, 1.0),
+}
+
+local function ColorForLevel(definition)
+    if not definition then
+        return EMPTY_COLOR
+    end
+    local chapter = LevelCatalog.GetChapter(definition)
+    return CHAPTER_COLORS[chapter] or EMPTY_COLOR
+end
 
 function MenuPrism:StepIndexFromYaw(yawDegrees)
     return math.floor(yawDegrees / STEP_DEGREES)
@@ -179,9 +189,6 @@ function MenuPrism:UpdateWindow()
         center and center.code or "--",
         right and right.code or "--"
     ))
-    if self.onWindowChanged then
-        self.onWindowChanged(self.window)
-    end
 end
 
 function MenuPrism:UpdateFrontFaceColors()
@@ -198,28 +205,31 @@ function MenuPrism:UpdateFrontFaceColors()
             frontIndex = i
         end
     end
+    self:UpdateWindow()
     local faceCount = #self.maskMaterials
-    -- 面号增大 = 世界 yaw 增大 = 屏幕左侧。左邻黄，右邻青。
+    -- 面号增大 = 世界 yaw 增大 = 屏幕左侧。
     local leftIndex = (frontIndex % faceCount) + 1
     local rightIndex = ((frontIndex - 2 + faceCount) % faceCount) + 1
+    local left = self.window[1]
+    local center = self.window[2]
+    local right = self.window[3]
     for i = 1, faceCount do
-        local color = RED_COLOR
+        local color = BACK_COLOR
         if i == frontIndex then
-            color = GREEN_COLOR
+            color = ColorForLevel(center)
         elseif i == leftIndex then
-            color = YELLOW_COLOR
+            color = ColorForLevel(left)
         elseif i == rightIndex then
-            color = CYAN_COLOR
+            color = ColorForLevel(right)
         end
         self.maskMaterials[i]:SetShaderParameter("base_color", Variant(color))
     end
     print(string.format(
-        "MenuPrism: left=%d yellow, front=%d green, right=%d cyan",
-        leftIndex,
-        frontIndex,
-        rightIndex
+        "MenuPrism: faces left=%s front=%s right=%s",
+        left and left.code or "--",
+        center and center.code or "--",
+        right and right.code or "--"
     ))
-    self:UpdateWindow()
 end
 
 function MenuPrism:ApplyVisualYaw(yawDegrees)
@@ -614,7 +624,6 @@ function MenuPrism:Destroy()
     self.maskLocalYaws = {}
     self.lastStepIndex = nil
     self.window = {}
-    self.onWindowChanged = nil
     if self.rtCameraNode then
         self.rtCameraNode:Remove()
         self.rtCameraNode = nil
