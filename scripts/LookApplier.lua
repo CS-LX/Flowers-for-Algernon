@@ -19,6 +19,7 @@ LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG = "tri_prism_look_height_fog"
 LookApplier.SHADER_STILL_OBJECT_BASE = "still_object_base"
 LookApplier.SHADER_STILL_OBJECT_UNLIT = "still_object_unlit"
 LookApplier.SHADER_STILL_OBJECT_UNLIT_SOLID = "still_object_unlit_solid"
+LookApplier.SHADER_STENCIL_ID_RT_MASK = "stencil_id_rt_mask"
 
 LookApplier.SHADER_PATHS = {
     [LookApplier.SHADER_TRI_PRISM_LOOK] = "Shaders/BLGL/TriPrismLook.shader",
@@ -26,6 +27,7 @@ LookApplier.SHADER_PATHS = {
     [LookApplier.SHADER_STILL_OBJECT_BASE] = "Shaders/BLGL/still_object_base.shader",
     [LookApplier.SHADER_STILL_OBJECT_UNLIT] = "Shaders/BLGL/still_object_unlit.shader",
     [LookApplier.SHADER_STILL_OBJECT_UNLIT_SOLID] = "Shaders/BLGL/still_object_unlit_solid.shader",
+    [LookApplier.SHADER_STENCIL_ID_RT_MASK] = "Shaders/BLGL/StencilIdRtMask.shader",
 }
 
 LookApplier.SHADER_OPTIONS = {
@@ -341,6 +343,26 @@ function LookApplier.CreateStillObjectBaseMaterial(look)
         axis.y,
         axis.z
     ))
+    return material
+end
+
+function LookApplier.CreateStencilMaskMaterial(color)
+    local shaderPath = LookApplier.SHADER_PATHS[LookApplier.SHADER_STENCIL_ID_RT_MASK]
+    local material = Material:new()
+    if not material:SetSurfaceShader(shaderPath) then
+        print("LookApplier: failed to load " .. shaderPath)
+        return LookApplier.CreateStillObjectUnlitMaterial({
+            color = "#FF0000",
+            opaque = true,
+        })
+    end
+    material:SetShaderParameter("base_color", Variant(color or Color(1.0, 0.0, 0.0, 1.0)))
+    local technique = material:GetTechnique(0)
+    if technique and technique:HasPass("base") then
+        local pass = technique:GetPass("base")
+        pass:SetBlendMode(BLEND_REPLACE)
+        pass:SetDepthWrite(true)
+    end
     return material
 end
 

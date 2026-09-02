@@ -703,16 +703,7 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
         node.position = Vector3(math.sin(rad) * radius, centerY, math.cos(rad) * radius)
         node.rotation = Quaternion(yaw, Vector3.UP)
         node.scale = Vector3(faceWidth, faceHeight, thickness)
-        local material = LookApplier.CreateStillObjectUnlitMaterial({
-            color = "#FF0000",
-            opaque = true,
-        })
-        local technique = material:GetTechnique(0)
-        if technique and technique:HasPass("base") then
-            local pass = technique:GetPass("base")
-            pass:SetBlendMode(BLEND_REPLACE)
-            pass:SetDepthWrite(true)
-        end
+        local material = LookApplier.CreateStencilMaskMaterial(Color(1.0, 0.0, 0.0, 1.0))
         local model = node:CreateComponent("StaticModel")
         model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
         model:SetMaterial(material)
