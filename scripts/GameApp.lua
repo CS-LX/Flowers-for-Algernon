@@ -1,7 +1,6 @@
 -- 玩法入口状态机。
 -- levelselect <-> playing / editor。
--- 章节进关只读游戏内配置 JSON；关卡编辑器独立，不挂在任何一章上。
--- 编辑器加载仍走 StarterLevel / levels/default-level.json。
+-- 章节进关只读游戏内配置 JSON。按住 E 点前台关进编辑器；保存仍写用户档，不覆盖内置关。
 
 local VoxelRenderer = require "VoxelRenderer"
 local LookApplier = require "LookApplier"
@@ -9,6 +8,7 @@ local LevelCatalog = require "LevelCatalog"
 local LevelSession = require "LevelSession"
 local PlayHud = require "PlayHud"
 local LevelEditor = require "LevelEditor"
+local LevelDocument = require "LevelDocument"
 local StarterLevel = require "StarterLevel"
 local TriPrismGrid = require "TriPrismGrid"
 local MenuPrism = require "MenuPrism"
@@ -33,6 +33,10 @@ GameApp.__index = GameApp
 local STATE_LEVEL_SELECT = "levelselect"
 local STATE_PLAYING = "playing"
 local STATE_EDITOR = "editor"
+local MENU_CAMERA_DISTANCE = 3.2
+local MENU_CAMERA_ORTHO = 3.2
+local MENU_CAMERA_PITCH = 10.0
+local MENU_CAMERA_VIEW_MASK = 2
 
 function GameApp.New()
     local self = setmetatable({}, GameApp)
@@ -60,22 +64,35 @@ function GameApp.New()
     return self
 end
 
+function GameApp:MenuEyeHeight()
+    local prismHeight = VoxelRenderer.DEFAULT_HEIGHT * 1.5
+    return prismHeight * 0.5 - 0.55 + 0.50
+end
+
+function GameApp:RestoreMenuCamera()
+    if not self.menuCameraNode or not self.menuCamera then
+        return
+    end
+    local eyeHeight = self:MenuEyeHeight()
+    self.menuCameraNode.position = Vector3(0.0, eyeHeight, -MENU_CAMERA_DISTANCE)
+    self.menuCameraNode.rotation = Quaternion(MENU_CAMERA_PITCH, Vector3.RIGHT)
+    self.menuCamera.orthographic = true
+    self.menuCamera.viewMask = MENU_CAMERA_VIEW_MASK
+    self.menuCamera.orthoSize = MENU_CAMERA_ORTHO
+    self.menuCamera.nearClip = 0.1
+    self.menuCamera.farClip = 100.0
+    self.menuCamera.fov = 45.0
+    print(string.format("GameApp: menu camera restored y=%.3f pitch=%.1f", eyeHeight, MENU_CAMERA_PITCH))
+end
+
 function GameApp:CreateMenuScene()
     self.menuScene = Scene()
     self.menuScene:CreateComponent("Octree")
     LookApplier.ApplyAtmosphere(self.menuScene, LookApplier.DefaultAtmosphere())
 
     self.menuCameraNode = self.menuScene:CreateChild("MenuCamera")
-    local prismHeight = VoxelRenderer.DEFAULT_HEIGHT * 1.5
-    local eyeHeight = prismHeight * 0.5 - 0.55 + 0.50
-    self.menuCameraNode.position = Vector3(0.0, eyeHeight, -3.2)
-    self.menuCameraNode.rotation = Quaternion(10.0, Vector3.RIGHT)
     self.menuCamera = self.menuCameraNode:CreateComponent("Camera")
-    self.menuCamera.orthographic = true
-    self.menuCamera.viewMask = 2
-    self.menuCamera.orthoSize = 3.2
-    self.menuCamera.nearClip = 0.1
-    self.menuCamera.farClip = 100.0
+    self:RestoreMenuCamera()
 
     self.menuViewport = Viewport:new(self.menuScene, self.menuCamera)
     renderer:SetViewport(0, self.menuViewport)
@@ -107,6 +124,9 @@ function GameApp:EnsureMenuPrism()
     self.menuPrism.onFrontClicked = function(definition)
         self:EnterLevel(definition)
     end
+    self.menuPrism.onFrontEditClicked = function(definition)
+        self:EnterEditor(definition)
+    end
     self.menuPrism:Build()
 end
 
@@ -119,6 +139,7 @@ end
 
 function GameApp:ShowLevelSelect(status)
     self.state = STATE_LEVEL_SELECT
+    self:RestoreMenuCamera()
     self:BindMenuViewport()
     LookApplier.ApplyAtmosphere(self.menuScene, LookApplier.DefaultAtmosphere())
     self:EnsureMenuPrism()
@@ -150,7 +171,27 @@ function GameApp:EnterLevel(definition)
     return true
 end
 
-function GameApp:EnterEditor()
+function GameApp:LoadEditorDocument(grid, definition)
+    if definition and LevelCatalog.IsPlayable(definition) then
+        local json, readError = LevelCatalog.ReadSourceJson(definition.sourcePath)
+        if json then
+            local document = LevelDocument.New()
+            local imported, importError = document:ImportInlineJson(json, grid)
+            if imported then
+                print("GameApp: editor start from " .. definition.code .. " save=" .. document.path)
+                return document
+            end
+            print("GameApp: editor import failed " .. tostring(importError) .. ", fallback whitebox")
+        else
+            print("GameApp: editor source missing " .. tostring(readError) .. ", fallback whitebox")
+        end
+    else
+        print("GameApp: editor start whitebox, front has no playable source")
+    end
+    return StarterLevel.LoadOrCreate(grid)
+end
+
+function GameApp:EnterEditor(definition)
     if self.state ~= STATE_LEVEL_SELECT then
         return false
     end
@@ -162,7 +203,7 @@ function GameApp:EnterEditor()
     self:DestroyMenuPrism()
     self:DisposeSession()
     local grid = TriPrismGrid.New(self.edgeLength, self.voxelHeight)
-    local document, loadWarning = StarterLevel.LoadOrCreate(grid)
+    local document, loadWarning = self:LoadEditorDocument(grid, definition)
     if not document then
         self:ShowLevelSelect("无法打开编辑器：" .. tostring(loadWarning))
         return false
@@ -202,6 +243,7 @@ function GameApp:StopEditor()
     if self.menuScene then
         LookApplier.ApplyAtmosphere(self.menuScene, LookApplier.DefaultAtmosphere())
     end
+    self:RestoreMenuCamera()
 end
 
 function GameApp:CompleteLevel(definition)
@@ -280,9 +322,6 @@ function GameApp:HandleLevelSelectHotkeys()
             self:EnterLevel(definition)
         end
         return
-    end
-    if input:GetKeyPress(KEY_E) then
-        self:EnterEditor()
     end
 end
 

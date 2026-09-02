@@ -42,6 +42,7 @@ local StillModelCatalog = require "StillModelCatalog"
 ---@field phase string
 ---@field dragStartMouse Vector2|nil
 ---@field onFrontClicked fun(definition: LevelDefinition)|nil
+---@field onFrontEditClicked fun(definition: LevelDefinition|nil)|nil
 local MenuPrism = {}
 MenuPrism.__index = MenuPrism
 
@@ -166,6 +167,8 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.dragStartMouse = nil
     ---@type fun(definition: LevelDefinition)|nil
     self.onFrontClicked = nil
+    ---@type fun(definition: LevelDefinition|nil)|nil
+    self.onFrontEditClicked = nil
     return self
 end
 
@@ -815,8 +818,19 @@ function MenuPrism:IsPlayable(definition)
     return type(definition.sourcePath) == "string" and definition.sourcePath ~= ""
 end
 
+function MenuPrism:IsEditHeld()
+    return input:GetKeyDown(KEY_E)
+end
+
 function MenuPrism:TryEnterFrontLevel()
     local definition = self:FrontLevel()
+    if self:IsEditHeld() then
+        print("MenuPrism: front edit click " .. tostring(definition and definition.code or "whitebox"))
+        if self.onFrontEditClicked then
+            self.onFrontEditClicked(definition)
+        end
+        return true
+    end
     if not definition or not self:IsPlayable(definition) then
         print("MenuPrism: front click ignored, placeholder or empty")
         return false
@@ -897,6 +911,7 @@ function MenuPrism:Destroy()
     self.faceLabels = {}
     self.labelLocalYaws = {}
     self.onFrontClicked = nil
+    self.onFrontEditClicked = nil
     if self.rtCameraNode then
         self.rtCameraNode:Remove()
         self.rtCameraNode = nil

@@ -246,4 +246,49 @@ function LevelCatalog.GetNext(id)
     return nil
 end
 
+function LevelCatalog.IsPlayable(definition)
+    if not definition then
+        return false
+    end
+    if definition.placeholder then
+        return false
+    end
+    return type(definition.sourcePath) == "string" and definition.sourcePath ~= ""
+end
+
+-- 只读内置关卡 JSON。失败不写盘，调用方再决定是否回退白模。
+function LevelCatalog.ReadSourceJson(path)
+    if type(path) ~= "string" or path == "" then
+        return nil, "empty level path"
+    end
+    local resolved = path
+    local uuidPathOk, uuidPath = pcall(function()
+        return cache:GetResUuidPath(path)
+    end)
+    if uuidPathOk and type(uuidPath) == "string" and uuidPath ~= "" then
+        resolved = uuidPath
+        print("LevelCatalog: uuid path " .. path .. " -> " .. uuidPath)
+    end
+    local jsonFile = cache:GetResource("JSONFile", resolved) --[[@as JSONFile?]]
+    if jsonFile then
+        local json = jsonFile:ToString()
+        if type(json) == "string" and json ~= "" then
+            print("LevelCatalog: loaded JSONFile " .. path)
+            return json
+        end
+    end
+    if fileSystem:FileExists(path) then
+        local file = File(path, FILE_READ)
+        if file and file:IsOpen() then
+            local json = file:ReadString()
+            file:Close()
+            if type(json) == "string" and json ~= "" then
+                print("LevelCatalog: loaded File " .. path)
+                return json
+            end
+        end
+    end
+    return nil, "cannot open level json: " .. tostring(path)
+end
+
 return LevelCatalog
