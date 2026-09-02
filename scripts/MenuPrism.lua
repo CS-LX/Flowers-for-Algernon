@@ -1,9 +1,11 @@
 -- 选关菜单里的淡蓝六棱柱。
--- 只服务选关场景：拖转表现层，松手后 Snap 到 60°。不进关卡数据，不挂 UI。
+-- 只服务选关场景：拖转表现层，松手后 Snap 到 60°。
+-- 整档换色时同步循环三格窗口：[左][正][右]。
 
 local VoxelRenderer = require "VoxelRenderer"
 local LookApplier = require "LookApplier"
 local PointerInput = require "PointerInput"
+local LevelCatalog = require "LevelCatalog"
 
 ---@class MenuPrism
 ---@field scene Scene
@@ -16,6 +18,8 @@ local PointerInput = require "PointerInput"
 ---@field maskMaterials Material[]
 ---@field maskLocalYaws number[]
 ---@field lastStepIndex number|nil
+---@field window LevelDefinition[]
+---@field onWindowChanged fun(window: LevelDefinition[])|nil
 ---@field rtCameraNode Node|nil
 ---@field rtCamera Camera|nil
 ---@field rtViewport Viewport|nil
@@ -115,6 +119,10 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.maskLocalYaws = {}
     ---@type number|nil
     self.lastStepIndex = nil
+    ---@type LevelDefinition[]
+    self.window = {}
+    ---@type fun(window: LevelDefinition[])|nil
+    self.onWindowChanged = nil
     ---@type Node|nil
     self.rtCameraNode = nil
     ---@type Camera|nil
@@ -147,6 +155,33 @@ local CAMERA_FRONT_YAW = 180.0
 
 function MenuPrism:StepIndexFromYaw(yawDegrees)
     return math.floor(yawDegrees / STEP_DEGREES)
+end
+
+function MenuPrism:CenterIndexFromStep(stepIndex)
+    local count = #LevelCatalog.GetAll()
+    if count <= 0 then
+        return 1
+    end
+    local wrapped = ((stepIndex % count) + count) % count
+    return wrapped + 1
+end
+
+function MenuPrism:UpdateWindow()
+    local stepIndex = self.lastStepIndex or 0
+    local centerIndex = self:CenterIndexFromStep(stepIndex)
+    self.window = LevelCatalog.GetWindow(centerIndex)
+    local left = self.window[1]
+    local center = self.window[2]
+    local right = self.window[3]
+    print(string.format(
+        "MenuPrism: window [%s][%s][%s]",
+        left and left.code or "--",
+        center and center.code or "--",
+        right and right.code or "--"
+    ))
+    if self.onWindowChanged then
+        self.onWindowChanged(self.window)
+    end
 end
 
 function MenuPrism:UpdateFrontFaceColors()
@@ -184,6 +219,7 @@ function MenuPrism:UpdateFrontFaceColors()
         frontIndex,
         rightIndex
     ))
+    self:UpdateWindow()
 end
 
 function MenuPrism:ApplyVisualYaw(yawDegrees)
@@ -577,6 +613,8 @@ function MenuPrism:Destroy()
     self.maskMaterials = {}
     self.maskLocalYaws = {}
     self.lastStepIndex = nil
+    self.window = {}
+    self.onWindowChanged = nil
     if self.rtCameraNode then
         self.rtCameraNode:Remove()
         self.rtCameraNode = nil
