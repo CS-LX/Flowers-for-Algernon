@@ -153,8 +153,25 @@ function AlgernonController:MoveTo(nodeKey)
     return self.walker:MoveTo(path, nodeKey)
 end
 
----@param worldPoint Vector3
+---@param nodeKey string
 ---@return boolean, string|nil
+function AlgernonController:MoveToIncludingCandidates(nodeKey)
+    if not self.enabled then
+        return false, "algernon disabled"
+    end
+    if type(nodeKey) ~= "string" or nodeKey == "" then
+        return false, "empty node key"
+    end
+    local path, errorMessage = self.pathRuntime:FindPathIncludingCandidates(
+        self.walker:GetCurrentNodeKey(),
+        nodeKey
+    )
+    if not path then
+        return false, errorMessage
+    end
+    return self.walker:MoveTo(path, nodeKey)
+end
+
 function AlgernonController:MoveToWorld(worldPoint)
     if not self.enabled then
         return false, "algernon disabled"

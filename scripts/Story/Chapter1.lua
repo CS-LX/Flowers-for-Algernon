@@ -71,4 +71,76 @@ return {
             mode = "modal",
         },
     },
+    ch1_2_intro = {
+        {
+            id = "ch1.2.intro.1",
+            style = "charlie",
+            text = "门后怎么还是这样？路又断了。",
+            mode = "modal",
+        },
+        {
+            id = "ch1.2.intro.2",
+            style = "charlie",
+            text = "咦，这里有一只小白鼠。",
+            mode = "modal",
+        },
+        {
+            id = "ch1.2.intro.3",
+            style = "charlie",
+            text = "那边怎么还有一扇门？",
+            mode = "modal",
+        },
+    },
+    ch1_2_mouse = {
+        {
+            id = "ch1.2.mouse.1",
+            style = "charlie",
+            text = "它怎么过去的？",
+            mode = "modal",
+        },
+        {
+            id = "ch1.2.mouse.2",
+            style = "charlie",
+            text = "那里明明没有路。",
+            mode = "modal",
+        },
+    },
+    ch1_2_researcher = {
+        {
+            id = "ch1.2.researcher.1",
+            style = "normal",
+            speaker = "研究员",
+            text = "来，来这边吧。",
+            mode = "modal",
+        },
+        {
+            id = "ch1.2.researcher.2",
+            style = "normal",
+            speaker = "研究员",
+            text = "走这条路过来。",
+            mode = "modal",
+        },
+    },
+    ch1_2_clear = {
+        {
+            id = "ch1.2.clear.1",
+            style = "charlie",
+            text = "你是谁？我为什么在这里？",
+            mode = "modal",
+        },
+        {
+            id = "ch1.2.clear.2",
+            style = "normal",
+            speaker = "研究员",
+            text = "我是研究员。你叫查理，是你自己来到这里的。",
+            mode = "modal",
+        },
+        {
+            id = "ch1.2.clear.3",
+            style = "normal",
+            speaker = "研究员",
+            text = "你看不见那些不可能的路，所以来找我们。",
+            mode = "modal",
+        },
+    },
 }

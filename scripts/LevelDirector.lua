@@ -234,8 +234,16 @@ function LevelDirector:MoveAlgernonTo(nodeKey)
     return preview:MoveAlgernonTo(nodeKey)
 end
 
----@param worldPoint Vector3
+---@param nodeKey string
 ---@return boolean, string|nil
+function LevelDirector:MoveAlgernonToIncludingCandidates(nodeKey)
+    local preview = self:GetPreview()
+    if not preview or not preview.algernon then
+        return false, "no algernon"
+    end
+    return preview.algernon:MoveToIncludingCandidates(nodeKey)
+end
+
 function LevelDirector:MoveAlgernonToWorld(worldPoint)
     local preview = self:GetPreview()
     if not preview then
@@ -348,6 +356,18 @@ function LevelDirector:SetStillTransform(objectId, transform)
     end
     if transform.scale then
         object:SetScale(transform.scale)
+    end
+    local preview = self:GetPreview()
+    return preview and preview:ApplyStillObject(object) or false
+end
+
+function LevelDirector:SetStillScale(objectId, scale)
+    local object = self:GetStillObject(objectId)
+    if not object or not object.SetPresentationScale then
+        return false
+    end
+    if not object:SetPresentationScale(scale) then
+        return false
     end
     local preview = self:GetPreview()
     return preview and preview:ApplyStillObject(object) or false

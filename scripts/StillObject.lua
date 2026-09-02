@@ -186,6 +186,18 @@ function StillObject:SetScale(scale)
     return true
 end
 
+function StillObject:SetPresentationScale(scale)
+    if type(scale) == "number" then
+        scale = { x = scale, y = scale, z = scale }
+    end
+    local copied = CopyVector(scale, { x = 1, y = 1, z = 1 })
+    if copied.x < 0 or copied.y < 0 or copied.z < 0 then
+        return false
+    end
+    self.transform.scale = copied
+    return true
+end
+
 function StillObject:SetModelPath(path)
     self.modelPath = type(path) == "string" and path or ""
     return true

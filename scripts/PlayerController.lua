@@ -12,6 +12,14 @@ function PlayerController.New(pathRuntime, spawnNodeKey, camera)
         name = "player",
     })
     self.mechanismLocked = false
+    self.arrivedListeners = {}
+    self.walker.onArrived = function(nodeKey)
+        if self.arrivedListeners[1] then
+            for _, listener in ipairs(self.arrivedListeners) do
+                listener(nodeKey)
+            end
+        end
+    end
     return self
 end
 
@@ -82,7 +90,16 @@ function PlayerController:SetOnStarted(listener)
 end
 
 function PlayerController:SetOnArrived(listener)
-    self.walker.onArrived = listener
+    self.arrivedListeners = {}
+    if type(listener) == "function" then
+        self.arrivedListeners[1] = listener
+    end
+end
+
+function PlayerController:AddOnArrived(listener)
+    if type(listener) == "function" then
+        self.arrivedListeners[#self.arrivedListeners + 1] = listener
+    end
 end
 
 function PlayerController:MoveTo(path, targetKey)

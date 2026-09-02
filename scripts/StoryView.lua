@@ -60,6 +60,7 @@ function StoryView:Build()
         marginTop = 10,
         visible = false,
     }
+
     self.bottom = UI.Panel {
         position = "absolute",
         left = 0,

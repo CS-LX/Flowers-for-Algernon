@@ -22,6 +22,7 @@ local LevelDirectorCatalog = {}
 ---@type table<string, string>
 LevelDirectorCatalog.MODULES = {
     ch1_1 = "LevelDirectors.Chapter1",
+    ch1_2 = "LevelDirectors.Chapter2",
 }
 
 ---@param session table

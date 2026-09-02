@@ -896,6 +896,23 @@ function PathRuntime:IsCandidateEdge(fromKey, toKey)
     return false
 end
 
+function PathRuntime:IsConfiguredCandidateEdge(fromKey, toKey)
+    for _, record in ipairs(self.candidateRecords) do
+        if record.fromKey == fromKey and record.toKey == toKey then
+            if record.candidate.direction == "bidirectional"
+                or record.candidate.direction == "from_to" then
+                return true
+            end
+        elseif record.fromKey == toKey and record.toKey == fromKey then
+            if record.candidate.direction == "bidirectional"
+                or record.candidate.direction == "to_from" then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 function PathRuntime:FindPath(startKey, goalKey)
     if not self.nodesByKey[startKey] or not self.nodesByKey[goalKey] then
         return nil, "node-not-found"
@@ -924,6 +941,65 @@ function PathRuntime:FindPath(startKey, goalKey)
                     return path
                 end
                 queue[#queue + 1] = edge.key
+            end
+        end
+    end
+    return nil, "unreachable"
+end
+
+function PathRuntime:FindPathIncludingCandidates(startKey, goalKey)
+    if not self.nodesByKey[startKey] or not self.nodesByKey[goalKey] then
+        return nil, "node-not-found"
+    end
+    if startKey == goalKey then
+        return { startKey }
+    end
+    local adjacency = {}
+    local function AddEdge(fromKey, toKey)
+        adjacency[fromKey] = adjacency[fromKey] or {}
+        adjacency[fromKey][#adjacency[fromKey] + 1] = toKey
+    end
+    for _, record in ipairs(self.candidateRecords) do
+        if record.from and record.to then
+            if record.candidate.direction == "bidirectional"
+                or record.candidate.direction == "from_to" then
+                AddEdge(record.fromKey, record.toKey)
+            end
+            if record.candidate.direction == "bidirectional"
+                or record.candidate.direction == "to_from" then
+                AddEdge(record.toKey, record.fromKey)
+            end
+        end
+    end
+    for _, part in ipairs(self.levelDocument:GetParts()) do
+        local records = self.nodesByPart[part.id] or {}
+        for _, source in ipairs(records) do
+            for _, neighbor in ipairs(GetLocalFixedNeighbors(source, records, self.grid)) do
+                AddEdge(source.key, neighbor.key)
+            end
+        end
+    end
+    local queue = { startKey }
+    local head = 1
+    local visited = { [startKey] = true }
+    local previous = {}
+    while head <= #queue do
+        local current = queue[head]
+        head = head + 1
+        for _, nextKey in ipairs(adjacency[current] or {}) do
+            if not visited[nextKey] then
+                visited[nextKey] = true
+                previous[nextKey] = current
+                if nextKey == goalKey then
+                    local path = { goalKey }
+                    local cursor = goalKey
+                    while previous[cursor] do
+                        cursor = previous[cursor]
+                        table.insert(path, 1, cursor)
+                    end
+                    return path
+                end
+                queue[#queue + 1] = nextKey
             end
         end
     end

@@ -70,21 +70,22 @@ function PathWalker:Start()
     return true
 end
 
+function PathWalker:SetMovementOrientation(direction, normal)
+    local tangent = direction - normal * direction:DotProduct(normal)
+    if tangent:Length() > 0.001 then
+        local rotation = Quaternion()
+        rotation:FromLookRotation(tangent:Normalized(), normal)
+        self.rotation = rotation
+    end
+end
+
 function PathWalker:SetNodeOrientation(record)
     if not record then
         return
     end
     local normal = record.worldNormal and CopyVector(record.worldNormal) or Vector3.UP
     local direction = self.rotation * Vector3.FORWARD
-    local tangent = direction - normal * direction:DotProduct(normal)
-    if tangent:Length() < 0.001 then
-        tangent = Vector3.FORWARD - normal * Vector3.FORWARD:DotProduct(normal)
-    end
-    if tangent:Length() > 0.001 then
-        local rotation = Quaternion()
-        rotation:FromLookRotation(tangent:Normalized(), normal)
-        self.rotation = rotation
-    end
+    self:SetMovementOrientation(direction, normal)
 end
 
 function PathWalker:Stop()
@@ -191,6 +192,9 @@ function PathWalker:MoveTo(path, targetKey)
         self.currentEdgeIsCandidate = self.pathRuntime:IsCandidateEdge(
             self.currentNodeKey,
             self.path[1]
+        ) or self.pathRuntime:IsConfiguredCandidateEdge(
+            self.currentNodeKey,
+            self.path[1]
         ) or self.currentEdgeIsCandidate
         if self.onStarted then
             self.onStarted(targetKey)
@@ -198,9 +202,10 @@ function PathWalker:MoveTo(path, targetKey)
         return true
     end
     self.pathIndex = 1
-    self.currentEdgeIsCandidate = #self.path > 1
-        and self.pathRuntime:IsCandidateEdge(self.path[1], self.path[2])
-        or false
+    local fromKey = self.path[self.pathIndex]
+    local toKey = self.path[self.pathIndex + 1]
+    self.currentEdgeIsCandidate = self.pathRuntime:IsCandidateEdge(fromKey, toKey)
+        or self.pathRuntime:IsConfiguredCandidateEdge(fromKey, toKey)
     self.walking = #self.path > 1
     if self.walking and self.onStarted then
         self.onStarted(targetKey)
@@ -275,6 +280,9 @@ function PathWalker:Update(timeStep)
             self.currentEdgeIsCandidate = self.pathRuntime:IsCandidateEdge(
                 self.path[self.pathIndex],
                 self.path[self.pathIndex + 1]
+            ) or self.pathRuntime:IsConfiguredCandidateEdge(
+                self.path[self.pathIndex],
+                self.path[self.pathIndex + 1]
             )
         end
         return
@@ -284,12 +292,7 @@ function PathWalker:Update(timeStep)
     local direction = delta / distance
     self.position = self.position + direction * step
     local normal = target.worldNormal and CopyVector(target.worldNormal) or Vector3.UP
-    local tangent = direction - normal * direction:DotProduct(normal)
-    if tangent:Length() > 0.001 then
-        local rotation = Quaternion()
-        rotation:FromLookRotation(tangent:Normalized(), normal)
-        self.rotation = rotation
-    end
+    self:SetMovementOrientation(direction, normal)
 end
 
 return PathWalker
