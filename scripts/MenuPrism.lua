@@ -318,19 +318,11 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
     if not self.root then
         return
     end
-    local maskMaterial = LookApplier.CreateStillObjectUnlitMaterial({
-        color = "#FF0000",
-        opaque = true,
-    })
-    local technique = maskMaterial:GetTechnique(0)
-    if technique and technique:HasPass("base") then
-        local pass = technique:GetPass("base")
-        pass:SetBlendMode(BLEND_REPLACE)
-        pass:SetDepthWrite(true)
-    end
     -- 挂在棱柱根上，跟着一起转。
     -- 六个三棱柱中心距 = edge/√3，整体外接半径 = 2*edge/√3。
     -- 面宽取外接六边形边长 = 2*edge/√3，面心距 = √3/2 * 边长 = edge。
+    -- 本地 yaw 加 30°，与下方棱柱侧面中点对齐。
+    -- 根再转 30° 后世界 yaw = i*60+60。相机朝 +Z，正对相机的是世界 180°，即 i=2。
     self.maskRoot = self.root:CreateChild("MenuMaskQuads")
     local hexSide = edgeLength * 2.0 / math.sqrt(3.0)
     local radius = hexSide * math.sqrt(3.0) * 0.5
@@ -338,20 +330,32 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
     local faceHeight = prismHeight * 0.85
     local thickness = 0.02
     local centerY = prismHeight + faceHeight * 0.5
+    local FRONT_FACE_INDEX = 2
     for i = 0, 5 do
-        local yaw = i * 60.0
+        local yaw = i * 60.0 + SNAP_OFFSET_DEGREES
         local rad = math.rad(yaw)
         local node = self.maskRoot:CreateChild("MaskQuad_" .. tostring(i + 1))
         node.position = Vector3(math.sin(rad) * radius, centerY, math.cos(rad) * radius)
         node.rotation = Quaternion(yaw, Vector3.UP)
         node.scale = Vector3(faceWidth, faceHeight, thickness)
+        local hex = i == FRONT_FACE_INDEX and "#00FF00" or "#FF0000"
+        local material = LookApplier.CreateStillObjectUnlitMaterial({
+            color = hex,
+            opaque = true,
+        })
+        local technique = material:GetTechnique(0)
+        if technique and technique:HasPass("base") then
+            local pass = technique:GetPass("base")
+            pass:SetBlendMode(BLEND_REPLACE)
+            pass:SetDepthWrite(true)
+        end
         local model = node:CreateComponent("StaticModel")
         model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        model:SetMaterial(maskMaterial)
+        model:SetMaterial(material)
         model.viewMask = MASK_BIT
         model.castShadows = false
     end
-    print("MenuPrism: six red mask quads parented to prism")
+    print("MenuPrism: front face i=2 green, others red")
 end
 
 function MenuPrism:CreatePreview()
