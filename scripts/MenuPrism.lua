@@ -15,18 +15,19 @@ local PointerInput = require "PointerInput"
 ---@field targetYawDegrees number
 ---@field snapYawDegrees number
 ---@field phase string
----@field dragStartVector Vector3|nil
 ---@field dragStartMouse Vector2|nil
 local MenuPrism = {}
 MenuPrism.__index = MenuPrism
 
 local STEP_DEGREES = 60.0
+local SNAP_OFFSET_DEGREES = 30.0
+local HEIGHT_SCALE = 1.5
+local WIDTH_SCALE = 0.75
 local DRAG_FOLLOW = 14.0
 local SNAP_FOLLOW = 16.0
 local SNAP_EPSILON = 0.6
 local DRAG_DEADZONE_PIXELS = 8.0
-local MIN_HANDLE_RADIUS = 0.35
-local HANDLE_PLANE_NORMAL = Vector3.UP
+local DRAG_DEGREES_PER_PIXEL = 0.35
 local PHASE_IDLE = "idle"
 local PHASE_PENDING = "pending"
 local PHASE_DRAG = "drag"
@@ -35,9 +36,9 @@ local PHASE_SNAP = "snap"
 -- 第一章门框淡蓝：assets/Levels/chapter-1.json stillObjects[0].params
 local DOOR_FRAME_LOOK = {
     shader = LookApplier.SHADER_TRI_PRISM_LOOK,
-    colorNeg = "#959CA2",
+    colorNeg = "#6E7A86",
     colorMid = "#9AA0A6",
-    colorPos = "#B2BDC1",
+    colorPos = "#D7E4EA",
     lightAxis = { x = 0.35, y = 1.0, z = 0.25 },
     aoEnabled = true,
     aoColor = "#2A1F1A",
@@ -61,43 +62,6 @@ local function ShortestDelta(fromDegrees, toDegrees)
     return WrapDegrees(toDegrees - fromDegrees)
 end
 
-local function FlattenYawVector(vector)
-    return Vector3(vector.x, 0, vector.z)
-end
-
-local function IntersectYawPlane(ray, planePoint)
-    local plane = Plane(HANDLE_PLANE_NORMAL, planePoint)
-    local distance = ray:HitDistance(plane)
-    if not distance or distance < 0 or distance == M_INFINITY then
-        return nil
-    end
-    return ray.origin + ray.direction * distance
-end
-
-local function SignedYawDelta(fromVector, toVector)
-    local from = FlattenYawVector(fromVector)
-    local to = FlattenYawVector(toVector)
-    if from:Length() < 0.001 or to:Length() < 0.001 then
-        return nil
-    end
-    from = from:Normalized()
-    to = to:Normalized()
-    local angle = from:Angle(to)
-    local cross = from:CrossProduct(to)
-    if HANDLE_PLANE_NORMAL:DotProduct(cross) < 0 then
-        return -angle
-    end
-    return angle
-end
-
-local function HandleRadiusWeight(vector)
-    local radius = FlattenYawVector(vector):Length()
-    if radius >= MIN_HANDLE_RADIUS then
-        return 1.0
-    end
-    return radius / MIN_HANDLE_RADIUS
-end
-
 local function ApproachAngle(current, target, follow, timeStep)
     local remaining = ShortestDelta(current, target)
     local step = remaining * math.min(1.0, follow * timeStep)
@@ -108,8 +72,9 @@ local function ApproachAngle(current, target, follow, timeStep)
 end
 
 local function NearestStepDegrees(yawDegrees)
-    local step = math.floor(yawDegrees / STEP_DEGREES + 0.5)
-    return step * STEP_DEGREES
+    local shifted = yawDegrees - SNAP_OFFSET_DEGREES
+    local step = math.floor(shifted / STEP_DEGREES + 0.5)
+    return step * STEP_DEGREES + SNAP_OFFSET_DEGREES
 end
 
 function MenuPrism.New(scene, camera)
@@ -125,8 +90,6 @@ function MenuPrism.New(scene, camera)
     self.targetYawDegrees = 0.0
     self.snapYawDegrees = 0.0
     self.phase = PHASE_IDLE
-    ---@type Vector3|nil
-    self.dragStartVector = nil
     ---@type Vector2|nil
     self.dragStartMouse = nil
     return self
@@ -145,7 +108,8 @@ function MenuPrism:Build()
     end
     local look = LookApplier.CopyPartLook(DOOR_FRAME_LOOK)
     local material = LookApplier.CreatePartMaterial(look)
-    local height = VoxelRenderer.DEFAULT_HEIGHT
+    local height = VoxelRenderer.DEFAULT_HEIGHT * HEIGHT_SCALE
+    local edgeLength = VoxelRenderer.DEFAULT_EDGE * WIDTH_SCALE
     self.root = self.scene:CreateChild("MenuPrismRoot")
     self.root.position = Vector3(0.0, 0.0, 0.0)
     self.voxelNodes = VoxelRenderer.CreateHexagonOfVoxels(
@@ -161,58 +125,36 @@ function MenuPrism:Build()
         },
         {
             parent = self.root,
-            edgeLength = VoxelRenderer.DEFAULT_EDGE,
+            edgeLength = edgeLength,
             height = height,
             material = material,
         }
     )
-    self:ApplyVisualYaw(0.0)
+    self:ApplyVisualYaw(SNAP_OFFSET_DEGREES)
+    self.yawDegrees = SNAP_OFFSET_DEGREES
+    self.targetYawDegrees = SNAP_OFFSET_DEGREES
+    self.snapYawDegrees = SNAP_OFFSET_DEGREES
     print("MenuPrism: pale-blue hex prism ready")
     return true
 end
 
-function MenuPrism:HitPrism(ray)
-    for _, node in ipairs(self.voxelNodes) do
-        local drawable = node:GetComponent("CustomGeometry")
-        if drawable then
-            local distance = ray:HitDistance(drawable.worldBoundingBox)
-            if distance and distance ~= M_INFINITY and distance >= 0 then
-                return true
-            end
-        end
-    end
-    return false
-end
-
 function MenuPrism:SampleTargetYaw()
-    if not self.root or not self.dragStartVector then
+    local startMouse = self.dragStartMouse
+    if not startMouse then
         return nil
     end
-    local hit = IntersectYawPlane(PointerInput.GetScreenRay(self.camera), self.root.worldPosition)
-    if not hit then
-        return nil
-    end
-    local handle = hit - self.root.worldPosition
-    local delta = SignedYawDelta(self.dragStartVector, handle)
-    if not delta then
-        return nil
-    end
-    return self.yawDegrees + delta * HandleRadiusWeight(handle)
+    local dx = PointerInput.Get().position.x - startMouse.x
+    return self.yawDegrees - dx * DRAG_DEGREES_PER_PIXEL
 end
 
-function MenuPrism:BeginPending(ray, mouse)
+function MenuPrism:BeginPending(mouse)
     if not self.root then
-        return false
-    end
-    local hit = IntersectYawPlane(ray, self.root.worldPosition)
-    if not hit then
         return false
     end
     self.phase = PHASE_PENDING
     self.yawDegrees = self.visualYawDegrees
     self.targetYawDegrees = self.visualYawDegrees
     self.snapYawDegrees = self.visualYawDegrees
-    self.dragStartVector = hit - self.root.worldPosition
     self.dragStartMouse = Vector2(mouse.x, mouse.y)
     return true
 end
@@ -250,7 +192,6 @@ function MenuPrism:UpdateSnap(timeStep)
         self:ApplyVisualYaw(self.snapYawDegrees)
         self.yawDegrees = self.snapYawDegrees
         self.phase = PHASE_IDLE
-        self.dragStartVector = nil
         self.dragStartMouse = nil
         print(string.format("MenuPrism: snapped yaw=%.0f", self.yawDegrees))
         return
@@ -265,7 +206,6 @@ end
 
 function MenuPrism:CancelPending()
     self.phase = PHASE_IDLE
-    self.dragStartVector = nil
     self.dragStartMouse = nil
 end
 
@@ -274,10 +214,7 @@ function MenuPrism:Update(timeStep)
     local pointer = PointerInput.Get()
     if self.phase == PHASE_IDLE then
         if pointer.pressed then
-            local ray = PointerInput.GetScreenRay(self.camera)
-            if self:HitPrism(ray) then
-                self:BeginPending(ray, pointer.position)
-            end
+            self:BeginPending(pointer.position)
         end
         return
     end
@@ -293,8 +230,7 @@ function MenuPrism:Update(timeStep)
         end
         local mouse = pointer.position
         local dx = mouse.x - startMouse.x
-        local dy = mouse.y - startMouse.y
-        if dx * dx + dy * dy >= DRAG_DEADZONE_PIXELS * DRAG_DEADZONE_PIXELS then
+        if math.abs(dx) >= DRAG_DEADZONE_PIXELS then
             self:PromotePendingToDrag()
             self:UpdateDrag(timeStep)
         end

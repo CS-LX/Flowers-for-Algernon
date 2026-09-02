@@ -66,11 +66,13 @@ function GameApp:CreateMenuScene()
     LookApplier.ApplyAtmosphere(self.menuScene, LookApplier.DefaultAtmosphere())
 
     self.menuCameraNode = self.menuScene:CreateChild("MenuCamera")
-    self.menuCameraNode.position = Vector3(0, 8.660254, -15.0)
-    self.menuCameraNode:LookAt(Vector3(0, 0, 0))
+    local prismHeight = VoxelRenderer.DEFAULT_HEIGHT * 1.5
+    local eyeHeight = prismHeight * 0.5
+    self.menuCameraNode.position = Vector3(0.0, eyeHeight, -3.2)
+    self.menuCameraNode:LookAt(Vector3(0.0, eyeHeight, 0.0))
     self.menuCamera = self.menuCameraNode:CreateComponent("Camera")
     self.menuCamera.orthographic = true
-    self.menuCamera.orthoSize = 10.0
+    self.menuCamera.orthoSize = 3.2
     self.menuCamera.nearClip = 0.1
     self.menuCamera.farClip = 100.0
 
