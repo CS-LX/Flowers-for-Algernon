@@ -373,6 +373,14 @@ function LevelDirector:SetStillScale(objectId, scale)
     return preview and preview:ApplyStillObject(object) or false
 end
 
+function LevelDirector:SetPartVisualYaw(partId, yawDegrees)
+    local preview = self:GetPreview()
+    if not preview or not preview.partRenderer then
+        return false
+    end
+    return preview.partRenderer:SetVisualYaw(partId, yawDegrees)
+end
+
 ---@param partId string
 ---@param steps number
 ---@param refreshPath boolean|nil

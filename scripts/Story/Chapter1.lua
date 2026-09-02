@@ -143,4 +143,82 @@ return {
             mode = "modal",
         },
     },
+    ch1_3_intro = {
+        {
+            id = "ch1.3.intro.1",
+            style = "charlie",
+            text = "怎么又是这样？路还是断的。",
+            mode = "modal",
+        },
+        {
+            id = "ch1.3.intro.2",
+            style = "charlie",
+            text = "我记得刚才来过这里。可是现在看不懂了。",
+            mode = "modal",
+        },
+        {
+            id = "ch1.3.intro.3",
+            style = "normal",
+            speaker = "研究员",
+            text = "到你所在路径的尽头。就是悬崖边。",
+            mode = "modal",
+        },
+    },
+    ch1_3_rotate = {
+        {
+            id = "ch1.3.rotate.1",
+            style = "charlie",
+            text = "它在动。这里原来不是这样的。",
+            mode = "banner",
+        },
+        {
+            id = "ch1.3.rotate.2",
+            style = "charlie",
+            text = "那边……好像接上了。",
+            mode = "banner",
+        },
+    },
+    ch1_3_after_rotate = {
+        {
+            id = "ch1.3.after_rotate.1",
+            style = "normal",
+            speaker = "研究员",
+            text = "看，路接上了。现在走过来。",
+            mode = "modal",
+        },
+        {
+            id = "ch1.3.after_rotate.2",
+            style = "charlie",
+            text = "我可以走过去了。",
+            mode = "modal",
+        },
+    },
+    ch1_3_clear = {
+        {
+            id = "ch1.3.clear.1",
+            style = "charlie",
+            text = "你是谁？我为什么会在这里？",
+            mode = "modal",
+        },
+        {
+            id = "ch1.3.clear.2",
+            style = "normal",
+            speaker = "研究员",
+            text = "我是研究员。你来到这里，是因为看不见这样的路。",
+            mode = "modal",
+        },
+        {
+            id = "ch1.3.clear.3",
+            style = "normal",
+            speaker = "研究员",
+            text = "如果你接受手术，也许就能看见。以后，你可以自己让路出现。",
+            mode = "modal",
+        },
+        {
+            id = "ch1.3.clear.4",
+            style = "charlie",
+            text = "我愿意。请让我试试。",
+            mode = "modal",
+        },
+    },
 }
