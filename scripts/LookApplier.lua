@@ -122,7 +122,7 @@ function LookApplier.SetFogColor(scene, color)
     return true
 end
 
-function LookApplier.SetCoverFog(scene, color)
+function LookApplier.SetCoverFog(scene, color, density)
     local zone = LookApplier.GetZone(scene)
     if not zone or not color then
         return false
@@ -130,7 +130,7 @@ function LookApplier.SetCoverFog(scene, color)
     zone.fogColor = color
     zone.fogStart = 0.1
     zone.fogEnd = 2.0
-    zone.fogDensity = 1.0
+    zone.fogDensity = density == nil and 1.0 or density
     zone.heightFog = false
     return true
 end
