@@ -6,6 +6,7 @@ local VoxelRenderer = require "VoxelRenderer"
 local LookApplier = require "LookApplier"
 local PointerInput = require "PointerInput"
 local LevelCatalog = require "LevelCatalog"
+local StencilIdColor = require "StencilIdColor"
 
 ---@class MenuPrism
 ---@field scene Scene
@@ -19,6 +20,8 @@ local LevelCatalog = require "LevelCatalog"
 ---@field maskLocalYaws number[]
 ---@field lastStepIndex number|nil
 ---@field window LevelDefinition[]
+---@field exhibitRoot Node|nil
+---@field exhibitNodes Node[]
 ---@field rtCameraNode Node|nil
 ---@field rtCamera Camera|nil
 ---@field rtViewport Viewport|nil
@@ -47,7 +50,8 @@ local DRAG_DEADZONE_PIXELS = 8.0
 local DRAG_DEGREES_PER_PIXEL = 0.35
 local MASK_BIT = 1
 local WORLD_BIT = 2
-local PRISM_DROP = 0.55
+local PRISM_DROP = 1.05
+local CLIP_SHADER = "Shaders/BLGL/StencilIdRtClip.shader"
 local PREVIEW_HEIGHT = 160
 local PHASE_IDLE = "idle"
 local PHASE_PENDING = "pending"
@@ -120,6 +124,10 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.lastStepIndex = nil
     ---@type LevelDefinition[]
     self.window = {}
+    ---@type Node|nil
+    self.exhibitRoot = nil
+    ---@type Node[]
+    self.exhibitNodes = {}
     ---@type Node|nil
     self.rtCameraNode = nil
     ---@type Camera|nil
@@ -269,6 +277,7 @@ function MenuPrism:Build()
         end
     end
     self:BuildMaskQuads(edgeLength, height)
+    self:BuildExhibits(height)
     self:ApplyVisualYaw(SNAP_OFFSET_DEGREES)
     self.yawDegrees = SNAP_OFFSET_DEGREES
     self.targetYawDegrees = SNAP_OFFSET_DEGREES
@@ -454,6 +463,113 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
     print("MenuPrism: six mask faces ready")
 end
 
+function MenuPrism:CreateClipMaterial(stencilId, baseColor)
+    local material = Material:new()
+    if not material:SetSurfaceShader(CLIP_SHADER) then
+        print("MenuPrism: failed to load clip shader")
+        return LookApplier.CreateStillObjectUnlitMaterial({
+            color = "#F4F1EA",
+            opaque = true,
+        })
+    end
+    local stencilColor = StencilIdColor.ToColor(stencilId)
+    material:SetShaderParameter("base_color", Variant(baseColor))
+    material:SetShaderParameter("stencil_color", Variant(stencilColor))
+    if self.rtTexture then
+        material:SetSurfaceTexture("mask_rt", self.rtTexture)
+    end
+    local technique = material:GetTechnique(0)
+    if technique and technique:HasPass("base") then
+        local pass = technique:GetPass("base")
+        pass:SetBlendMode(BLEND_REPLACE)
+        pass:SetDepthWrite(true)
+    end
+    return material
+end
+
+function MenuPrism:AddExhibitModel(parent, name, model, stencilId, baseColor)
+    if not model then
+        print("MenuPrism: missing exhibit model " .. name)
+        return nil
+    end
+    local node = parent:CreateChild(name)
+    local drawable = node:CreateComponent("StaticModel")
+    drawable:SetModel(model)
+    local material = self:CreateClipMaterial(stencilId, baseColor)
+    local geoCount = drawable:GetNumGeometries()
+    if geoCount <= 1 then
+        drawable:SetMaterial(material)
+    else
+        for geoIndex = 0, geoCount - 1 do
+            drawable:SetMaterial(geoIndex, material)
+        end
+    end
+    drawable.viewMask = WORLD_BIT
+    drawable.castShadows = false
+    self.exhibitNodes[#self.exhibitNodes + 1] = node
+    return node
+end
+
+function MenuPrism:BuildExhibits(prismHeight)
+    if not self.root then
+        return
+    end
+    -- 挂在棱柱根上跟着转。贴实体六棱柱顶面，不抬到空心六面高度。
+    self.exhibitRoot = self.root:CreateChild("MenuExhibits")
+    self.exhibitNodes = {}
+    self.exhibitRoot.position = Vector3(0.0, prismHeight, 0.0)
+    print(string.format("MenuPrism: exhibits on solid top y=%.3f", prismHeight))
+
+    local algernon = self:AddExhibitModel(
+        self.exhibitRoot,
+        "ExhibitAlgernon",
+        cache:GetResource("Model", "Meshes/Algernon.mdl"),
+        0,
+        Color(0.957, 0.945, 0.918, 1.0)
+    )
+    if algernon then
+        algernon.position = Vector3(0.0, 0.067, 0.0)
+        algernon.scale = Vector3(0.55, 0.55, 0.55)
+    end
+
+    local cube = self:AddExhibitModel(
+        self.exhibitRoot,
+        "ExhibitCube",
+        BoxGeometry(0.38, 0.38, 0.38):ToModel(),
+        1,
+        Color(0.565, 0.694, 0.741, 1.0)
+    )
+    cube.position = Vector3(0.0, 0.19, 0.0)
+
+    local cylinder = self:AddExhibitModel(
+        self.exhibitRoot,
+        "ExhibitCylinder",
+        CylinderGeometry(0.16, 0.16, 0.42, 16, 1, false):ToModel(),
+        2,
+        Color(0.447, 0.522, 0.435, 1.0)
+    )
+    cylinder.position = Vector3(0.0, 0.21, 0.0)
+
+    local prism = self:AddExhibitModel(
+        self.exhibitRoot,
+        "ExhibitTriPrism",
+        CylinderGeometry(0.24, 0.24, 0.42, 3, 1, false):ToModel(),
+        3,
+        Color(0.502, 0.392, 0.643, 1.0)
+    )
+    prism.position = Vector3(0.0, 0.21, 0.0)
+
+    local sphere = self:AddExhibitModel(
+        self.exhibitRoot,
+        "ExhibitSphere",
+        SphereGeometry(0.20, 16, 12):ToModel(),
+        4,
+        Color(0.741, 0.627, 0.478, 1.0)
+    )
+    sphere.position = Vector3(0.0, 0.20, 0.0)
+    print("MenuPrism: five stencil exhibits ready")
+end
+
 function MenuPrism:CreatePreview()
     local rtTexture = self.rtTexture
     if not rtTexture then
@@ -611,6 +727,8 @@ function MenuPrism:Destroy()
     self.maskLocalYaws = {}
     self.lastStepIndex = nil
     self.window = {}
+    self.exhibitRoot = nil
+    self.exhibitNodes = {}
     if self.rtCameraNode then
         self.rtCameraNode:Remove()
         self.rtCameraNode = nil
