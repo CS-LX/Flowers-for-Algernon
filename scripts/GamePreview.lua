@@ -51,6 +51,13 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.riderFollow = nil
     self.inputLocked = false
     self.storyBlocked = false
+    ---@type table|nil
+    self.fogReveal = nil
+    self.waitingSettle = false
+    self.settleCount = 0
+    ---@type fun()|nil
+    self.onFogRevealFinished = nil
+    self.coverOnStart = false
     return self
 end
 
@@ -58,6 +65,11 @@ function GamePreview:CreateScene()
     self.scene = Scene()
     self.scene:CreateComponent("Octree")
     LookApplier.ApplyAtmosphere(self.scene, self.levelDocument.atmosphere)
+    -- 玩法进关时立刻盖近雾，避免 hitch 期间露出关卡配置雾。编辑器 Preview 不盖。
+    if self.coverOnStart then
+        self:ApplyCoverFog()
+        self:SetInputLocked(true)
+    end
 end
 
 function GamePreview:CreateFeedback(record, reachable)
@@ -169,6 +181,10 @@ function GamePreview:Start()
 
     renderer:SetViewport(0, self.viewport)
     renderer:SetNumViewports(1)
+    if self.coverOnStart then
+        self:ApplyCoverFog()
+        self:SetInputLocked(true)
+    end
     self.player = PlayerController.New(self.pathRuntime, self.spawnNodeKey, self.camera)
     local playerStarted, playerError = self.player:Start()
     if not playerStarted then
@@ -481,6 +497,7 @@ function GamePreview:Update(timeStep)
     self:SyncRiders()
     self:UpdateHoverEmission(timeStep)
     self:UpdateFeedback(timeStep)
+    self:UpdateFogReveal(timeStep)
 end
 
 function GamePreview:PresentPlayer()
@@ -614,9 +631,124 @@ function GamePreview:SetAlgernonOnArrived(listener)
     return true
 end
 
+local FOG_REVEAL_DURATION = 1.0
+local COVER_FOG_START = 0.1
+local COVER_FOG_END = 2.0
+local COVER_FOG_DENSITY = 1.0
+-- 卡顿帧 dt 远大于 50ms；连续 3 帧正常后再散雾。
+local SETTLE_STABLE_DT = 0.05
+local SETTLE_NEEDED = 3
+-- 散雾期间再卡一帧也不把 1s tween 一次吃完。
+local MAX_REVEAL_DT = 1.0 / 30.0
+
+function GamePreview:ApplyCoverFog()
+    if not self.scene or not self.levelDocument then
+        return false
+    end
+    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
+    local cover = LookApplier.HexToColor(atmosphere.fog.color, Color(0.79, 0.76, 0.71, 1))
+    return LookApplier.SetCoverFog(self.scene, cover)
+end
+
+function GamePreview:BeginFogCover()
+    if not self.scene or not self.levelDocument then
+        return false
+    end
+    self:ApplyCoverFog()
+    self:SetInputLocked(true)
+    self.fogReveal = nil
+    self.waitingSettle = true
+    self.settleCount = 0
+    print("GamePreview: cover fog on, wait for stable frames then reveal")
+    return true
+end
+
+function GamePreview:StartFogReveal()
+    if not self.scene or not self.levelDocument then
+        return false
+    end
+    local atmosphere = LookApplier.CopyAtmosphere(self.levelDocument.atmosphere)
+    self:ApplyCoverFog()
+    -- 镜头大约 18m。线性把 fogEnd 从 2 拉到 2000，几十毫秒雾就已经出画面。
+    -- 散雾期间锁住 0.1/2，只把 density 从 1 收到关卡值。
+    self.fogReveal = {
+        duration = FOG_REVEAL_DURATION,
+        clock = 0.0,
+        fromDensity = COVER_FOG_DENSITY,
+        toDensity = atmosphere.fog.density,
+    }
+    print(string.format(
+        "GamePreview: fog reveal 1s density %.2f -> %.2f, keep cover 0.1/2",
+        COVER_FOG_DENSITY,
+        atmosphere.fog.density
+    ))
+    return true
+end
+
+function GamePreview:UpdateFogReveal(timeStep)
+    if self.waitingSettle then
+        self:ApplyCoverFog()
+        if timeStep > 0.0 and timeStep <= SETTLE_STABLE_DT then
+            local settled = self.settleCount + 1
+            self.settleCount = settled
+        else
+            self.settleCount = 0
+        end
+        if self.settleCount >= SETTLE_NEEDED then
+            self.waitingSettle = false
+            print(string.format(
+                "GamePreview: level settled after %d frames dt=%.3f, start fog reveal",
+                SETTLE_NEEDED,
+                timeStep
+            ))
+            self:StartFogReveal()
+        end
+        return
+    end
+    local reveal = self.fogReveal
+    if not reveal then
+        return
+    end
+    local dt = timeStep
+    if dt > MAX_REVEAL_DT then
+        dt = MAX_REVEAL_DT
+    end
+    local nextClock = reveal.clock + dt
+    reveal.clock = nextClock
+    local t = nextClock / reveal.duration
+    if t < 0.0 then
+        t = 0.0
+    elseif t > 1.0 then
+        t = 1.0
+    end
+    -- t^2：前半段仍接近满遮罩，后半段才明显变清。
+    local mix = t * t
+    local zone = LookApplier.GetZone(self.scene)
+    if zone then
+        zone.fogStart = COVER_FOG_START
+        zone.fogEnd = COVER_FOG_END
+        zone.fogDensity = reveal.fromDensity + (reveal.toDensity - reveal.fromDensity) * mix
+    end
+    if t >= 1.0 then
+        LookApplier.ApplyAtmosphere(self.scene, self.levelDocument.atmosphere)
+        self.fogReveal = nil
+        self:SetInputLocked(false)
+        print("GamePreview: fog reveal finished")
+        if self.onFogRevealFinished then
+            local finished = self.onFogRevealFinished
+            self.onFogRevealFinished = nil
+            finished()
+        end
+    end
+end
+
 function GamePreview:Stop()
     self.inputLocked = false
     self.storyBlocked = false
+    self.fogReveal = nil
+    self.waitingSettle = false
+    self.settleCount = 0
+    self.onFogRevealFinished = nil
     self.riderFollow = nil
     if self.rotatorController then
         self.rotatorController:RestoreAuthoredStates()

@@ -153,6 +153,7 @@ function LevelSession:Init()
         self.edgeLength,
         self.voxelHeight
     )
+    self.preview.coverOnStart = true
     local started, startError = self.preview:Start()
     if not started then
         self:Dispose()
@@ -239,7 +240,7 @@ function LevelSession:Update(timeStep)
     if self.triggerRuntime and not self.finished then
         self.triggerRuntime:Update()
     end
-    if self.director then
+    if self.director and self.director.started then
         self.director:Update(timeStep)
     end
 end

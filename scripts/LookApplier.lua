@@ -122,6 +122,19 @@ function LookApplier.SetFogColor(scene, color)
     return true
 end
 
+function LookApplier.SetCoverFog(scene, color)
+    local zone = LookApplier.GetZone(scene)
+    if not zone or not color then
+        return false
+    end
+    zone.fogColor = color
+    zone.fogStart = 0.1
+    zone.fogEnd = 2.0
+    zone.fogDensity = 1.0
+    zone.heightFog = false
+    return true
+end
+
 function LookApplier.NormalizeShader(value)
     if value == LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG then
         return LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG

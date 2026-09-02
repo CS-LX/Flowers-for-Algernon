@@ -299,7 +299,14 @@ function GameApp:PresentSession(session, definition)
     if session.director and self.playHud and self.playHud.storyView then
         session.director:AttachStoryView(self.playHud.storyView)
     end
-    session:StartDirector()
+    if session.preview then
+        session.preview.onFogRevealFinished = function()
+            session:StartDirector()
+        end
+        session.preview:BeginFogCover()
+    else
+        session:StartDirector()
+    end
 end
 
 function GameApp:BackToLevelSelect()
