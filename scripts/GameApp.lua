@@ -67,11 +67,12 @@ function GameApp:CreateMenuScene()
 
     self.menuCameraNode = self.menuScene:CreateChild("MenuCamera")
     local prismHeight = VoxelRenderer.DEFAULT_HEIGHT * 1.5
-    local eyeHeight = prismHeight * 0.5
+    local eyeHeight = prismHeight * 0.5 - 0.55
     self.menuCameraNode.position = Vector3(0.0, eyeHeight, -3.2)
     self.menuCameraNode:LookAt(Vector3(0.0, eyeHeight, 0.0))
     self.menuCamera = self.menuCameraNode:CreateComponent("Camera")
     self.menuCamera.orthographic = true
+    self.menuCamera.viewMask = 2
     self.menuCamera.orthoSize = 3.2
     self.menuCamera.nearClip = 0.1
     self.menuCamera.farClip = 100.0
@@ -99,10 +100,10 @@ function GameApp:Start()
 end
 
 function GameApp:EnsureMenuPrism()
-    if self.menuPrism or not self.menuScene or not self.menuCamera then
+    if self.menuPrism or not self.menuScene or not self.menuCamera or not self.menuViewport then
         return
     end
-    self.menuPrism = MenuPrism.New(self.menuScene, self.menuCamera)
+    self.menuPrism = MenuPrism.New(self.menuScene, self.menuCamera, self.menuCameraNode, self.menuViewport)
     self.menuPrism:Build()
 end
 
