@@ -2,6 +2,7 @@
   "whiteboxPath": "Levels/whitebox-level.json",
   "emptyStencilId": -1,
   "backStencilId": -2,
+  "placeholderFogColor": "#C9C2B4",
   "chapters": [
     {
       "id": 1,
@@ -9,9 +10,9 @@
       "title": "跑不过的迷宫",
       "stencilId": 0,
       "stages": [
-        { "name": "门", "sourcePath": "Levels/chapter-1.json" },
-        { "name": "白鼠先行", "sourcePath": "Levels/chapter-2.json" },
-        { "name": "另一种世界", "sourcePath": "Levels/chapter-3.json" }
+        { "name": "门", "sourcePath": "Levels/chapter-1.json", "fogColor": "#937754" },
+        { "name": "白鼠先行", "sourcePath": "Levels/chapter-2.json", "fogColor": "#937754" },
+        { "name": "另一种世界", "sourcePath": "Levels/chapter-3.json", "fogColor": "#937754" }
       ]
     },
     {

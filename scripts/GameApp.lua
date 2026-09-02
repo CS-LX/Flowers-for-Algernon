@@ -27,6 +27,7 @@ local UI = require("urhox-libs/UI")
 ---@field session table|nil
 ---@field levelEditor LevelEditor|nil
 ---@field editorDocument table|nil
+---@field pendingEnter LevelDefinition|nil
 local GameApp = {}
 GameApp.__index = GameApp
 
@@ -61,6 +62,8 @@ function GameApp.New()
     self.levelEditor = nil
     ---@type table|nil
     self.editorDocument = nil
+    ---@type LevelDefinition|nil
+    self.pendingEnter = nil
     return self
 end
 
@@ -121,11 +124,11 @@ function GameApp:EnsureMenuPrism()
         return
     end
     self.menuPrism = MenuPrism.New(self.menuScene, self.menuCamera, self.menuCameraNode, self.menuViewport)
-    self.menuPrism.onFrontClicked = function(definition)
-        self:EnterLevel(definition)
-    end
     self.menuPrism.onFrontEditClicked = function(definition)
         self:EnterEditor(definition)
+    end
+    self.menuPrism.onExitReady = function(definition)
+        self.pendingEnter = definition
     end
     self.menuPrism:Build()
 end
@@ -149,6 +152,17 @@ function GameApp:ShowLevelSelect(status)
 end
 
 function GameApp:EnterLevel(definition)
+    if self.state ~= STATE_LEVEL_SELECT then
+        return false
+    end
+    if self.menuPrism then
+        print("GameApp: begin menu exit " .. definition.id)
+        return self.menuPrism:BeginExitDrop(definition)
+    end
+    return self:FinishEnterLevel(definition)
+end
+
+function GameApp:FinishEnterLevel(definition)
     if self.state ~= STATE_LEVEL_SELECT then
         return false
     end
@@ -327,6 +341,12 @@ end
 
 function GameApp:Update(timeStep)
     if self.state == STATE_LEVEL_SELECT then
+        local pending = self.pendingEnter
+        if pending then
+            self.pendingEnter = nil
+            self:FinishEnterLevel(pending)
+            return
+        end
         if self.menuPrism then
             self.menuPrism:Update(timeStep)
         end

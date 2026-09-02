@@ -3,6 +3,7 @@
 -- 颜色由 StencilIdColor 从 id 生成，不在配置里写死色值。
 
 local StencilIdColor = require "StencilIdColor"
+local LookApplier = require "LookApplier"
 
 ---@class LevelDefinition
 ---@field id string
@@ -13,12 +14,14 @@ local StencilIdColor = require "StencilIdColor"
 ---@field subtitle string
 ---@field sourcePath string
 ---@field stencilId number
+---@field fogColor Color
 ---@field placeholder boolean|nil
 
 ---@class LevelCatalogConfig
 ---@field whiteboxPath string
 ---@field emptyStencilId number
 ---@field backStencilId number
+---@field placeholderFogColor Color
 
 local LevelCatalog = {}
 
@@ -36,9 +39,9 @@ local FALLBACK_CONFIG = {
             title = "跑不过的迷宫",
             stencilId = 0,
             stages = {
-                { name = "门", sourcePath = "Levels/chapter-1.json" },
-                { name = "白鼠先行", sourcePath = "Levels/chapter-2.json" },
-                { name = "另一种世界", sourcePath = "Levels/chapter-3.json" },
+                { name = "门", sourcePath = "Levels/chapter-1.json", fogColor = "#937754" },
+                { name = "白鼠先行", sourcePath = "Levels/chapter-2.json", fogColor = "#937754" },
+                { name = "另一种世界", sourcePath = "Levels/chapter-3.json", fogColor = "#937754" },
             },
         },
     },
@@ -51,6 +54,7 @@ LevelCatalog.CONFIG = {
     whiteboxPath = "Levels/whitebox-level.json",
     emptyStencilId = FALLBACK_EMPTY_ID,
     backStencilId = FALLBACK_BACK_ID,
+    placeholderFogColor = LookApplier.HexToColor("#C9C2B4", Color(0.79, 0.76, 0.71, 1)),
 }
 
 LevelCatalog.WHITEBOX_PATH = LevelCatalog.CONFIG.whiteboxPath
@@ -144,6 +148,7 @@ local function BuildCatalog(config)
                         local code = string.format("%d-%d", chapterId, stage)
                         local path = type(stageInfo.sourcePath) == "string" and stageInfo.sourcePath or ""
                         local stageName = tostring(stageInfo.name or "占位")
+                        local fogHex = type(stageInfo.fogColor) == "string" and stageInfo.fogColor or nil
                         LevelCatalog.LEVELS[index] = {
                             id = string.format("ch%d_%d", chapterId, stage),
                             index = index,
@@ -153,6 +158,7 @@ local function BuildCatalog(config)
                             subtitle = string.format("第%s章 · %s", label, title),
                             sourcePath = path,
                             stencilId = stencilId,
+                            fogColor = LookApplier.HexToColor(fogHex, LevelCatalog.CONFIG.placeholderFogColor),
                             placeholder = path == "",
                         }
                         index = index + 1
@@ -169,6 +175,10 @@ local function ApplyConfig(config)
     LevelCatalog.CONFIG.whiteboxPath = type(config.whiteboxPath) == "string" and config.whiteboxPath or "Levels/whitebox-level.json"
     LevelCatalog.CONFIG.emptyStencilId = ToInt(config.emptyStencilId, FALLBACK_EMPTY_ID)
     LevelCatalog.CONFIG.backStencilId = ToInt(config.backStencilId, FALLBACK_BACK_ID)
+    LevelCatalog.CONFIG.placeholderFogColor = LookApplier.HexToColor(
+        config.placeholderFogColor,
+        LookApplier.HexToColor("#C9C2B4", Color(0.79, 0.76, 0.71, 1))
+    )
     LevelCatalog.WHITEBOX_PATH = LevelCatalog.CONFIG.whiteboxPath
     BuildCatalog(config)
 end
@@ -254,6 +264,14 @@ function LevelCatalog.IsPlayable(definition)
         return false
     end
     return type(definition.sourcePath) == "string" and definition.sourcePath ~= ""
+end
+
+function LevelCatalog.GetFogColor(definition, fallback)
+    fallback = fallback or LevelCatalog.CONFIG.placeholderFogColor
+    if not definition then
+        return fallback
+    end
+    return definition.fogColor or fallback
 end
 
 -- 只读内置关卡 JSON。失败不写盘，调用方再决定是否回退白模。

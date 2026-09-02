@@ -77,6 +77,10 @@ function LookApplier.TonemapModeEnum(value)
     return TONEMAP_MODE_NONE
 end
 
+function LookApplier.HexToColor(hex, fallback)
+    return HexToColor(hex, fallback)
+end
+
 function LookApplier.NormalizeHex(hex, fallback)
     local color = HexToColor(hex, nil)
     if not color then
@@ -88,6 +92,34 @@ function LookApplier.NormalizeHex(hex, fallback)
         math.floor(color.g * 255.0 + 0.5),
         math.floor(color.b * 255.0 + 0.5)
     )
+end
+
+function LookApplier.GetZone(scene)
+    if not scene then
+        return nil
+    end
+    local lightGroup = scene:GetChild("LightGroup")
+    if not lightGroup then
+        return nil
+    end
+    return lightGroup:GetComponent("Zone", true)
+end
+
+function LookApplier.GetFogColor(scene, fallback)
+    local zone = LookApplier.GetZone(scene)
+    if zone then
+        return zone.fogColor
+    end
+    return fallback or HexToColor(LookApplier.DefaultAtmosphere().fog.color, Color(0.79, 0.76, 0.71, 1))
+end
+
+function LookApplier.SetFogColor(scene, color)
+    local zone = LookApplier.GetZone(scene)
+    if not zone or not color then
+        return false
+    end
+    zone.fogColor = color
+    return true
 end
 
 function LookApplier.NormalizeShader(value)

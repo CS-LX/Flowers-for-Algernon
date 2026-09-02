@@ -43,6 +43,12 @@ local StillModelCatalog = require "StillModelCatalog"
 ---@field dragStartMouse Vector2|nil
 ---@field onFrontClicked fun(definition: LevelDefinition)|nil
 ---@field onFrontEditClicked fun(definition: LevelDefinition|nil)|nil
+---@field onExitReady fun(definition: LevelDefinition)|nil
+---@field fogTween {duration: number, clock: number, from: Color, to: Color}|nil
+---@field exitTween {duration: number, clock: number, fromY: number, toY: number, definition: LevelDefinition}|nil
+---@field restY number
+---@field pendingExit LevelDefinition|nil
+---@field pendingDrop LevelDefinition|nil
 local MenuPrism = {}
 MenuPrism.__index = MenuPrism
 
@@ -69,6 +75,10 @@ local PHASE_IDLE = "idle"
 local PHASE_PENDING = "pending"
 local PHASE_DRAG = "drag"
 local PHASE_SNAP = "snap"
+local PHASE_EXIT = "exit"
+local FOG_TWEEN_DURATION = 0.45
+local EXIT_DROP = 8.0
+local EXIT_DURATION = 0.85
 
 -- 第一章门框淡蓝：assets/Levels/chapter-1.json stillObjects[0].params
 local DOOR_FRAME_LOOK = {
@@ -169,7 +179,43 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.onFrontClicked = nil
     ---@type fun(definition: LevelDefinition|nil)|nil
     self.onFrontEditClicked = nil
+    ---@type fun(definition: LevelDefinition)|nil
+    self.onExitReady = nil
+    ---@type table|nil
+    self.fogTween = nil
+    ---@type table|nil
+    self.exitTween = nil
+    self.restY = -PRISM_DROP
+    ---@type LevelDefinition|nil
+    self.pendingExit = nil
+    ---@type LevelDefinition|nil
+    self.pendingDrop = nil
     return self
+end
+
+local function Clamp01(value)
+    if value < 0.0 then
+        return 0.0
+    end
+    if value > 1.0 then
+        return 1.0
+    end
+    return value
+end
+
+-- 由慢到快：t^3。
+local function EaseInCubic(t)
+    return t * t * t
+end
+
+local function MixColor(fromColor, toColor, t)
+    t = Clamp01(t)
+    return Color(
+        fromColor.r + (toColor.r - fromColor.r) * t,
+        fromColor.g + (toColor.g - fromColor.g) * t,
+        fromColor.b + (toColor.b - fromColor.b) * t,
+        1.0
+    )
 end
 
 local CAMERA_FRONT_YAW = 180.0
@@ -198,6 +244,7 @@ function MenuPrism:UpdateWindow()
     local left = self.window[1]
     local center = self.window[2]
     local right = self.window[3]
+    self:TweenFogToFront(center)
     print(string.format(
         "MenuPrism: window [%s][%s][%s]",
         left and left.code or "--",
@@ -279,6 +326,80 @@ function MenuPrism:UpdateFaceLabels(centerIndex, frontMaskIndex)
     end
 end
 
+function MenuPrism:PlaceholderFogColor()
+    return LevelCatalog.CONFIG.placeholderFogColor
+end
+
+function MenuPrism:TweenFogToFront(definition)
+    if not self.scene then
+        return
+    end
+    local fromColor = LookApplier.GetFogColor(self.scene, self:PlaceholderFogColor())
+    local toColor = LevelCatalog.GetFogColor(definition, self:PlaceholderFogColor())
+    self.fogTween = {
+        duration = FOG_TWEEN_DURATION,
+        clock = 0.0,
+        from = fromColor,
+        to = toColor,
+    }
+end
+
+function MenuPrism:UpdateFogTween(timeStep)
+    local tween = self.fogTween
+    if not tween then
+        return
+    end
+    tween.clock = tween.clock + timeStep
+    local t = Clamp01(tween.clock / tween.duration)
+    LookApplier.SetFogColor(self.scene, MixColor(tween.from, tween.to, t))
+    if t >= 1.0 then
+        self.fogTween = nil
+    end
+end
+
+function MenuPrism:BeginExitDrop(definition)
+    if self.phase == PHASE_EXIT then
+        return true
+    end
+    if not self.root then
+        if self.onExitReady then
+            self.onExitReady(definition)
+        end
+        return true
+    end
+    self.phase = PHASE_EXIT
+    self.dragStartMouse = nil
+    local fromY = self.root.position.y
+    self.exitTween = {
+        duration = EXIT_DURATION,
+        clock = 0.0,
+        fromY = fromY,
+        toY = fromY - EXIT_DROP,
+        definition = definition,
+    }
+    print(string.format("MenuPrism: exit drop from y=%.3f", fromY))
+    return true
+end
+
+function MenuPrism:UpdateExitDrop(timeStep)
+    local tween = self.exitTween
+    local root = self.root
+    if not tween or not root then
+        return
+    end
+    local nextClock = tween.clock + timeStep
+    tween.clock = nextClock
+    local t = Clamp01(nextClock / tween.duration)
+    local y = tween.fromY + (tween.toY - tween.fromY) * EaseInCubic(t)
+    local pos = root.position
+    root.position = Vector3(pos.x, y, pos.z)
+    if t >= 1.0 then
+        self.exitTween = nil
+        print("MenuPrism: exit drop finished")
+        self.pendingExit = tween.definition
+    end
+end
+
 function MenuPrism:ApplyVisualYaw(yawDegrees)
     self.visualYawDegrees = yawDegrees
     if self.root then
@@ -302,7 +423,8 @@ function MenuPrism:Build()
     self:LockSkyboxToWorld()
     self:CreateRt()
     self.root = self.scene:CreateChild("MenuPrismRoot")
-    self.root.position = Vector3(0.0, -PRISM_DROP, 0.0)
+    self.restY = -PRISM_DROP
+    self.root.position = Vector3(0.0, self.restY, 0.0)
     self.voxelNodes = VoxelRenderer.CreateHexagonOfVoxels(
         self.scene,
         Vector3(0.0, 0.0, 0.0),
@@ -836,9 +958,7 @@ function MenuPrism:TryEnterFrontLevel()
         return false
     end
     print("MenuPrism: front click " .. definition.code)
-    if self.onFrontClicked then
-        self.onFrontClicked(definition)
-    end
+    self.pendingDrop = definition
     return true
 end
 
@@ -848,13 +968,34 @@ function MenuPrism:CancelPending()
 end
 
 function MenuPrism:Update(timeStep)
-    self:ResizeRtIfNeeded()
-    self:SyncRtCamera()
-    if self.rtTexture then
-        local surface = self.rtTexture:GetRenderSurface()
-        if surface then
-            surface:QueueUpdate()
+    if self.pendingExit then
+        local definition = self.pendingExit
+        self.pendingExit = nil
+        if self.onExitReady then
+            self.onExitReady(definition)
         end
+        return
+    end
+    if self.pendingDrop then
+        local definition = self.pendingDrop
+        self.pendingDrop = nil
+        self:BeginExitDrop(definition)
+        return
+    end
+    if self.phase ~= PHASE_EXIT then
+        self:ResizeRtIfNeeded()
+        self:SyncRtCamera()
+        if self.rtTexture then
+            local surface = self.rtTexture:GetRenderSurface()
+            if surface then
+                surface:QueueUpdate()
+            end
+        end
+    end
+    self:UpdateFogTween(timeStep)
+    if self.phase == PHASE_EXIT then
+        self:UpdateExitDrop(timeStep)
+        return
     end
     PointerInput.BeginFrame()
     local pointer = PointerInput.Get()
@@ -912,6 +1053,11 @@ function MenuPrism:Destroy()
     self.labelLocalYaws = {}
     self.onFrontClicked = nil
     self.onFrontEditClicked = nil
+    self.onExitReady = nil
+    self.fogTween = nil
+    self.exitTween = nil
+    self.pendingExit = nil
+    self.pendingDrop = nil
     if self.rtCameraNode then
         self.rtCameraNode:Remove()
         self.rtCameraNode = nil
