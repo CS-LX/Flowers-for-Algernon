@@ -1,5 +1,5 @@
 -- 六边形视觉闯关游戏入口。
--- 默认进入白膜选关；关卡容器负责 Init / Dispose。
+-- 默认进入无 UI 选关场景；关卡容器负责 Init / Dispose。
 
 local GameApp = require "GameApp"
 local ScreenColorPicker = require "ScreenColorPicker"

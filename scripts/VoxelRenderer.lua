@@ -358,10 +358,12 @@ function VoxelRenderer.CreateHexagonOfVoxels(scene, center, colors, options)
         local color = colors[i]
         local rotation = Quaternion(angle * 180.0 / math.pi, Vector3.UP)
         voxels[i] = VoxelRenderer.CreateVoxel(scene, position, color, {
+            parent = options.parent,
             edgeLength = edgeLength,
             height = height,
             rotation = rotation,
             name = "HexVoxel_" .. i,
+            material = options.material,
         })
     end
 

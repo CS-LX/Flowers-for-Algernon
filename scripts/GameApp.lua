@@ -6,12 +6,12 @@
 local VoxelRenderer = require "VoxelRenderer"
 local LookApplier = require "LookApplier"
 local LevelCatalog = require "LevelCatalog"
-local LevelSelectUI = require "LevelSelectUI"
 local LevelSession = require "LevelSession"
 local PlayHud = require "PlayHud"
 local LevelEditor = require "LevelEditor"
 local StarterLevel = require "StarterLevel"
 local TriPrismGrid = require "TriPrismGrid"
+local MenuPrism = require "MenuPrism"
 local UI = require("urhox-libs/UI")
 
 ---@class GameApp
@@ -22,7 +22,7 @@ local UI = require("urhox-libs/UI")
 ---@field menuCameraNode Node|nil
 ---@field menuCamera Camera|nil
 ---@field menuViewport Viewport|nil
----@field selectUI LevelSelectUI|nil
+---@field menuPrism MenuPrism|nil
 ---@field playHud PlayHud|nil
 ---@field session table|nil
 ---@field levelEditor LevelEditor|nil
@@ -47,8 +47,8 @@ function GameApp.New()
     self.menuCamera = nil
     ---@type Viewport|nil
     self.menuViewport = nil
-    ---@type LevelSelectUI|nil
-    self.selectUI = nil
+    ---@type MenuPrism|nil
+    self.menuPrism = nil
     ---@type PlayHud|nil
     self.playHud = nil
     ---@type table|nil
@@ -89,27 +89,35 @@ end
 
 function GameApp:Start()
     self:CreateMenuScene()
-    self.selectUI = LevelSelectUI.New(function(definition)
-        self:EnterLevel(definition)
-    end, function()
-        self:EnterEditor()
-    end)
     self.playHud = PlayHud.New(function()
         self:BackToLevelSelect()
     end)
-    self:ShowLevelSelect("选择一章进入，或打开独立关卡编辑器")
+    self:ShowLevelSelect()
     print("GameApp: started in levelselect, chapters=" .. tostring(#LevelCatalog.GetAll()))
+end
+
+function GameApp:EnsureMenuPrism()
+    if self.menuPrism or not self.menuScene or not self.menuCamera then
+        return
+    end
+    self.menuPrism = MenuPrism.New(self.menuScene, self.menuCamera)
+    self.menuPrism:Build()
+end
+
+function GameApp:DestroyMenuPrism()
+    if self.menuPrism then
+        self.menuPrism:Destroy()
+        self.menuPrism = nil
+    end
 end
 
 function GameApp:ShowLevelSelect(status)
     self.state = STATE_LEVEL_SELECT
     self:BindMenuViewport()
     LookApplier.ApplyAtmosphere(self.menuScene, LookApplier.DefaultAtmosphere())
-    if self.selectUI then
-        self.selectUI:Show()
-        if status then
-            self.selectUI:SetStatus(status)
-        end
+    self:EnsureMenuPrism()
+    if status then
+        print("GameApp: levelselect " .. tostring(status))
     end
 end
 
@@ -118,9 +126,7 @@ function GameApp:EnterLevel(definition)
         return false
     end
     print("GameApp: entering chapter " .. definition.id .. " source=" .. definition.sourcePath)
-    if self.selectUI then
-        self.selectUI:Hide()
-    end
+    self:DestroyMenuPrism()
     self:DisposeSession()
     local session = LevelSession.New(definition, self.edgeLength, self.voxelHeight)
     local started, errorMessage = session:Init()
@@ -147,9 +153,7 @@ function GameApp:EnterEditor()
         return false
     end
     print("GameApp: entering standalone level editor")
-    if self.selectUI then
-        self.selectUI:Hide()
-    end
+    self:DestroyMenuPrism()
     self:DisposeSession()
     local grid = TriPrismGrid.New(self.edgeLength, self.voxelHeight)
     local document, loadWarning = StarterLevel.LoadOrCreate(grid)
@@ -248,7 +252,41 @@ function GameApp:BackToLevelSelect()
     end
 end
 
+function GameApp:HandleLevelSelectHotkeys()
+    if input:GetKeyPress(KEY_1) then
+        local definition = LevelCatalog.GetById("chapter_1")
+        if definition then
+            self:EnterLevel(definition)
+        end
+        return
+    end
+    if input:GetKeyPress(KEY_2) then
+        local definition = LevelCatalog.GetById("chapter_2")
+        if definition then
+            self:EnterLevel(definition)
+        end
+        return
+    end
+    if input:GetKeyPress(KEY_3) then
+        local definition = LevelCatalog.GetById("chapter_3")
+        if definition then
+            self:EnterLevel(definition)
+        end
+        return
+    end
+    if input:GetKeyPress(KEY_E) then
+        self:EnterEditor()
+    end
+end
+
 function GameApp:Update(timeStep)
+    if self.state == STATE_LEVEL_SELECT then
+        if self.menuPrism then
+            self.menuPrism:Update(timeStep)
+        end
+        self:HandleLevelSelectHotkeys()
+        return
+    end
     if self.state == STATE_PLAYING then
         if input:GetKeyPress(KEY_ESCAPE) then
             local director = self.session and self.session.director
@@ -277,15 +315,12 @@ end
 function GameApp:Stop()
     self:DisposeSession()
     self:StopEditor()
-    if self.selectUI then
-        self.selectUI:Destroy()
-        self.selectUI = nil
-    end
     if self.playHud then
         self.playHud:Hide()
         self.playHud = nil
     end
     UI.Shutdown()
+    self:DestroyMenuPrism()
     if self.menuScene then
         self.menuScene:Clear(true, true)
         self.menuScene = nil
