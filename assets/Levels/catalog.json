@@ -1,0 +1,65 @@
+{
+  "whiteboxPath": "Levels/whitebox-level.json",
+  "emptyStencilId": -1,
+  "backStencilId": -2,
+  "chapters": [
+    {
+      "id": 1,
+      "label": "一",
+      "title": "跑不过的迷宫",
+      "stencilId": 0,
+      "stages": [
+        { "name": "门", "sourcePath": "Levels/chapter-1.json" },
+        { "name": "白鼠先行", "sourcePath": "Levels/chapter-2.json" },
+        { "name": "另一种世界", "sourcePath": "Levels/chapter-3.json" }
+      ]
+    },
+    {
+      "id": 2,
+      "label": "二",
+      "title": "打开的世界",
+      "stencilId": 1,
+      "stages": [
+        { "name": "研究室" },
+        { "name": "远处的房间" },
+        { "name": "两座塔之间" },
+        { "name": "高处的窗" }
+      ]
+    },
+    {
+      "id": 3,
+      "label": "三",
+      "title": "高处没有朋友",
+      "stencilId": 2,
+      "stages": [
+        { "name": "玻璃之间" },
+        { "name": "旁观席" },
+        { "name": "阿尔吉侬的记录" },
+        { "name": "最后的报告" }
+      ]
+    },
+    {
+      "id": 4,
+      "label": "四",
+      "title": "道路正在消失",
+      "stencilId": 3,
+      "stages": [
+        { "name": "失效的迷宫" },
+        { "name": "反向的塔" },
+        { "name": "回到低处" },
+        { "name": "空房间" }
+      ]
+    },
+    {
+      "id": 5,
+      "label": "五",
+      "title": "给阿尔吉侬的花",
+      "stencilId": 4,
+      "stages": [
+        { "name": "真正的路" },
+        { "name": "花园" },
+        { "name": "余光" }
+      ]
+    }
+  ]
+}

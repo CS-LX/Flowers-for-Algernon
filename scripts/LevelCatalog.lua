@@ -1,5 +1,8 @@
 -- 玩法关卡目录。
--- 滚筒按 5 章 18 关排布 3-4-4-4-3。真正有 JSON 的只有 1-1/1-2/1-3，其余占位。
+-- 章节名、关卡数、可玩路径和 stencil id 都来自 Levels/catalog.json。
+-- 颜色由 StencilIdColor 从 id 生成，不在配置里写死色值。
+
+local StencilIdColor = require "StencilIdColor"
 
 ---@class LevelDefinition
 ---@field id string
@@ -9,80 +12,51 @@
 ---@field title string
 ---@field subtitle string
 ---@field sourcePath string
+---@field stencilId number
 ---@field placeholder boolean|nil
+
+---@class LevelCatalogConfig
+---@field whiteboxPath string
+---@field emptyStencilId number
+---@field backStencilId number
 
 local LevelCatalog = {}
 
--- 玩法只读资源根下的关卡 JSON。docs/level.txt 是编辑器导出通道，不进 ResourceCache。
----@type string
-LevelCatalog.WHITEBOX_PATH = "Levels/whitebox-level.json"
----@type string
-LevelCatalog.CHAPTER_1_PATH = "Levels/chapter-1.json"
----@type string
-LevelCatalog.CHAPTER_2_PATH = "Levels/chapter-2.json"
----@type string
-LevelCatalog.CHAPTER_3_PATH = "Levels/chapter-3.json"
-
-local CHAPTER_TITLES = {
-    "跑不过的迷宫",
-    "打开的世界",
-    "高处没有朋友",
-    "道路正在消失",
-    "给阿尔吉侬的花",
-}
-
-local CHAPTER_LABELS = {
-    "一",
-    "二",
-    "三",
-    "四",
-    "五",
-}
-
-local CHAPTER_STAGE_COUNTS = { 3, 4, 4, 4, 3 }
-
-local CHAPTER_STAGE_NAMES = {
-    { "门", "白鼠先行", "另一种世界" },
-    { "研究室", "远处的房间", "两座塔之间", "高处的窗" },
-    { "玻璃之间", "旁观席", "阿尔吉侬的记录", "最后的报告" },
-    { "失效的迷宫", "反向的塔", "回到低处", "空房间" },
-    { "真正的路", "花园", "余光" },
-}
-
-local PLAYABLE_PATHS = {
-    ["1-1"] = LevelCatalog.CHAPTER_1_PATH,
-    ["1-2"] = LevelCatalog.CHAPTER_2_PATH,
-    ["1-3"] = LevelCatalog.CHAPTER_3_PATH,
+local CONFIG_PATH = "Levels/catalog.json"
+local FALLBACK_EMPTY_ID = -1
+local FALLBACK_BACK_ID = -2
+local FALLBACK_CONFIG = {
+    whiteboxPath = "Levels/whitebox-level.json",
+    emptyStencilId = FALLBACK_EMPTY_ID,
+    backStencilId = FALLBACK_BACK_ID,
+    chapters = {
+        {
+            id = 1,
+            label = "一",
+            title = "跑不过的迷宫",
+            stencilId = 0,
+            stages = {
+                { name = "门", sourcePath = "Levels/chapter-1.json" },
+                { name = "白鼠先行", sourcePath = "Levels/chapter-2.json" },
+                { name = "另一种世界", sourcePath = "Levels/chapter-3.json" },
+            },
+        },
+    },
 }
 
 ---@type LevelDefinition[]
 LevelCatalog.LEVELS = {}
+---@type LevelCatalogConfig
+LevelCatalog.CONFIG = {
+    whiteboxPath = "Levels/whitebox-level.json",
+    emptyStencilId = FALLBACK_EMPTY_ID,
+    backStencilId = FALLBACK_BACK_ID,
+}
 
-local function BuildCatalog()
-    local index = 1
-    for chapter = 1, #CHAPTER_STAGE_COUNTS do
-        local stageCount = CHAPTER_STAGE_COUNTS[chapter]
-        local names = CHAPTER_STAGE_NAMES[chapter] or {}
-        for stage = 1, stageCount do
-            local code = string.format("%d-%d", chapter, stage)
-            local path = PLAYABLE_PATHS[code]
-            local stageName = names[stage] or "占位"
-            LevelCatalog.LEVELS[index] = {
-                id = string.format("ch%d_%d", chapter, stage),
-                index = index,
-                chapter = chapter,
-                code = code,
-                title = string.format("%s %s", code, stageName),
-                subtitle = string.format("第%s章 · %s", CHAPTER_LABELS[chapter], CHAPTER_TITLES[chapter]),
-                sourcePath = path or "",
-                placeholder = path == nil,
-            }
-            index = index + 1
-        end
-    end
-end
-
-BuildCatalog()
+LevelCatalog.WHITEBOX_PATH = LevelCatalog.CONFIG.whiteboxPath
+LevelCatalog.CHAPTER_1_PATH = "Levels/chapter-1.json"
+LevelCatalog.CHAPTER_2_PATH = "Levels/chapter-2.json"
+LevelCatalog.CHAPTER_3_PATH = "Levels/chapter-3.json"
 
 local function Repeat(t, length)
     if length <= 0 then
@@ -90,6 +64,116 @@ local function Repeat(t, length)
     end
     return ((t % length) + length) % length
 end
+
+local function ToInt(value, fallback)
+    local number = tonumber(value)
+    if not number then
+        return fallback
+    end
+    return math.floor(number + 0.5)
+end
+
+local function DecodeJsonText(json, source)
+    local ok, data = pcall(cjson.decode, json)
+    if ok and type(data) == "table" then
+        return data
+    end
+    print("LevelCatalog: decode failed " .. source .. " " .. tostring(data))
+    return nil
+end
+
+local function ReadJsonFile(path)
+    local file = File(path, FILE_READ)
+    if not file or not file:IsOpen() then
+        return nil
+    end
+    local json = file:ReadString()
+    file:Close()
+    return DecodeJsonText(json, path)
+end
+
+local function LoadConfigJson()
+    local resolved = CONFIG_PATH
+    local uuidPathOk, uuidPath = pcall(function()
+        return cache:GetResUuidPath(CONFIG_PATH)
+    end)
+    if uuidPathOk and type(uuidPath) == "string" and uuidPath ~= "" then
+        resolved = uuidPath
+        print("LevelCatalog: uuid path " .. CONFIG_PATH .. " -> " .. uuidPath)
+    end
+    local jsonFile = cache:GetResource("JSONFile", resolved) --[[@as JSONFile?]]
+    if jsonFile then
+        local json = jsonFile:ToString()
+        local data = DecodeJsonText(json, "JSONFile:" .. CONFIG_PATH)
+        if data then
+            print("LevelCatalog: loaded JSONFile " .. CONFIG_PATH)
+            return data
+        end
+    end
+    if fileSystem:FileExists(CONFIG_PATH) then
+        local data = ReadJsonFile(CONFIG_PATH)
+        if data then
+            print("LevelCatalog: loaded File " .. CONFIG_PATH)
+            return data
+        end
+    end
+    print("LevelCatalog: missing " .. CONFIG_PATH)
+    return nil
+end
+
+local function BuildCatalog(config)
+    LevelCatalog.LEVELS = {}
+    local chapters = config.chapters
+    if type(chapters) ~= "table" then
+        print("LevelCatalog: chapters missing")
+        return
+    end
+    local index = 1
+    for chapterOrder = 1, #chapters do
+        local chapter = chapters[chapterOrder]
+        if type(chapter) == "table" then
+            local chapterId = math.max(1, ToInt(chapter.id, chapterOrder))
+            local label = tostring(chapter.label or chapterId)
+            local title = tostring(chapter.title or "")
+            local stencilId = ToInt(chapter.stencilId, chapterId - 1)
+            local stages = chapter.stages
+            if type(stages) == "table" then
+                for stage = 1, #stages do
+                    local stageInfo = stages[stage]
+                    if type(stageInfo) == "table" then
+                        local code = string.format("%d-%d", chapterId, stage)
+                        local path = type(stageInfo.sourcePath) == "string" and stageInfo.sourcePath or ""
+                        local stageName = tostring(stageInfo.name or "占位")
+                        LevelCatalog.LEVELS[index] = {
+                            id = string.format("ch%d_%d", chapterId, stage),
+                            index = index,
+                            chapter = chapterId,
+                            code = code,
+                            title = string.format("%s %s", code, stageName),
+                            subtitle = string.format("第%s章 · %s", label, title),
+                            sourcePath = path,
+                            stencilId = stencilId,
+                            placeholder = path == "",
+                        }
+                        index = index + 1
+                    end
+                end
+            end
+        end
+    end
+    print("LevelCatalog: built " .. tostring(#LevelCatalog.LEVELS) .. " levels")
+end
+
+local function ApplyConfig(config)
+    config = config or {}
+    LevelCatalog.CONFIG.whiteboxPath = type(config.whiteboxPath) == "string" and config.whiteboxPath or "Levels/whitebox-level.json"
+    LevelCatalog.CONFIG.emptyStencilId = ToInt(config.emptyStencilId, FALLBACK_EMPTY_ID)
+    LevelCatalog.CONFIG.backStencilId = ToInt(config.backStencilId, FALLBACK_BACK_ID)
+    LevelCatalog.WHITEBOX_PATH = LevelCatalog.CONFIG.whiteboxPath
+    BuildCatalog(config)
+end
+
+ApplyConfig(LoadConfigJson() or FALLBACK_CONFIG)
 
 function LevelCatalog.GetAll()
     return LevelCatalog.LEVELS
@@ -119,11 +203,29 @@ function LevelCatalog.GetChapter(definition)
     if not definition then
         return 0
     end
-    return math.max(1, math.floor((tonumber(definition.chapter) or 1) + 0.5))
+    return math.max(1, ToInt(definition.chapter, 1))
+end
+
+function LevelCatalog.GetStencilId(definition)
+    if not definition then
+        return LevelCatalog.CONFIG.emptyStencilId
+    end
+    return ToInt(definition.stencilId, LevelCatalog.CONFIG.emptyStencilId)
+end
+
+function LevelCatalog.GetEmptyColor()
+    return StencilIdColor.ToColor(LevelCatalog.CONFIG.emptyStencilId)
+end
+
+function LevelCatalog.GetBackColor()
+    return StencilIdColor.ToColor(LevelCatalog.CONFIG.backStencilId)
+end
+
+function LevelCatalog.GetColor(definition)
+    return StencilIdColor.ToColor(LevelCatalog.GetStencilId(definition))
 end
 
 -- 循环三格窗口。centerIndex 为 1-based 正面关卡号。
--- 初始 center=1 → [5-3][1-1][1-2]
 function LevelCatalog.GetWindow(centerIndex)
     local left = LevelCatalog.GetByIndex(centerIndex - 1)
     local center = LevelCatalog.GetByIndex(centerIndex)

@@ -1,6 +1,6 @@
 -- 选关菜单里的淡蓝六棱柱。
 -- 只服务选关场景：拖转表现层，松手后 Snap 到 60°。
--- 整档时把循环三格窗口的关卡色涂到左/正/右三面。
+-- 整档时把窗口关卡的 stencil id 编成颜色，涂到左/正/右三面。
 
 local VoxelRenderer = require "VoxelRenderer"
 local LookApplier = require "LookApplier"
@@ -144,23 +144,10 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     return self
 end
 
-local EMPTY_COLOR = Color(1.0, 1.0, 1.0, 1.0)
-local BACK_COLOR = Color(1.0, 0.0, 0.0, 1.0)
 local CAMERA_FRONT_YAW = 180.0
-local CHAPTER_COLORS = {
-    Color(1.0, 0.0, 0.0, 1.0),
-    Color(1.0, 1.0, 0.0, 1.0),
-    Color(0.0, 1.0, 0.0, 1.0),
-    Color(0.0, 1.0, 1.0, 1.0),
-    Color(0.0, 0.0, 1.0, 1.0),
-}
 
 local function ColorForLevel(definition)
-    if not definition then
-        return EMPTY_COLOR
-    end
-    local chapter = LevelCatalog.GetChapter(definition)
-    return CHAPTER_COLORS[chapter] or EMPTY_COLOR
+    return LevelCatalog.GetColor(definition)
 end
 
 function MenuPrism:StepIndexFromYaw(yawDegrees)
@@ -214,7 +201,7 @@ function MenuPrism:UpdateFrontFaceColors()
     local center = self.window[2]
     local right = self.window[3]
     for i = 1, faceCount do
-        local color = BACK_COLOR
+        local color = LevelCatalog.GetBackColor()
         if i == frontIndex then
             color = ColorForLevel(center)
         elseif i == leftIndex then
