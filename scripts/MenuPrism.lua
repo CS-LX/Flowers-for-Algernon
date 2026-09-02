@@ -140,6 +140,8 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
 end
 
 local GREEN_COLOR = Color(0.0, 1.0, 0.0, 1.0)
+local YELLOW_COLOR = Color(1.0, 1.0, 0.0, 1.0)
+local CYAN_COLOR = Color(0.0, 1.0, 1.0, 1.0)
 local RED_COLOR = Color(1.0, 0.0, 0.0, 1.0)
 local CAMERA_FRONT_YAW = 180.0
 
@@ -161,14 +163,26 @@ function MenuPrism:UpdateFrontFaceColors()
             frontIndex = i
         end
     end
-    for i = 1, #self.maskMaterials do
-        local color = i == frontIndex and GREEN_COLOR or RED_COLOR
+    local faceCount = #self.maskMaterials
+    -- 面号增大 = 世界 yaw 增大 = 屏幕左侧。左邻黄，右邻青。
+    local leftIndex = (frontIndex % faceCount) + 1
+    local rightIndex = ((frontIndex - 2 + faceCount) % faceCount) + 1
+    for i = 1, faceCount do
+        local color = RED_COLOR
+        if i == frontIndex then
+            color = GREEN_COLOR
+        elseif i == leftIndex then
+            color = YELLOW_COLOR
+        elseif i == rightIndex then
+            color = CYAN_COLOR
+        end
         self.maskMaterials[i]:SetShaderParameter("base_color", Variant(color))
     end
     print(string.format(
-        "MenuPrism: front face=%d worldYaw=%.0f",
+        "MenuPrism: left=%d yellow, front=%d green, right=%d cyan",
+        leftIndex,
         frontIndex,
-        self.maskLocalYaws[frontIndex] + self.visualYawDegrees
+        rightIndex
     ))
 end
 
