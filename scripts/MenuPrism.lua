@@ -7,6 +7,9 @@ local LookApplier = require "LookApplier"
 local PointerInput = require "PointerInput"
 local LevelCatalog = require "LevelCatalog"
 local StencilIdColor = require "StencilIdColor"
+local StillObject = require "StillObject"
+local StillObjectRuntime = require "StillObjectRuntime"
+local StillModelCatalog = require "StillModelCatalog"
 
 ---@class MenuPrism
 ---@field scene Scene
@@ -22,6 +25,8 @@ local StencilIdColor = require "StencilIdColor"
 ---@field window LevelDefinition[]
 ---@field exhibitRoot Node|nil
 ---@field exhibitNodes Node[]
+---@field faceLabels Text3D[]
+---@field labelLocalYaws number[]
 ---@field rtCameraNode Node|nil
 ---@field rtCamera Camera|nil
 ---@field rtViewport Viewport|nil
@@ -52,6 +57,11 @@ local MASK_BIT = 1
 local WORLD_BIT = 2
 local PRISM_DROP = 1.05
 local CLIP_SHADER = "Shaders/BLGL/StencilIdRtClip.shader"
+local FACE_LABEL_FONT = "Fonts/MiSans-Regular.ttf"
+local FACE_LABEL_SIZE = 72.0
+local FACE_LABEL_SCALE = 0.25
+local FACE_LABEL_LIFT = 0.012
+local FACE_LABEL_COLOR = Color(0.10, 0.14, 0.20, 1.0)
 local PREVIEW_HEIGHT = 160
 local PHASE_IDLE = "idle"
 local PHASE_PENDING = "pending"
@@ -128,6 +138,10 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.exhibitRoot = nil
     ---@type Node[]
     self.exhibitNodes = {}
+    ---@type Text3D[]
+    self.faceLabels = {}
+    ---@type number[]
+    self.labelLocalYaws = {}
     ---@type Node|nil
     self.rtCameraNode = nil
     ---@type Camera|nil
@@ -208,6 +222,10 @@ function MenuPrism:UpdateFrontFaceColors()
     local left = self.window[1]
     local center = self.window[2]
     local right = self.window[3]
+    local centerIndex = 1
+    if center then
+        centerIndex = center.index
+    end
     for i = 1, faceCount do
         local color = LevelCatalog.GetBackColor()
         if i == frontIndex then
@@ -219,12 +237,40 @@ function MenuPrism:UpdateFrontFaceColors()
         end
         self.maskMaterials[i]:SetShaderParameter("base_color", Variant(color))
     end
+    self:UpdateFaceLabels(centerIndex, frontIndex)
     print(string.format(
         "MenuPrism: faces left=%s front=%s right=%s",
         left and left.code or "--",
         center and center.code or "--",
         right and right.code or "--"
     ))
+end
+
+function MenuPrism:LevelForFaceYaw(localYaw, centerIndex, frontMaskIndex)
+    local count = #LevelCatalog.GetAll()
+    if count <= 0 then
+        return nil
+    end
+    local worldYaw = localYaw + self.visualYawDegrees
+    local fromFront = WrapDegrees(worldYaw - CAMERA_FRONT_YAW)
+    local steps = math.floor(fromFront / STEP_DEGREES + 0.5)
+    -- 与 mask 槽一致：屏幕右 yaw 更小 → +1，屏幕左 yaw 更大 → -1。
+    local slot = -steps
+    while slot > 3 do
+        slot = slot - 6
+    end
+    while slot < -2 do
+        slot = slot + 6
+    end
+    return LevelCatalog.GetByIndex(centerIndex + slot)
+end
+
+function MenuPrism:UpdateFaceLabels(centerIndex, frontMaskIndex)
+    for i, label in ipairs(self.faceLabels) do
+        local localYaw = self.labelLocalYaws[i] or 0.0
+        local definition = self:LevelForFaceYaw(localYaw, centerIndex, frontMaskIndex)
+        label:SetText(definition and definition.code or "--")
+    end
 end
 
 function MenuPrism:ApplyVisualYaw(yawDegrees)
@@ -277,6 +323,7 @@ function MenuPrism:Build()
         end
     end
     self:BuildMaskQuads(edgeLength, height)
+    self:BuildFaceLabels(edgeLength)
     self:BuildExhibits(height)
     self:ApplyVisualYaw(SNAP_OFFSET_DEGREES)
     self.yawDegrees = SNAP_OFFSET_DEGREES
@@ -463,18 +510,83 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
     print("MenuPrism: six mask faces ready")
 end
 
-function MenuPrism:CreateClipMaterial(stencilId, baseColor)
+function MenuPrism:BuildFaceLabels(edgeLength)
+    self.faceLabels = {}
+    self.labelLocalYaws = {}
+    if #self.voxelNodes == 0 then
+        return
+    end
+    local font = cache:GetResource("Font", FACE_LABEL_FONT)
+    if not font then
+        print("MenuPrism: missing face label font")
+        return
+    end
+    -- Text3D 必须保留默认字体材质；自定义 shader 会冲掉字形图集，变成方块。
+    local radius = edgeLength / math.sqrt(3.0)
+    local outward = radius * 0.5 + FACE_LABEL_LIFT
+    for i, voxelNode in ipairs(self.voxelNodes) do
+        local labelNode = voxelNode:CreateChild("FaceLabel_" .. tostring(i))
+        labelNode.position = Vector3(outward, 0.0, 0.0)
+        labelNode.rotation = Quaternion(-90.0, Vector3.UP)
+        labelNode.scale = Vector3(FACE_LABEL_SCALE, FACE_LABEL_SCALE, FACE_LABEL_SCALE)
+        local text = labelNode:CreateComponent("Text3D")
+        text:SetFont(font, FACE_LABEL_SIZE)
+        text:SetText("--")
+        text:SetColor(FACE_LABEL_COLOR)
+        text:SetAlignment(HA_CENTER, VA_CENTER)
+        text:SetTextAlignment(HA_CENTER)
+        text:SetFaceCameraMode(FC_NONE)
+        text:SetFixedScreenSize(false)
+        text.viewMask = WORLD_BIT
+        self.faceLabels[#self.faceLabels + 1] = text
+        self.labelLocalYaws[#self.labelLocalYaws + 1] = (i - 1) * STEP_DEGREES + 90.0
+    end
+    print("MenuPrism: six solid-face labels ready")
+end
+
+local function ColorFromLook(look, fallback)
+    fallback = fallback or Color(0.957, 0.945, 0.918, 1.0)
+    if not look then
+        return fallback
+    end
+    if type(look) ~= "table" then
+        return fallback
+    end
+    local hex = LookApplier.NormalizeHex(look.color or look.baseColor, "")
+    if type(hex) ~= "string" then
+        return fallback
+    end
+    local cleaned = hex:gsub("#", "")
+    local r = tonumber(cleaned:sub(1, 2), 16)
+    local g = tonumber(cleaned:sub(3, 4), 16)
+    local b = tonumber(cleaned:sub(5, 6), 16)
+    if not r or not g or not b then
+        return fallback
+    end
+    return Color(r / 255.0, g / 255.0, b / 255.0, 1.0)
+end
+
+function MenuPrism:CreateClipMaterial(stencilId, look)
+    look = look or {}
     local material = Material:new()
     if not material:SetSurfaceShader(CLIP_SHADER) then
         print("MenuPrism: failed to load clip shader")
         return LookApplier.CreateStillObjectUnlitMaterial({
-            color = "#F4F1EA",
+            color = look.color or "#F4F1EA",
             opaque = true,
         })
     end
-    local stencilColor = StencilIdColor.ToColor(stencilId)
-    material:SetShaderParameter("base_color", Variant(baseColor))
-    material:SetShaderParameter("stencil_color", Variant(stencilColor))
+    material:SetShaderParameter("base_color", Variant(ColorFromLook(look)))
+    material:SetShaderParameter("stencil_color", Variant(StencilIdColor.ToColor(stencilId)))
+    material:SetShaderParameter("use_albedo_map", Variant(0.0))
+    local albedoMap = type(look.albedoMap) == "string" and look.albedoMap or ""
+    if albedoMap ~= "" then
+        local texture = cache:GetResource("Texture2D", albedoMap)
+        if texture then
+            material:SetSurfaceTexture("albedo_map", texture)
+            material:SetShaderParameter("use_albedo_map", Variant(1.0))
+        end
+    end
     if self.rtTexture then
         material:SetSurfaceTexture("mask_rt", self.rtTexture)
     end
@@ -487,7 +599,22 @@ function MenuPrism:CreateClipMaterial(stencilId, baseColor)
     return material
 end
 
-function MenuPrism:AddExhibitModel(parent, name, model, stencilId, baseColor)
+function MenuPrism:BindClipToDrawable(drawable, stencilId, look)
+    if not drawable then
+        return
+    end
+    local material = self:CreateClipMaterial(stencilId, look)
+    local geoCount = drawable:GetNumGeometries()
+    if geoCount <= 1 then
+        drawable:SetMaterial(material)
+        return
+    end
+    for geoIndex = 0, geoCount - 1 do
+        drawable:SetMaterial(geoIndex, material)
+    end
+end
+
+function MenuPrism:AddExhibitModel(parent, name, model, stencilId, look)
     if not model then
         print("MenuPrism: missing exhibit model " .. name)
         return nil
@@ -495,19 +622,36 @@ function MenuPrism:AddExhibitModel(parent, name, model, stencilId, baseColor)
     local node = parent:CreateChild(name)
     local drawable = node:CreateComponent("StaticModel")
     drawable:SetModel(model)
-    local material = self:CreateClipMaterial(stencilId, baseColor)
-    local geoCount = drawable:GetNumGeometries()
-    if geoCount <= 1 then
-        drawable:SetMaterial(material)
-    else
-        for geoIndex = 0, geoCount - 1 do
-            drawable:SetMaterial(geoIndex, material)
-        end
-    end
+    self:BindClipToDrawable(drawable, stencilId, look)
     drawable.viewMask = WORLD_BIT
     drawable.castShadows = false
     self.exhibitNodes[#self.exhibitNodes + 1] = node
     return node
+end
+
+function MenuPrism:AddAlgernonExhibit(parent, stencilId)
+    local object = StillObject.New({
+        id = "menu_algernon",
+        name = "ExhibitAlgernon",
+        modelId = "algernon",
+    })
+    local entry = StillObjectRuntime.Bind(parent, object)
+    if not entry or not entry.node or not entry.model then
+        print("MenuPrism: failed to bind Algernon exhibit")
+        return nil
+    end
+    local asset = entry.asset
+    local geoCount = entry.model:GetNumGeometries()
+    for _, slot in ipairs(asset.slots) do
+        if slot.index >= 0 and slot.index < geoCount then
+            local look = StillModelCatalog.SlotLook(asset, slot, object:GetActiveParams())
+            entry.model:SetMaterial(slot.index, self:CreateClipMaterial(stencilId, look))
+        end
+    end
+    entry.model.viewMask = WORLD_BIT
+    entry.model.castShadows = false
+    self.exhibitNodes[#self.exhibitNodes + 1] = entry.node
+    return entry.node
 end
 
 function MenuPrism:BuildExhibits(prismHeight)
@@ -520,24 +664,14 @@ function MenuPrism:BuildExhibits(prismHeight)
     self.exhibitRoot.position = Vector3(0.0, prismHeight, 0.0)
     print(string.format("MenuPrism: exhibits on solid top y=%.3f", prismHeight))
 
-    local algernon = self:AddExhibitModel(
-        self.exhibitRoot,
-        "ExhibitAlgernon",
-        cache:GetResource("Model", "Meshes/Algernon.mdl"),
-        0,
-        Color(0.957, 0.945, 0.918, 1.0)
-    )
-    if algernon then
-        algernon.position = Vector3(0.0, 0.067, 0.0)
-        algernon.scale = Vector3(0.55, 0.55, 0.55)
-    end
+    self:AddAlgernonExhibit(self.exhibitRoot, 0)
 
     local cube = self:AddExhibitModel(
         self.exhibitRoot,
         "ExhibitCube",
         BoxGeometry(0.38, 0.38, 0.38):ToModel(),
         1,
-        Color(0.565, 0.694, 0.741, 1.0)
+        { color = "#90B1BD" }
     )
     cube.position = Vector3(0.0, 0.19, 0.0)
 
@@ -546,7 +680,7 @@ function MenuPrism:BuildExhibits(prismHeight)
         "ExhibitCylinder",
         CylinderGeometry(0.16, 0.16, 0.42, 16, 1, false):ToModel(),
         2,
-        Color(0.447, 0.522, 0.435, 1.0)
+        { color = "#72856F" }
     )
     cylinder.position = Vector3(0.0, 0.21, 0.0)
 
@@ -555,7 +689,7 @@ function MenuPrism:BuildExhibits(prismHeight)
         "ExhibitTriPrism",
         CylinderGeometry(0.24, 0.24, 0.42, 3, 1, false):ToModel(),
         3,
-        Color(0.502, 0.392, 0.643, 1.0)
+        { color = "#8064A4" }
     )
     prism.position = Vector3(0.0, 0.21, 0.0)
 
@@ -564,7 +698,7 @@ function MenuPrism:BuildExhibits(prismHeight)
         "ExhibitSphere",
         SphereGeometry(0.20, 16, 12):ToModel(),
         4,
-        Color(0.741, 0.627, 0.478, 1.0)
+        { color = "#BDA07A" }
     )
     sphere.position = Vector3(0.0, 0.20, 0.0)
     print("MenuPrism: five stencil exhibits ready")
@@ -729,6 +863,8 @@ function MenuPrism:Destroy()
     self.window = {}
     self.exhibitRoot = nil
     self.exhibitNodes = {}
+    self.faceLabels = {}
+    self.labelLocalYaws = {}
     if self.rtCameraNode then
         self.rtCameraNode:Remove()
         self.rtCameraNode = nil
