@@ -21,7 +21,7 @@ local LevelDirectorCatalog = {}
 -- 具体关卡演出类按关卡 id 登记。没有登记的关卡不创建导演。
 ---@type table<string, string>
 LevelDirectorCatalog.MODULES = {
-    chapter_1 = "LevelDirectors.Chapter1",
+    ch1_1 = "LevelDirectors.Chapter1",
 }
 
 ---@param session table

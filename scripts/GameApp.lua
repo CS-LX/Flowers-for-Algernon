@@ -254,23 +254,24 @@ function GameApp:BackToLevelSelect()
     end
 end
 
+-- 选关无 UI。1/2/3 分别进第一章的 1-1 / 1-2 / 1-3。
 function GameApp:HandleLevelSelectHotkeys()
     if input:GetKeyPress(KEY_1) then
-        local definition = LevelCatalog.GetById("chapter_1")
+        local definition = LevelCatalog.GetById("ch1_1")
         if definition then
             self:EnterLevel(definition)
         end
         return
     end
     if input:GetKeyPress(KEY_2) then
-        local definition = LevelCatalog.GetById("chapter_2")
+        local definition = LevelCatalog.GetById("ch1_2")
         if definition then
             self:EnterLevel(definition)
         end
         return
     end
     if input:GetKeyPress(KEY_3) then
-        local definition = LevelCatalog.GetById("chapter_3")
+        local definition = LevelCatalog.GetById("ch1_3")
         if definition then
             self:EnterLevel(definition)
         end

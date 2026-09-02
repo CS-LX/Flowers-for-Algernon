@@ -1,5 +1,6 @@
 -- 玩法关卡目录。
 -- 只描述游戏内已配置关卡：id、标题、资源路径。
+-- 当前三关都是第一章：1-1 / 1-2 / 1-3。JSON 文件名仍是 chapter-1/2/3。
 -- 章节进关只读 assets/Levels，不读用户关卡编辑器存档。
 
 ---@class LevelDefinition
@@ -24,24 +25,24 @@ LevelCatalog.CHAPTER_3_PATH = "Levels/chapter-3.json"
 ---@type LevelDefinition[]
 LevelCatalog.LEVELS = {
     {
-        id = "chapter_1",
+        id = "ch1_1",
         index = 1,
-        title = "第一章",
-        subtitle = "静态基座与旋转塔",
+        title = "1-1 门",
+        subtitle = "第一章 · 跑不过的迷宫",
         sourcePath = LevelCatalog.CHAPTER_1_PATH,
     },
     {
-        id = "chapter_2",
+        id = "ch1_2",
         index = 2,
-        title = "第二章",
-        subtitle = "编辑器导出关卡",
+        title = "1-2 白鼠先行",
+        subtitle = "第一章 · 跑不过的迷宫",
         sourcePath = LevelCatalog.CHAPTER_2_PATH,
     },
     {
-        id = "chapter_3",
+        id = "ch1_3",
         index = 3,
-        title = "第三章",
-        subtitle = "编辑器导出关卡",
+        title = "1-3 另一种世界",
+        subtitle = "第一章 · 跑不过的迷宫",
         sourcePath = LevelCatalog.CHAPTER_3_PATH,
     },
 }

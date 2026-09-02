@@ -1,5 +1,5 @@
 -- 第一章演出：地图从下方升起。
--- 只服务 chapter_1。Part 先落到配置高度减 0.6 米，再 2 秒 QuadInOut 抬回配置位置。
+-- 只服务 1-1（id = ch1_1）。Part 先落到配置高度减 0.6 米，再 2 秒 QuadInOut 抬回配置位置。
 
 local LevelDirector = require "LevelDirector"
 local Story = require "Story.Chapter1"
