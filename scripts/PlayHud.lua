@@ -10,6 +10,14 @@ local StoryView = require "StoryView"
 local PlayHud = {}
 PlayHud.__index = PlayHud
 
+local function EnsureUI()
+    UI.Init({
+        theme = "default-dark",
+        fonts = { { name = "sans", path = "Fonts/MiSans-Regular.ttf" } },
+        scale = UI.Scale.DEFAULT,
+    })
+end
+
 function PlayHud.New(onExit)
     local self = setmetatable({}, PlayHud)
     self.onExit = onExit
@@ -23,6 +31,7 @@ function PlayHud.New(onExit)
 end
 
 function PlayHud:Show(definition)
+    EnsureUI()
     self.storyView = StoryView.New()
     self.storyHost = self.storyView:Build()
     self.root = UI.Panel {
