@@ -77,6 +77,10 @@ function PlayerController:FollowCurrentNodeVisual(partRenderer)
     return self.walker:FollowCurrentNodeVisual(partRenderer)
 end
 
+function PlayerController:SetOnStarted(listener)
+    self.walker.onStarted = listener
+end
+
 function PlayerController:SetOnArrived(listener)
     self.walker.onArrived = listener
 end

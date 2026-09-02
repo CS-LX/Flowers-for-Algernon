@@ -25,6 +25,7 @@ end
 ---@field targetKey string|nil
 ---@field walking boolean
 ---@field currentEdgeIsCandidate boolean
+---@field onStarted fun(targetKey: string)|nil
 ---@field onArrived fun(nodeKey: string)|nil
 
 ---@param pathRuntime table
@@ -50,6 +51,8 @@ function PathWalker.New(pathRuntime, spawnNodeKey, camera, options)
     self.walking = false
     self.currentEdgeIsCandidate = false
     self.started = false
+    ---@type fun(targetKey: string)|nil
+    self.onStarted = nil
     ---@type fun(nodeKey: string)|nil
     self.onArrived = nil
     return self
@@ -189,6 +192,9 @@ function PathWalker:MoveTo(path, targetKey)
             self.currentNodeKey,
             self.path[1]
         ) or self.currentEdgeIsCandidate
+        if self.onStarted then
+            self.onStarted(targetKey)
+        end
         return true
     end
     self.pathIndex = 1
@@ -196,6 +202,9 @@ function PathWalker:MoveTo(path, targetKey)
         and self.pathRuntime:IsCandidateEdge(self.path[1], self.path[2])
         or false
     self.walking = #self.path > 1
+    if self.walking and self.onStarted then
+        self.onStarted(targetKey)
+    end
     if not self.walking then
         self.path = nil
         if self.onArrived and type(targetKey) == "string" then
