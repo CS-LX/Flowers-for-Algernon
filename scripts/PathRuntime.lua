@@ -1054,6 +1054,38 @@ function PathRuntime:GetNode(key)
     return self.nodesByKey[key]
 end
 
+function PathRuntime:EvaluateNodePair(fromRecord, toRecord, worldFaces)
+    if not fromRecord or not toRecord then
+        return "rejected", "unresolved"
+    end
+    if not self.partRenderer or not self.cameraNode or not self.camera then
+        return "rejected", "visual evaluation requires renderer and fixed camera"
+    end
+    local faces = worldFaces
+    if not faces then
+        faces = CollectWorldFaces(self.partSessions, self.grid, self.partRenderer)
+    end
+    return EvaluateCandidate(
+        {
+            from = fromRecord,
+            to = toRecord,
+        },
+        self.grid,
+        self.partRenderer,
+        self.cameraNode,
+        self.camera,
+        self.evaluationOptions,
+        faces
+    )
+end
+
+function PathRuntime:CollectWorldFaces()
+    if not self.partRenderer then
+        return {}
+    end
+    return CollectWorldFaces(self.partSessions, self.grid, self.partRenderer)
+end
+
 ---@param worldPoint Vector3
 ---@return table|nil
 function PathRuntime:FindNearestWalkableNode(worldPoint)

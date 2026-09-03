@@ -23,6 +23,8 @@ function LevelInspector.New(editor)
     self.pathCandidateAddButton = nil
     self.pathCandidateList = nil
     self.pathCandidateRemoveButton = nil
+    self.pathCandidateClearAllButton = nil
+    self.pathCandidateFillButton = nil
     self.pathCandidateDropdown = nil
     self.pathCandidateStatusLabel = nil
     self.spawnNodeDropdown = nil
@@ -144,6 +146,14 @@ function LevelInspector:Build()
                 self.pathCandidateStatusLabel:SetText("删除失败：" .. tostring(result))
             end
         end,
+    }
+    self.pathCandidateClearAllButton = UI.Button {
+        text = "删除所有候选", height = 27, fontSize = 10, variant = "danger",
+        onClick = function() editor:ConfirmClearAllPathCandidates() end,
+    }
+    self.pathCandidateFillButton = UI.Button {
+        text = "填充候选", height = 27, fontSize = 10, variant = "secondary",
+        onClick = function() editor:OpenCandidateFillDialog() end,
     }
     self.pathCandidateDropdown = UI.Dropdown {
         options = {}, value = "", placeholder = "已有候选", height = 26, fontSize = 10,
@@ -389,6 +399,10 @@ function LevelInspector:Build()
                     self.pathCandidateList,
                     self.pathCandidateDropdown,
                     self.pathCandidateRemoveButton,
+                    UI.Panel { flexDirection = "row", gap = 4, children = {
+                        self.pathCandidateClearAllButton,
+                        self.pathCandidateFillButton,
+                    } },
                     self.pathCandidateStatusLabel,
                 },
             },

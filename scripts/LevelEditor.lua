@@ -57,6 +57,7 @@ end
 ---@field ui table|nil
 ---@field transformGrid table
 ---@field editorCamera table
+---@field candidateFillJob table|nil
 LevelEditor.__index = LevelEditor
 
 local function CreateFixedEvaluationCamera(scene, levelDocument)
@@ -98,6 +99,8 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
     self.partEditor = nil
     self.gamePreview = nil
     self.ui = nil
+    ---@type table|nil
+    self.candidateFillJob = nil
     self.pendingLoadWarning = levelDocument.loadWarning
     self.transformGrid = {
         snapStep = 0.5,
@@ -1819,6 +1822,559 @@ function LevelEditor:RemovePathCandidateFromUI(candidateId)
     return true
 end
 
+function LevelEditor:GetPartOptions()
+    local options = {}
+    for _, part in ipairs(self.levelDocument:GetParts()) do
+        options[#options + 1] = {
+            value = part.id,
+            label = part.name .. "  (" .. part.id .. ")",
+        }
+    end
+    return options
+end
+
+function LevelEditor:ClearAllPathCandidatesFromUI()
+    if self.candidateFillJob and self.candidateFillJob.thread then
+        return false, "正在填充候选，请先取消"
+    end
+    local count = self.levelDocument:ClearPathCandidates()
+    local rebuilt, rebuildError = self:RefreshPathRuntime()
+    if not rebuilt then
+        return false, rebuildError
+    end
+    self:RefreshLevelUI("已删除全部路径候选：" .. tostring(count))
+    if self.ui and self.ui.levelInspector then
+        self.ui.levelInspector:Refresh()
+    end
+    return true, count
+end
+
+function LevelEditor:ConfirmClearAllPathCandidates()
+    if self.candidateFillJob and self.candidateFillJob.thread then
+        self:RefreshLevelUI("正在填充候选，请先取消")
+        return
+    end
+    local count = #self.levelDocument:GetPathCandidates()
+    UI.Modal.Confirm({
+        title = "删除所有候选路径",
+        message = count == 0 and "当前没有候选路径。" or ("确定删除全部 " .. tostring(count) .. " 条候选路径？"),
+        confirmText = "删除全部",
+        cancelText = "取消",
+        onConfirm = function()
+            if count == 0 then
+                return
+            end
+            self:ClearAllPathCandidatesFromUI()
+        end,
+    })
+end
+
+local function CandidateLayer(record)
+    local node = record and record.node
+    if not node then
+        return nil
+    end
+    local cell = node.voxelCell
+    if not cell then
+        return nil
+    end
+    return math.floor(cell.layer or 0)
+end
+
+function LevelEditor:ApplyPartYawPreview(part, yawSteps)
+    local normalized = ((math.floor(yawSteps) % 6) + 6) % 6
+    if not part:SetYawSteps(normalized) then
+        part.transform.rotation.yawSteps = normalized
+        if part:HasBehavior(PartDefinition.MODE_ROTATOR) then
+            part.behaviors.rotator.state = normalized
+        end
+    end
+    local root = self.partRenderer:GetRoot(part.id)
+    if root then
+        self.partRenderer:ApplyTransform(root, part)
+    end
+    if self.pathRuntime then
+        self.pathRuntime:UpdateNodeSpatialData()
+    end
+end
+
+function LevelEditor:RestorePartYaw(part, yawSteps)
+    self:ApplyPartYawPreview(part, yawSteps)
+    self:RefreshPathRuntime()
+end
+
+function LevelEditor:RestoreFillYaw(job)
+    if not job or not job.originalYaws then
+        self:RefreshPathRuntime()
+        return
+    end
+    for partId, yaw in pairs(job.originalYaws) do
+        local part = self.levelDocument:GetPart(partId)
+        if part then
+            self:ApplyPartYawPreview(part, yaw)
+        end
+    end
+    self:RefreshPathRuntime()
+end
+
+function LevelEditor:CancelCandidateFillJob(restore)
+    local job = self.candidateFillJob
+    if not job then
+        return
+    end
+    job.cancelled = true
+    if restore ~= false then
+        self:RestoreFillYaw(job)
+    end
+    local modal = job.modal
+    self.candidateFillJob = nil
+    if modal then
+        modal.onClose_ = nil
+        modal:Close()
+    end
+end
+
+function LevelEditor:FinishCandidateFillJob()
+    local job = self.candidateFillJob
+    if not job then
+        return
+    end
+    self:RestoreFillYaw(job)
+    if job.statusLabel then
+        job.statusLabel:SetText(string.format(
+            "完成：检查 %d，新增 %d，跳过已有 %d",
+            job.checked or 0,
+            job.added or 0,
+            job.skipped or 0
+        ))
+    end
+    if job.progress then
+        job.progress:SetValue(1)
+    end
+    self:RefreshLevelUI(string.format(
+        "候选填充完成：新增 %d / 检查 %d",
+        job.added or 0,
+        job.checked or 0
+    ))
+    if self.ui and self.ui.levelInspector then
+        self.ui.levelInspector:Refresh()
+    end
+    self.candidateFillJob = nil
+end
+
+function LevelEditor:UpdateCandidateFillDialog(job)
+    if not job then
+        return
+    end
+    local total = job.total
+    if total <= 0 then
+        total = 1
+    end
+    if job.progress then
+        job.progress:SetValue(job.done / total)
+    end
+    if job.statusLabel then
+        job.statusLabel:SetText(string.format(
+            "%s  检查 %d/%d  新增 %d",
+            job.progressText or "填充中",
+            job.done or 0,
+            job.total or 0,
+            job.added or 0
+        ))
+    end
+end
+
+function LevelEditor:UpdateCandidateFillJob()
+    local job = self.candidateFillJob
+    if not job or not job.thread then
+        return
+    end
+    if job.cancelled then
+        self:CancelCandidateFillJob(true)
+        return
+    end
+    local ok, result = coroutine.resume(job.thread)
+    if not ok then
+        print("LevelEditor: candidate fill failed: " .. tostring(result))
+        if job.statusLabel then
+            job.statusLabel:SetText("填充失败：" .. tostring(result))
+        end
+        self:CancelCandidateFillJob(true)
+        return
+    end
+    if coroutine.status(job.thread) == "dead" then
+        self:FinishCandidateFillJob()
+        return
+    end
+    self:UpdateCandidateFillDialog(job)
+end
+
+local FILL_MODE_WITHIN = "within"
+local FILL_MODE_BETWEEN = "between"
+
+function LevelEditor:IsRotatorPart(part)
+    return part ~= nil and part:HasBehavior(PartDefinition.MODE_ROTATOR)
+end
+
+function LevelEditor:CanFillBetweenParts(left, right)
+    if not left or not right or left.id == right.id then
+        return false
+    end
+    -- rotator+rotator、rotator+静态、两静态。mover 不参与。
+    if left:HasBehavior(PartDefinition.MODE_MOVER) or right:HasBehavior(PartDefinition.MODE_MOVER) then
+        return false
+    end
+    return true
+end
+
+function LevelEditor:CollectPartYawStates(part)
+    if self:IsRotatorPart(part) then
+        return { 0, 1, 2, 3, 4, 5 }
+    end
+    return { part.transform.rotation.yawSteps }
+end
+
+function LevelEditor:TryAddFillCandidate(job, fromRecord, toRecord)
+    job.checked = job.checked + 1
+    local a = fromRecord.partId .. ":" .. fromRecord.localNodeId
+    local b = toRecord.partId .. ":" .. toRecord.localNodeId
+    local pairKey = a < b and (a .. "|" .. b) or (b .. "|" .. a)
+    if job.seenPairs[pairKey] then
+        return
+    end
+    if self.levelDocument:HasPathCandidateBetween(
+        fromRecord.partId,
+        fromRecord.localNodeId,
+        toRecord.partId,
+        toRecord.localNodeId
+    ) then
+        job.seenPairs[pairKey] = true
+        job.skipped = job.skipped + 1
+        return
+    end
+    local status = self.pathRuntime:EvaluateNodePair(fromRecord, toRecord, job.worldFaces)
+    if status ~= "accepted" then
+        return
+    end
+    job.seenPairs[pairKey] = true
+    local added = self.levelDocument:AddPathCandidate({
+        id = self.levelDocument:AllocatePathCandidateId(),
+        from = { partId = fromRecord.partId, nodeId = fromRecord.localNodeId },
+        to = { partId = toRecord.partId, nodeId = toRecord.localNodeId },
+        kind = "visual_candidate",
+        direction = "bidirectional",
+        enabled = true,
+    })
+    if added then
+        job.added = job.added + 1
+    end
+end
+
+function LevelEditor:NodesForPart(partId)
+    local result = {}
+    for _, record in ipairs(self.pathRuntime:GetNodes()) do
+        if record.partId == partId and record.node and record.node.walkable then
+            result[#result + 1] = record
+        end
+    end
+    return result
+end
+
+function LevelEditor:StartWithinPartFill(partId)
+    local part = self.levelDocument:GetPart(partId)
+    if not part then
+        return false, "请选择 Part"
+    end
+    local rebuilt, rebuildError = self:RefreshPathRuntime()
+    if not rebuilt then
+        return false, rebuildError
+    end
+    local job = self.candidateFillJob
+    job.mode = FILL_MODE_WITHIN
+    job.originalYaws = { [part.id] = part.transform.rotation.yawSteps }
+    job.cancelled = false
+    job.checked = 0
+    job.added = 0
+    job.skipped = 0
+    job.done = 0
+    job.total = 1
+    job.seenPairs = {}
+    job.progressText = "单 Part 跨层"
+    local BATCH = 16
+    local yaws = self:CollectPartYawStates(part)
+    job.thread = coroutine.create(function()
+        local nodes = self:NodesForPart(part.id)
+        local pairCount = 0
+        for i = 1, #nodes - 1 do
+            for j = i + 1, #nodes do
+                pairCount = pairCount + 1
+            end
+        end
+        job.total = math.max(1, pairCount * #yaws)
+        print(string.format(
+            "LevelEditor: within-part fill part=%s nodes=%d pairs=%d yaws=%d",
+            part.id,
+            #nodes,
+            pairCount,
+            #yaws
+        ))
+        local processed = 0
+        for yawIndex, yaw in ipairs(yaws) do
+            if job.cancelled then
+                return
+            end
+            job.progressText = string.format("单 Part 跨层  Yaw %d/%d", yawIndex, #yaws)
+            self:ApplyPartYawPreview(part, yaw)
+            job.worldFaces = self.pathRuntime:CollectWorldFaces()
+            for i = 1, #nodes - 1 do
+                local source = nodes[i]
+                local sourceLayer = CandidateLayer(source)
+                for j = i + 1, #nodes do
+                    if job.cancelled then
+                        return
+                    end
+                    local target = nodes[j]
+                    processed = processed + 1
+                    job.done = processed
+                    local targetLayer = CandidateLayer(target)
+                    if sourceLayer ~= nil and targetLayer ~= nil and sourceLayer ~= targetLayer then
+                        self:TryAddFillCandidate(job, source, target)
+                    else
+                        job.checked = job.checked + 1
+                    end
+                    if processed % BATCH == 0 then
+                        coroutine.yield()
+                    end
+                end
+            end
+            coroutine.yield()
+        end
+    end)
+    print("LevelEditor: start within-part fill " .. part.id)
+    self:UpdateCandidateFillJob()
+    return true
+end
+
+function LevelEditor:StartBetweenPartsFill(leftId, rightId)
+    local left = self.levelDocument:GetPart(leftId)
+    local right = self.levelDocument:GetPart(rightId)
+    if not left or not right then
+        return false, "请选择两个 Part"
+    end
+    if left.id == right.id then
+        return false, "两个 Part 不能相同"
+    end
+    if not self:CanFillBetweenParts(left, right) then
+        return false, "只允许 rotator+rotator、rotator+静态、两静态"
+    end
+    local rebuilt, rebuildError = self:RefreshPathRuntime()
+    if not rebuilt then
+        return false, rebuildError
+    end
+    local job = self.candidateFillJob
+    job.mode = FILL_MODE_BETWEEN
+    job.originalYaws = {
+        [left.id] = left.transform.rotation.yawSteps,
+        [right.id] = right.transform.rotation.yawSteps,
+    }
+    job.cancelled = false
+    job.checked = 0
+    job.added = 0
+    job.skipped = 0
+    job.done = 0
+    job.total = 1
+    job.seenPairs = {}
+    job.progressText = "两 Part"
+    local BATCH = 16
+    local leftYaws = self:CollectPartYawStates(left)
+    local rightYaws = self:CollectPartYawStates(right)
+    job.thread = coroutine.create(function()
+        local leftNodes = self:NodesForPart(left.id)
+        local rightNodes = self:NodesForPart(right.id)
+        local pairCount = #leftNodes * #rightNodes
+        job.total = math.max(1, pairCount * #leftYaws * #rightYaws)
+        print(string.format(
+            "LevelEditor: between-part fill %s(%d) x %s(%d) yaw=%dx%d",
+            left.id,
+            #leftNodes,
+            right.id,
+            #rightNodes,
+            #leftYaws,
+            #rightYaws
+        ))
+        local processed = 0
+        for _, leftYaw in ipairs(leftYaws) do
+            if job.cancelled then
+                return
+            end
+            self:ApplyPartYawPreview(left, leftYaw)
+            for _, rightYaw in ipairs(rightYaws) do
+                if job.cancelled then
+                    return
+                end
+                self:ApplyPartYawPreview(right, rightYaw)
+                job.progressText = string.format(
+                    "两 Part  Yaw %d/%d × %d/%d",
+                    leftYaw + 1,
+                    6,
+                    rightYaw + 1,
+                    6
+                )
+                job.worldFaces = self.pathRuntime:CollectWorldFaces()
+                for _, source in ipairs(leftNodes) do
+                    for _, target in ipairs(rightNodes) do
+                        if job.cancelled then
+                            return
+                        end
+                        processed = processed + 1
+                        job.done = processed
+                        self:TryAddFillCandidate(job, source, target)
+                        if processed % BATCH == 0 then
+                            coroutine.yield()
+                        end
+                    end
+                end
+                coroutine.yield()
+            end
+        end
+    end)
+    print("LevelEditor: start between-part fill " .. left.id .. " / " .. right.id)
+    self:UpdateCandidateFillJob()
+    return true
+end
+
+function LevelEditor:StartCandidateFill(mode, firstId, secondId)
+    if self.candidateFillJob and self.candidateFillJob.thread then
+        return false, "已有填充任务在跑"
+    end
+    if not self.pathRuntime then
+        return false, "PathRuntime is not available"
+    end
+    if not self.candidateFillJob then
+        self.candidateFillJob = {}
+    end
+    if mode == FILL_MODE_BETWEEN then
+        return self:StartBetweenPartsFill(firstId, secondId)
+    end
+    return self:StartWithinPartFill(firstId)
+end
+
+function LevelEditor:OpenCandidateFillDialog()
+    if self.candidateFillJob and self.candidateFillJob.thread then
+        if self.candidateFillJob.modal then
+            self.candidateFillJob.modal:Open()
+        end
+        return
+    end
+    local partOptions = self:GetPartOptions()
+    local modeDropdown = UI.Dropdown {
+        options = {
+            { value = FILL_MODE_WITHIN, label = "单 Part 跨层" },
+            { value = FILL_MODE_BETWEEN, label = "两 Part 六向" },
+        },
+        value = FILL_MODE_WITHIN,
+        height = 28,
+        fontSize = 11,
+    }
+    local firstDropdown = UI.Dropdown {
+        options = partOptions,
+        value = self.selectedPartId or "",
+        placeholder = "选择 Part",
+        height = 28,
+        fontSize = 11,
+    }
+    local secondDropdown = UI.Dropdown {
+        options = partOptions,
+        value = "",
+        placeholder = "第二个 Part",
+        height = 28,
+        fontSize = 11,
+    }
+    secondDropdown:SetVisible(false)
+    local hintLabel = UI.Label {
+        text = "单 Part：不同 layer 的点对，且必须通过摄像机投影校验。rotator 扫 6 档 Yaw。",
+        fontSize = 10,
+        whiteSpace = "normal",
+    }
+    local progress = UI.ProgressBar {
+        value = 0,
+        max = 1,
+        height = 10,
+        showLabel = false,
+    }
+    local statusLabel = UI.Label {
+        text = "选择模式和 Part 后开始。",
+        fontSize = 10,
+        whiteSpace = "normal",
+    }
+    local startButton = nil
+    local modal = UI.Modal {
+        title = "填充候选路径",
+        size = "sm",
+        closeOnOverlay = false,
+        closeOnEscape = false,
+        onClose = function()
+            local job = self.candidateFillJob
+            if job and job.thread and not job.cancelled then
+                self:CancelCandidateFillJob(true)
+            end
+        end,
+    }
+    local function SyncMode()
+        local mode = modeDropdown:GetValue()
+        local between = mode == FILL_MODE_BETWEEN
+        secondDropdown:SetVisible(between)
+        if between then
+            hintLabel:SetText("两 Part：rotator 走 6 档 Yaw，静态保持当前朝向。通过摄像机投影校验才写入。")
+        else
+            hintLabel:SetText("单 Part：不同 layer 的点对，且必须通过摄像机投影校验。rotator 扫 6 档 Yaw。")
+        end
+    end
+    modeDropdown.props.onChange = function()
+        SyncMode()
+    end
+    startButton = UI.Button {
+        text = "开始填充",
+        height = 30,
+        fontSize = 11,
+        variant = "primary",
+        onClick = function()
+            local mode = modeDropdown:GetValue()
+            local ok, errorMessage = self:StartCandidateFill(
+                mode,
+                firstDropdown:GetValue(),
+                secondDropdown:GetValue()
+            )
+            if not ok then
+                statusLabel:SetText("无法开始：" .. tostring(errorMessage))
+                return
+            end
+            modeDropdown:SetDisabled(true)
+            firstDropdown:SetDisabled(true)
+            secondDropdown:SetDisabled(true)
+            startButton:SetDisabled(true)
+            statusLabel:SetText("填充中…")
+        end,
+    }
+    modal:AddContent(modeDropdown)
+    modal:AddContent(firstDropdown)
+    modal:AddContent(secondDropdown)
+    modal:AddContent(hintLabel)
+    modal:AddContent(progress)
+    modal:AddContent(statusLabel)
+    modal:AddContent(startButton)
+    modal:Open()
+    self.candidateFillJob = {
+        modal = modal,
+        progress = progress,
+        statusLabel = statusLabel,
+        modeDropdown = modeDropdown,
+        firstDropdown = firstDropdown,
+        secondDropdown = secondDropdown,
+        startButton = startButton,
+    }
+end
+
 function LevelEditor:RefreshPathRuntime()
     if not self.pathRuntime then
         return false, "PathRuntime is not available"
@@ -2083,14 +2639,18 @@ function LevelEditor:Refresh(timeStep)
         return
     end
     if self.mode == "level" then
+        self:UpdateCandidateFillJob()
         self:HandleEditorCameraInput()
         self.overlayViewManager:SyncCamera(self.cameraNode, self.camera)
         self.overlayRenderer:SyncCamera()
-        if self.pathRuntime then
+        local filling = self.candidateFillJob and self.candidateFillJob.thread
+        if self.pathRuntime and not filling then
             self.pathRuntime:EvaluateCandidates()
         end
         self:UpdatePathNodeHover()
-        if self.stillSceneDrag then
+        if filling then
+            -- 填充期间不拾取、不拖拽，避免打断协程。
+        elseif self.stillSceneDrag then
             self:UpdateStillSceneDrag()
         elseif not UI.IsPointerOverUI() and input:GetMouseButtonPress(MOUSEB_LEFT) then
             if not self:BeginStillSceneDrag() then
@@ -2135,6 +2695,9 @@ function LevelEditor:Refresh(timeStep)
 end
 
 function LevelEditor:Stop()
+    if self.candidateFillJob then
+        self:CancelCandidateFillJob(true)
+    end
     self.stillSceneDrag = nil
     if self.gamePreview then
         self.gamePreview:Stop()

@@ -216,6 +216,43 @@ function LevelDocument:RemovePathCandidate(id)
     return true
 end
 
+function LevelDocument:ClearPathCandidates()
+    local count = #self.pathCandidateOrder
+    self.pathCandidates = {}
+    self.pathCandidateOrder = {}
+    if count > 0 then
+        self.dirty = true
+    end
+    return count
+end
+
+function LevelDocument:HasPathCandidateBetween(fromPartId, fromNodeId, toPartId, toNodeId)
+    for _, candidate in ipairs(self:GetPathCandidates()) do
+        local same = candidate.from.partId == fromPartId
+            and candidate.from.nodeId == fromNodeId
+            and candidate.to.partId == toPartId
+            and candidate.to.nodeId == toNodeId
+        local reverse = candidate.from.partId == toPartId
+            and candidate.from.nodeId == toNodeId
+            and candidate.to.partId == fromPartId
+            and candidate.to.nodeId == fromNodeId
+        if same or reverse then
+            return true
+        end
+    end
+    return false
+end
+
+function LevelDocument:AllocatePathCandidateId()
+    local index = 1
+    local id = "candidate_" .. tostring(index)
+    while self.pathCandidates[id] do
+        index = index + 1
+        id = "candidate_" .. tostring(index)
+    end
+    return id
+end
+
 function LevelDocument:RemovePathCandidatesForPart(partId)
     local removed = false
     for index = #self.pathCandidateOrder, 1, -1 do
