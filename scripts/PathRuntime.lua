@@ -39,6 +39,7 @@ end
 
 local FACE_TOLERANCE = 0.0001
 local OCCLUSION_DEPTH_EPSILON = 0.02
+local FACE_COINCIDENCE_TOLERANCE = 0.02
 local OCCLUSION_SAMPLE_TS = { 0.15, 0.5, 0.85 }
 
 local function GetNodeFace(record, grid)
@@ -253,6 +254,40 @@ local function GetWorldFace(record, grid, partRenderer)
     end
     local normal = partRenderer:GetPartWorldNormal(record.partId, face.normal):Normalized()
     return vertices, normal
+end
+
+local function VertexMatchesAny(point, vertices, tolerance)
+    local tolSq = tolerance * tolerance
+    for _, vertex in ipairs(vertices) do
+        local dx = point.x - vertex.x
+        local dy = point.y - vertex.y
+        local dz = point.z - vertex.z
+        if dx * dx + dy * dy + dz * dz <= tolSq then
+            return true
+        end
+    end
+    return false
+end
+
+-- 两端走面在世界空间完全重合（同为三角形或同为四边形，顶点集合一致）。
+local function AreFacesCoincident(verticesA, verticesB, tolerance)
+    if not verticesA or not verticesB then
+        return false
+    end
+    if #verticesA ~= #verticesB or #verticesA < 3 then
+        return false
+    end
+    for _, vertex in ipairs(verticesA) do
+        if not VertexMatchesAny(vertex, verticesB, tolerance) then
+            return false
+        end
+    end
+    for _, vertex in ipairs(verticesB) do
+        if not VertexMatchesAny(vertex, verticesA, tolerance) then
+            return false
+        end
+    end
+    return true
 end
 
 local function RayTriangle(rayOrigin, rayDirection, a, b, c)
@@ -581,6 +616,12 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
     end
     if not record.from.node.walkable or not record.to.node.walkable then
         return "rejected", "endpoint-not-walkable"
+    end
+
+    local fromFaceVertices = GetWorldFace(record.from, grid, partRenderer)
+    local toFaceVertices = GetWorldFace(record.to, grid, partRenderer)
+    if AreFacesCoincident(fromFaceVertices, toFaceVertices, FACE_COINCIDENCE_TOLERANCE) then
+        return "rejected", "endpoint-faces-coincide"
     end
 
     local fromData, fromError = GetWorldNodeData(record.from, grid, partRenderer)
