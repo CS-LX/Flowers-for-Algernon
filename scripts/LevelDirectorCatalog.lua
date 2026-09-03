@@ -5,14 +5,14 @@
 -- 没有登记的关卡不创建导演，关卡照常可玩。
 --
 -- 子类模板：
--- local Chapter13 = require("LevelDirector").Extend()
--- function Chapter13:OnStart()
+-- local Director2_1 = require("LevelDirector").Extend()
+-- function Director2_1:OnStart()
 --     self:Subscribe("door.open", function(payload) end)
 --     self:SetStillDriver("still_part", "open", 1)
 -- end
--- function Chapter13:OnUpdate(timeStep) end
--- function Chapter13:OnDispose() end
--- return Chapter13
+-- function Director2_1:OnUpdate(timeStep) end
+-- function Director2_1:OnDispose() end
+-- return Director2_1
 
 local LevelDirector = require "LevelDirector"
 
@@ -21,9 +21,9 @@ local LevelDirectorCatalog = {}
 -- 具体关卡演出类按关卡 id 登记。没有登记的关卡不创建导演。
 ---@type table<string, string>
 LevelDirectorCatalog.MODULES = {
-    ch1_1 = "LevelDirectors.Chapter1",
-    ch1_2 = "LevelDirectors.Chapter2",
-    ch1_3 = "LevelDirectors.Chapter3",
+    ch1_1 = "LevelDirectors.Director1_1",
+    ch1_2 = "LevelDirectors.Director1_2",
+    ch1_3 = "LevelDirectors.Director1_3",
 }
 
 ---@param session table

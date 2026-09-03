@@ -4,7 +4,7 @@
 local LevelDirector = require "LevelDirector"
 local Story = require "Story.Chapter1"
 
-local Chapter2 = LevelDirector.Extend()
+local Director1_2 = LevelDirector.Extend()
 
 local DARK_PART_ID = "part_part_1"
 local MOUSE_DOOR_ID = "still_part"
@@ -36,7 +36,7 @@ local function Clamp01(value)
     return math.max(0.0, math.min(1.0, value))
 end
 
-function Chapter2:OnStart()
+function Director1_2:OnStart()
     self.stage = "intro"
     self.stageElapsed = 0.0
     self.mouseDoorOpen = 1.0
@@ -49,7 +49,7 @@ function Chapter2:OnStart()
 
     local darkPart = self:GetPart(DARK_PART_ID)
     if not darkPart then
-        print("Chapter2: dark path part missing")
+        print("Director1_2: dark path part missing")
         return
     end
     self.darkPartX = darkPart.transform.position.x
@@ -98,18 +98,18 @@ function Chapter2:OnStart()
             self.stageElapsed = 0.0
             self:SetPlayerLocked(false)
             self:SetInputLocked(false)
-            print("Chapter2: waiting for player at " .. TRIGGER_NODE_KEY)
+            print("Director1_2: waiting for player at " .. TRIGGER_NODE_KEY)
         end,
     })
 end
 
-function Chapter2:OnPlayerArrived(nodeKey)
+function Director1_2:OnPlayerArrived(nodeKey)
     if self.stage == "await_trigger" and nodeKey == TRIGGER_NODE_KEY then
         self:OnPlayerAtTrigger()
     end
 end
 
-function Chapter2:OnPlayerAtTrigger()
+function Director1_2:OnPlayerAtTrigger()
     if self.stage ~= "await_trigger" then
         return
     end
@@ -119,22 +119,22 @@ function Chapter2:OnPlayerAtTrigger()
     self:SetPlayerLocked(true)
     local moved, errorMessage = self:MoveAlgernonToIncludingCandidates(ALGERNON_TARGET_KEY)
     if not moved then
-        print("Chapter2: algernon path rejected " .. tostring(errorMessage))
+        print("Director1_2: algernon path rejected " .. tostring(errorMessage))
         return
     end
-    print("Chapter2: algernon started candidate path to " .. ALGERNON_TARGET_KEY)
+    print("Director1_2: algernon started candidate path to " .. ALGERNON_TARGET_KEY)
 end
 
-function Chapter2:OnAlgernonArrived(nodeKey)
+function Director1_2:OnAlgernonArrived(nodeKey)
     if self.stage ~= "algernon_motion" then
         return
     end
     self.stage = "algernon_exit"
     self.stageElapsed = 0.0
-    print("Chapter2: algernon arrived " .. tostring(nodeKey))
+    print("Director1_2: algernon arrived " .. tostring(nodeKey))
 end
 
-function Chapter2:FinishAlgernonExit()
+function Director1_2:FinishAlgernonExit()
     self:SetAlgernonVisible(false)
     self:SetStillDriver(MOUSE_DOOR_ID, "open", 0.0)
     self.mouseDoorOpen = 0.0
@@ -148,19 +148,19 @@ function Chapter2:FinishAlgernonExit()
     })
 end
 
-function Chapter2:StartResearcher()
+function Director1_2:StartResearcher()
     self.stage = "researcher"
     self.stageElapsed = 0.0
     self:PlayStory(Story.ch1_2_researcher, {
         onComplete = function()
             self.stage = "raise_dark_path"
             self.stageElapsed = 0.0
-            print("Chapter2: researcher line complete, raising dark path")
+            print("Director1_2: researcher line complete, raising dark path")
         end,
     })
 end
 
-function Chapter2:FinishDarkPathRaise()
+function Director1_2:FinishDarkPathRaise()
     self:SetPartPosition(DARK_PART_ID, {
         x = self.darkPartX,
         y = DARK_END_Y,
@@ -176,10 +176,10 @@ function Chapter2:FinishDarkPathRaise()
             z = self.playerDoorZ,
         },
     })
-    print("Chapter2: dark path raised, revealing PlayerDoor")
+    print("Director1_2: dark path raised, revealing PlayerDoor")
 end
 
-function Chapter2:FinishPlayerDoorRaise()
+function Director1_2:FinishPlayerDoorRaise()
     self:SetStillTransform(PLAYER_DOOR_ID, {
         position = {
             x = self.playerDoorX,
@@ -191,16 +191,16 @@ function Chapter2:FinishPlayerDoorRaise()
     self.stageElapsed = 0.0
 end
 
-function Chapter2:FinishPlayerDoorOpen()
+function Director1_2:FinishPlayerDoorOpen()
     self:SetStillDriver(PLAYER_DOOR_ID, "open", 1.0)
     self.stage = "playable"
     self.stageElapsed = 0.0
     self:SetPlayerLocked(false)
     self:SetInputLocked(false)
-    print("Chapter2: PlayerDoor open, level playable")
+    print("Director1_2: PlayerDoor open, level playable")
 end
 
-function Chapter2:OnUpdate(timeStep)
+function Director1_2:OnUpdate(timeStep)
     self.stageElapsed = self.stageElapsed + timeStep
 
     if self.stage == "await_trigger" then
@@ -268,7 +268,7 @@ function Chapter2:OnUpdate(timeStep)
     end
 end
 
-function Chapter2:OnFinish(payload)
+function Director1_2:OnFinish(payload)
     self:SetInputLocked(true)
     self:SetPlayerLocked(true)
     if self.finishStoryPlayed then
@@ -285,10 +285,10 @@ function Chapter2:OnFinish(payload)
     })
 end
 
-function Chapter2:OnDispose()
+function Director1_2:OnDispose()
     self:SetAlgernonLocalTransform({ scale = 1.0 })
     self:SetInputLocked(true)
     self:SetPlayerLocked(true)
 end
 
-return Chapter2
+return Director1_2

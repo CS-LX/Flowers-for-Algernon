@@ -10,9 +10,9 @@
       "title": "跑不过的迷宫",
       "stencilId": 0,
       "stages": [
-        { "name": "门", "sourcePath": "Levels/chapter-1.json", "fogColor": "#937754" },
-        { "name": "白鼠先行", "sourcePath": "Levels/chapter-2.json", "fogColor": "#937754" },
-        { "name": "另一种世界", "sourcePath": "Levels/chapter-3.json", "fogColor": "#937754" }
+        { "name": "门", "sourcePath": "Levels/level-1-1.json", "fogColor": "#937754" },
+        { "name": "白鼠先行", "sourcePath": "Levels/level-1-2.json", "fogColor": "#937754" },
+        { "name": "另一种世界", "sourcePath": "Levels/level-1-3.json", "fogColor": "#937754" }
       ]
     },
     {
@@ -21,7 +21,7 @@
       "title": "打开的世界",
       "stencilId": 1,
       "stages": [
-        { "name": "研究室" },
+        { "name": "研究室", "sourcePath": "Levels/level-2-1.json", "fogColor": "#102121" },
         { "name": "远处的房间" },
         { "name": "两座塔之间" },
         { "name": "高处的窗" }

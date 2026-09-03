@@ -39,9 +39,9 @@ local FALLBACK_CONFIG = {
             title = "跑不过的迷宫",
             stencilId = 0,
             stages = {
-                { name = "门", sourcePath = "Levels/chapter-1.json", fogColor = "#937754" },
-                { name = "白鼠先行", sourcePath = "Levels/chapter-2.json", fogColor = "#937754" },
-                { name = "另一种世界", sourcePath = "Levels/chapter-3.json", fogColor = "#937754" },
+                { name = "门", sourcePath = "Levels/level-1-1.json", fogColor = "#937754" },
+                { name = "白鼠先行", sourcePath = "Levels/level-1-2.json", fogColor = "#937754" },
+                { name = "另一种世界", sourcePath = "Levels/level-1-3.json", fogColor = "#937754" },
             },
         },
     },
@@ -58,9 +58,10 @@ LevelCatalog.CONFIG = {
 }
 
 LevelCatalog.WHITEBOX_PATH = LevelCatalog.CONFIG.whiteboxPath
-LevelCatalog.CHAPTER_1_PATH = "Levels/chapter-1.json"
-LevelCatalog.CHAPTER_2_PATH = "Levels/chapter-2.json"
-LevelCatalog.CHAPTER_3_PATH = "Levels/chapter-3.json"
+LevelCatalog.LEVEL_1_1_PATH = "Levels/level-1-1.json"
+LevelCatalog.LEVEL_1_2_PATH = "Levels/level-1-2.json"
+LevelCatalog.LEVEL_1_3_PATH = "Levels/level-1-3.json"
+LevelCatalog.LEVEL_2_1_PATH = "Levels/level-2-1.json"
 
 local function Repeat(t, length)
     if length <= 0 then

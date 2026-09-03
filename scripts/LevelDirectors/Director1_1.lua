@@ -4,7 +4,7 @@
 local LevelDirector = require "LevelDirector"
 local Story = require "Story.Chapter1"
 
-local Chapter1 = LevelDirector.Extend()
+local Director1_1 = LevelDirector.Extend()
 
 local LIFT_DURATION = 2.0
 local LIFT_OFFSET = 2.0
@@ -19,7 +19,7 @@ local function QuadInOut(t)
     return 1.0 - 2.0 * p * p
 end
 
-function Chapter1:OnStart()
+function Director1_1:OnStart()
     self.liftElapsed = 0.0
     self.lifting = false
     self.partId = nil
@@ -34,13 +34,13 @@ function Chapter1:OnStart()
 
     local document = self:GetDocument()
     if not document then
-        print("Chapter1: no document")
+        print("Director1_1: no document")
         return
     end
     local parts = document:GetParts()
     local part = parts[1]
     if not part then
-        print("Chapter1: no part to lift")
+        print("Director1_1: no part to lift")
         return
     end
     self.partId = part.id
@@ -54,14 +54,14 @@ function Chapter1:OnStart()
         player:SetOnStarted(function(targetKey)
             self.pathStoryPending = true
             self.pathStoryElapsed = 0.0
-            print("Chapter1: player path started target=" .. tostring(targetKey))
+            print("Director1_1: player path started target=" .. tostring(targetKey))
         end)
     end
 
     self:BeginLift()
 end
 
-function Chapter1:BeginLift()
+function Director1_1:BeginLift()
     if not self.partId then
         return
     end
@@ -73,7 +73,7 @@ function Chapter1:BeginLift()
         z = self.authoredZ,
     }, false)
     if not dropped then
-        print("Chapter1: drop rejected " .. tostring(dropError))
+        print("Director1_1: drop rejected " .. tostring(dropError))
         self:SetPlayerLocked(false)
         self:SetInputLocked(false)
         return
@@ -81,21 +81,21 @@ function Chapter1:BeginLift()
     self.liftElapsed = 0.0
     self.lifting = true
     print(string.format(
-        "Chapter1: lift start part=%s from y=%.3f to y=%.3f",
+        "Director1_1: lift start part=%s from y=%.3f to y=%.3f",
         self.partId,
         self.authoredY - LIFT_OFFSET,
         self.authoredY
     ))
 end
 
-function Chapter1:OnUpdate(timeStep)
+function Director1_1:OnUpdate(timeStep)
     self.elapsed = (self.elapsed or 0.0) + timeStep
     if self.pathStoryPending and not self.inLevelStoryPlayed then
         self.pathStoryElapsed = self.pathStoryElapsed + timeStep
         if self.pathStoryElapsed >= PATH_STORY_DELAY and not self:IsStoryPlaying() then
             self.pathStoryPending = false
             self.inLevelStoryPlayed = true
-            print("Chapter1: start delayed in-level story")
+            print("Director1_1: start delayed in-level story")
             self:PlayStory(Story.inLevel)
         end
     end
@@ -116,7 +116,7 @@ function Chapter1:OnUpdate(timeStep)
     end
 end
 
-function Chapter1:FinishLift()
+function Director1_1:FinishLift()
     if not self.lifting then
         return
     end
@@ -129,7 +129,7 @@ function Chapter1:FinishLift()
     self:SetPlayerLocked(true)
     self:SetInputLocked(true)
     print(string.format(
-        "Chapter1: lift done part=%s y=%.3f",
+        "Director1_1: lift done part=%s y=%.3f",
         tostring(self.partId),
         self.authoredY
     ))
@@ -142,7 +142,7 @@ function Chapter1:FinishLift()
     })
 end
 
-function Chapter1:OnFinish(payload)
+function Director1_1:OnFinish(payload)
     self:SetInputLocked(true)
     self:SetPlayerLocked(true)
     if self.finishStoryPlayed then
@@ -159,10 +159,10 @@ function Chapter1:OnFinish(payload)
     })
 end
 
-function Chapter1:OnDispose()
+function Director1_1:OnDispose()
     if self.lifting then
         self:FinishLift()
     end
 end
 
-return Chapter1
+return Director1_1

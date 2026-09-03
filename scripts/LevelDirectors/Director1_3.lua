@@ -4,7 +4,7 @@
 local LevelDirector = require "LevelDirector"
 local Story = require "Story.Chapter1"
 
-local Chapter3 = LevelDirector.Extend()
+local Director1_3 = LevelDirector.Extend()
 
 local ROTATOR_PART_ID = "part_part_18"
 local ROTATOR_START_YAW = 0
@@ -27,7 +27,7 @@ local function Clamp01(value)
     return math.max(0.0, math.min(1.0, value))
 end
 
-function Chapter3:OnStart()
+function Director1_3:OnStart()
     self.stage = "intro"
     self.stageElapsed = 0.0
     self.finishStoryPlayed = false
@@ -43,7 +43,7 @@ function Chapter3:OnStart()
 
     local part = self:GetPart(ROTATOR_PART_ID)
     if not part then
-        print("Chapter3: rotator part missing")
+        print("Director1_3: rotator part missing")
         return
     end
     self.rotatorStartYaw = part.transform.rotation.yawSteps
@@ -66,12 +66,12 @@ function Chapter3:OnStart()
             self.stageElapsed = 0.0
             self:SetPlayerLocked(false)
             self:SetInputLocked(false)
-            print("Chapter3: waiting for player at " .. ROTATOR_TRIGGER_KEY)
+            print("Director1_3: waiting for player at " .. ROTATOR_TRIGGER_KEY)
         end,
     })
 end
 
-function Chapter3:OnPlayerArrived(nodeKey)
+function Director1_3:OnPlayerArrived(nodeKey)
     if self.stage == "await_cliff" and nodeKey == ROTATOR_TRIGGER_KEY then
         self:BeginRotation()
     elseif self.stage == "await_rotator_end" and nodeKey == ROTATOR_END_KEY then
@@ -79,7 +79,7 @@ function Chapter3:OnPlayerArrived(nodeKey)
     end
 end
 
-function Chapter3:BeginRotation()
+function Director1_3:BeginRotation()
     if self.stage ~= "await_cliff" then
         return
     end
@@ -92,10 +92,10 @@ function Chapter3:BeginRotation()
     self.rotationTween = true
     self:SetPartVisualYaw(ROTATOR_PART_ID, self.rotatorStartYaw * 60.0)
     self:PlayStory(Story.ch1_3_rotate)
-    print("Chapter3: player reached cliff, rotating Part to yawSteps=" .. tostring(self.rotatorEndYaw))
+    print("Director1_3: player reached cliff, rotating Part to yawSteps=" .. tostring(self.rotatorEndYaw))
 end
 
-function Chapter3:FinishRotation()
+function Director1_3:FinishRotation()
     self.rotationTween = nil
     self.rotationTweenState = nil
     self:SetPartYawSteps(ROTATOR_PART_ID, self.rotatorEndYaw, true)
@@ -103,7 +103,7 @@ function Chapter3:FinishRotation()
     self.stageElapsed = 0.0
 end
 
-function Chapter3:StartAfterRotate()
+function Director1_3:StartAfterRotate()
     self.stage = "after_rotate"
     self.stageElapsed = 0.0
     self:PlayStory(Story.ch1_3_after_rotate, {
@@ -112,12 +112,12 @@ function Chapter3:StartAfterRotate()
             self.stageElapsed = 0.0
             self:SetPlayerLocked(false)
             self:SetInputLocked(false)
-            print("Chapter3: waiting for player at " .. ROTATOR_END_KEY)
+            print("Director1_3: waiting for player at " .. ROTATOR_END_KEY)
         end,
     })
 end
 
-function Chapter3:OnPlayerAtRotatorEnd()
+function Director1_3:OnPlayerAtRotatorEnd()
     if self.stage ~= "await_rotator_end" then
         return
     end
@@ -129,10 +129,10 @@ function Chapter3:OnPlayerAtRotatorEnd()
     self.restoreTweenState = { yaw = self.rotatorEndYaw }
     self.restoreElapsed = 0.0
     self.restoreTween = true
-    print("Chapter3: player reached rotator end, restoring Part")
+    print("Director1_3: player reached rotator end, restoring Part")
 end
 
-function Chapter3:FinishRestore()
+function Director1_3:FinishRestore()
     self.restoreTween = nil
     self.restoreTweenState = nil
     self:SetPartYawSteps(ROTATOR_PART_ID, self.rotatorStartYaw, true)
@@ -142,7 +142,7 @@ function Chapter3:FinishRestore()
     self:SetInputLocked(false)
 end
 
-function Chapter3:OnUpdate(timeStep)
+function Director1_3:OnUpdate(timeStep)
     self.stageElapsed = self.stageElapsed + timeStep
 
     if self.stage == "await_cliff" then
@@ -190,7 +190,7 @@ function Chapter3:OnUpdate(timeStep)
     end
 end
 
-function Chapter3:OnFinish(payload)
+function Director1_3:OnFinish(payload)
     self:SetInputLocked(true)
     self:SetPlayerLocked(true)
     if self.finishStoryPlayed then
@@ -207,7 +207,7 @@ function Chapter3:OnFinish(payload)
     })
 end
 
-function Chapter3:OnDispose()
+function Director1_3:OnDispose()
     self.rotationTween = nil
     self.rotationTweenState = nil
     self.restoreTween = nil
@@ -216,4 +216,4 @@ function Chapter3:OnDispose()
     self:SetPlayerLocked(true)
 end
 
-return Chapter3
+return Director1_3

@@ -83,7 +83,7 @@ local FOG_TWEEN_DURATION = 0.45
 local EXIT_DROP = 8.0
 local EXIT_DURATION = 0.85
 
--- 第一章门框淡蓝：assets/Levels/chapter-1.json stillObjects[0].params
+-- 第一章门框淡蓝：assets/Levels/level-1-1.json stillObjects[0].params
 local DOOR_FRAME_LOOK = {
     shader = LookApplier.SHADER_TRI_PRISM_LOOK,
     colorNeg = "#6E7A86",
