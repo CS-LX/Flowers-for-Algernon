@@ -73,5 +73,11 @@
 
 - 远程仓库使用不含凭据的标准 HTTPS URL，禁止把 token 写入 remote URL、Git 配置、提交内容或日志。
 - GitHub token 保存在项目本地 `secret/github_token`，`secret/` 必须持续受 `.gitignore` 排除。
-- 用户说“提交并且推送”时，从 `secret/github_token` 临时读取凭据完成认证；认证数据只用于该次命令，不持久化到 Git 配置。
-- **用户说“提交并且推送”时直接提交并推送。** 不要先做长时间的范围核对、diff 通读、secret 复查、远程 URL 复查或其它无意义检查；已暂存的改动直接 commit，未暂存的相关改动直接 add 后 commit，然后立刻 push。禁止为“再确认一遍”卡住数分钟。
+- **用户说“提交并且推送”时直接提交并推送。** 不要先做范围核对、diff 通读、secret 复查、远程 URL 复查或其它无意义检查；相关改动直接 add + commit，然后立刻 push。禁止为“再确认一遍”卡住。
+- 推送只用这一条，不要试其它认证方式、不要 `git fetch`、不要改 remote：
+
+```bash
+git push "https://x-access-token:$(cat secret/github_token)@github.com/CS-LX/Flowers-for-Algernon.git" HEAD:main
+```
+
+- token 只用于该次命令，不写入 Git 配置。禁止 `http.extraHeader`、禁止改 `origin` URL。
