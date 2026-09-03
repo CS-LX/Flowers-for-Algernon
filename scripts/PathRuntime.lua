@@ -40,6 +40,8 @@ end
 local FACE_TOLERANCE = 0.0001
 local OCCLUSION_DEPTH_EPSILON = 0.02
 local FACE_COINCIDENCE_TOLERANCE = 0.02
+-- WorldToScreenPoint 是 0~1 NDC。0.0001 会把视觉上邻接、但投影边有一点夹角/缝隙的面漏掉。
+local SCREEN_EDGE_TOLERANCE = 0.004
 local OCCLUSION_SAMPLE_TS = { 0.15, 0.5, 0.85 }
 
 local function GetNodeFace(record, grid)
@@ -192,19 +194,23 @@ local function ProjectedEdgesHavePositiveOverlap(edgeA, edgeB, tolerance)
     local vectorB = edgeB.second - edgeB.first
     local lengthA = vectorA:Length()
     local lengthB = vectorB:Length()
-    if lengthA <= tolerance or lengthB <= tolerance then return false, 0.0 end
+    if lengthA <= FACE_TOLERANCE or lengthB <= FACE_TOLERANCE then
+        return false, 0.0
+    end
     local directionA = vectorA / lengthA
     local directionB = vectorB / lengthB
     if math.abs(directionA.x * directionB.x + directionA.y * directionB.y) < 1.0 - tolerance then
         return false, 0.0
     end
     local offset = edgeB.first - edgeA.first
-    if math.abs(offset.x * directionA.y - offset.y * directionA.x) > tolerance then return false, 0.0 end
+    if math.abs(offset.x * directionA.y - offset.y * directionA.x) > tolerance then
+        return false, 0.0
+    end
     local first = offset.x * directionA.x + offset.y * directionA.y
     local secondOffset = edgeB.second - edgeA.first
     local second = secondOffset.x * directionA.x + secondOffset.y * directionA.y
     local overlap = math.min(lengthA, math.max(first, second)) - math.max(0.0, math.min(first, second))
-    return overlap > tolerance, math.max(0.0, overlap)
+    return overlap > FACE_TOLERANCE, math.max(0.0, overlap)
 end
 local function TransformEdges(partRenderer, partId, edges)
     local result = {}
@@ -501,18 +507,85 @@ local function FindEndpointHit(hits, faceId)
     return nil
 end
 
-local function EvaluateSeamOcclusion(fromRecord, toRecord, overlapSegment, camera, worldFaces)
-    local fromFace = nil
-    local toFace = nil
-    local fromId = FaceIdentity(fromRecord.partId, fromRecord.node.voxelCell, fromRecord.node:GetFaceIndex())
-    local toId = FaceIdentity(toRecord.partId, toRecord.node.voxelCell, toRecord.node:GetFaceIndex())
+local function FindWorldFace(worldFaces, record)
+    if not worldFaces or not record or not record.node then
+        return nil
+    end
+    local id = FaceIdentity(record.partId, record.node.voxelCell, record.node:GetFaceIndex())
     for _, face in ipairs(worldFaces) do
-        if face.id == fromId then
-            fromFace = face
-        elseif face.id == toId then
-            toFace = face
+        if face.id == id then
+            return face
         end
     end
+    return nil
+end
+
+local function ProjectFaceCentroid(camera, vertices)
+    local sumX = 0.0
+    local sumY = 0.0
+    for _, vertex in ipairs(vertices) do
+        local projected = camera:WorldToScreenPoint(vertex)
+        sumX = sumX + projected.x
+        sumY = sumY + projected.y
+    end
+    return Vector2(sumX / #vertices, sumY / #vertices)
+end
+
+local function SampleWorldFaceCovered(face, camera, worldFaces, screenPoint)
+    local ray = camera:GetScreenRay(screenPoint.x, screenPoint.y)
+    local hits = CollectRayHits(ray, worldFaces)
+    local selfHit = FindEndpointHit(hits, face.id)
+    if not selfHit then
+        return nil
+    end
+    for _, hit in ipairs(hits) do
+        if hit.distance + OCCLUSION_DEPTH_EPSILON < selfHit.distance then
+            if hit.id ~= face.id
+                and not IsSameWorldPlane(
+                    hit.normal,
+                    hit.vertices,
+                    face.normal,
+                    face.vertices,
+                    FACE_TOLERANCE
+                ) then
+                return true
+            end
+        elseif hit.distance > selfHit.distance + OCCLUSION_DEPTH_EPSILON then
+            break
+        end
+    end
+    return false
+end
+
+-- 走面内部被另一块更近的面占住（两个三角面叠在同一个视觉三角里，起点被盖住）。
+local function IsWorldFaceCovered(face, camera, worldFaces)
+    if not face or not camera or not worldFaces then
+        return false
+    end
+    local centroid = ProjectFaceCentroid(camera, face.vertices)
+    local centroidCovered = SampleWorldFaceCovered(face, camera, worldFaces, centroid)
+    if centroidCovered == true then
+        return true
+    end
+    if centroidCovered == false then
+        return false
+    end
+    for _, vertex in ipairs(face.vertices) do
+        local projected = camera:WorldToScreenPoint(vertex)
+        local inset = Vector2(
+            centroid.x * 0.55 + projected.x * 0.45,
+            centroid.y * 0.55 + projected.y * 0.45
+        )
+        if SampleWorldFaceCovered(face, camera, worldFaces, inset) == true then
+            return true
+        end
+    end
+    return false
+end
+
+local function EvaluateSeamOcclusion(fromRecord, toRecord, overlapSegment, camera, worldFaces)
+    local fromFace = FindWorldFace(worldFaces, fromRecord)
+    local toFace = FindWorldFace(worldFaces, toRecord)
     if not fromFace or not toFace then
         return "insufficient-evidence", "missing-endpoint-world-face", {
             overlapSegment = overlapSegment,
@@ -623,6 +696,16 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
     if AreFacesCoincident(fromFaceVertices, toFaceVertices, FACE_COINCIDENCE_TOLERANCE) then
         return "rejected", "endpoint-faces-coincide"
     end
+    if worldFaces then
+        local fromWorldFace = FindWorldFace(worldFaces, record.from)
+        local toWorldFace = FindWorldFace(worldFaces, record.to)
+        if fromWorldFace and IsWorldFaceCovered(fromWorldFace, camera, worldFaces) then
+            return "rejected", "endpoint-face-covered"
+        end
+        if toWorldFace and IsWorldFaceCovered(toWorldFace, camera, worldFaces) then
+            return "rejected", "endpoint-face-covered"
+        end
+    end
 
     local fromData, fromError = GetWorldNodeData(record.from, grid, partRenderer)
     if not fromData then
@@ -645,7 +728,7 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
     local edgeAccepted, edgeOverlap, fromEdgeIndex, toEdgeIndex = FindPositiveOverlapPair(
         fromProjectedEdges,
         toProjectedEdges,
-        FACE_TOLERANCE
+        SCREEN_EDGE_TOLERANCE
     )
     local result = {
         fromWorldPoint = fromData.worldPoint,
@@ -666,7 +749,7 @@ local function EvaluateCandidate(record, grid, partRenderer, cameraNode, camera,
     local overlapSegment = GetProjectedOverlapSegment(
         fromProjectedEdges[fromEdgeIndex],
         toProjectedEdges[toEdgeIndex],
-        FACE_TOLERANCE
+        SCREEN_EDGE_TOLERANCE
     )
     result.overlapSegment = overlapSegment
     if not overlapSegment then
