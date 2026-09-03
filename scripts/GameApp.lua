@@ -251,6 +251,10 @@ function GameApp:EnterEditor(definition)
 end
 
 function GameApp:DisposeSession()
+    local director = self.session and self.session.director
+    if director then
+        director:Halt()
+    end
     if self.playHud then
         self.playHud:Hide()
     end
@@ -343,8 +347,8 @@ function GameApp:BeginLevelTransition(nextDefinition)
             return true
         end
         local director = self.session and self.session.director
-        if director and director:IsStoryPlaying() then
-            director:StopStory()
+        if director then
+            director:Halt()
         end
         if self.playHud then
             self.playHud:Hide()
@@ -374,8 +378,8 @@ function GameApp:BeginExitToLevelSelect()
             return true
         end
         local director = self.session and self.session.director
-        if director and director:IsStoryPlaying() then
-            director:StopStory()
+        if director then
+            director:Halt()
         end
         if self.playHud then
             self.playHud:Hide()

@@ -229,10 +229,16 @@ function StoryView:ClearGlyphs()
 end
 
 function StoryView:EnsureGlyphs(layout)
+    if not self.bottomTextHost then
+        return
+    end
     if self.layout == layout and #self.glyphViews == #(layout.glyphs or {}) then
         return
     end
     self:ClearGlyphs()
+    if not self.bottomTextHost then
+        return
+    end
     self.layout = layout
     local glyphs = layout and layout.glyphs or {}
     for i = 1, #glyphs do

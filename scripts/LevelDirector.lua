@@ -505,6 +505,12 @@ function LevelDirector:StopStory()
     self:SyncStoryInputLock()
 end
 
+function LevelDirector:Halt()
+    self.running = false
+    self.pendingStory = nil
+    self:StopStory()
+end
+
 --- 过关后由导演决定收尾剧情。默认立刻交给 GameApp。
 ---@param payload table|nil
 function LevelDirector:OnFinish(payload)

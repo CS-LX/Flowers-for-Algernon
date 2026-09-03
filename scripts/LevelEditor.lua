@@ -2052,6 +2052,9 @@ function LevelEditor:TryAddFillCandidate(job, fromRecord, toRecord)
         job.skipped = job.skipped + 1
         return
     end
+    if self.pathRuntime:HasBlockingVoxelBetween(fromRecord, toRecord, job.worldFaces) then
+        return
+    end
     local status = self.pathRuntime:EvaluateNodePair(fromRecord, toRecord, job.worldFaces)
     if status ~= "accepted" then
         return

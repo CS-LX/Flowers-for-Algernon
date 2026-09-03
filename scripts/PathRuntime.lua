@@ -1054,6 +1054,54 @@ function PathRuntime:GetNode(key)
     return self.nodesByKey[key]
 end
 
+local function IsSameVoxelCell(cellA, cellB)
+    return cellA
+        and cellB
+        and cellA.hexQ == cellB.hexQ
+        and cellA.hexR == cellB.hexR
+        and cellA.sector == cellB.sector
+        and cellA.layer == cellB.layer
+end
+
+function PathRuntime:HasBlockingVoxelBetween(fromRecord, toRecord, worldFaces)
+    if not fromRecord or not toRecord or not self.partRenderer then
+        return false
+    end
+    local fromData = GetWorldNodeData(fromRecord, self.grid, self.partRenderer)
+    local toData = GetWorldNodeData(toRecord, self.grid, self.partRenderer)
+    if not fromData or not toData then
+        return true
+    end
+    local faces = worldFaces
+    if not faces then
+        faces = CollectWorldFaces(self.partSessions, self.grid, self.partRenderer)
+    end
+    local origin = fromData.worldPoint
+    local delta = toData.worldPoint - origin
+    local length = delta:Length()
+    if length <= FACE_TOLERANCE then
+        return false
+    end
+    local direction = delta / length
+    local fromCell = fromRecord.node.voxelCell
+    local toCell = toRecord.node.voxelCell
+    local ray = {
+        origin = origin,
+        direction = direction,
+    }
+    local hits = CollectRayHits(ray, faces)
+    for _, hit in ipairs(hits) do
+        if hit.distance > FACE_TOLERANCE and hit.distance < length - FACE_TOLERANCE then
+            local endpoint = (hit.partId == fromRecord.partId and IsSameVoxelCell(hit.cell, fromCell))
+                or (hit.partId == toRecord.partId and IsSameVoxelCell(hit.cell, toCell))
+            if not endpoint then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 function PathRuntime:EvaluateNodePair(fromRecord, toRecord, worldFaces)
     if not fromRecord or not toRecord then
         return "rejected", "unresolved"
