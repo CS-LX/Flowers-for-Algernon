@@ -11,6 +11,7 @@ local CATALOG_DIR = "StillModels/"
 -- 已知 sidecar 必须走 ResourceCache，才能解析到 uuid://StillModelDoorSidecar01。
 local KNOWN_SIDECARS = {
     "StillModels/Door.json",
+    "StillModels/StaticDoor.json",
     "StillModels/Algernon.json",
     "StillModels/StillCube.json",
     "StillModels/StillCapsule.json",

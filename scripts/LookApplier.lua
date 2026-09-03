@@ -20,6 +20,8 @@ LookApplier.SHADER_STILL_OBJECT_BASE = "still_object_base"
 LookApplier.SHADER_STILL_OBJECT_UNLIT = "still_object_unlit"
 LookApplier.SHADER_STILL_OBJECT_UNLIT_SOLID = "still_object_unlit_solid"
 LookApplier.SHADER_STENCIL_ID_RT_MASK = "stencil_id_rt_mask"
+LookApplier.SHADER_MENU_STILL_OBJECT_BASE_CLIP = "menu_still_object_base_clip"
+LookApplier.SHADER_MENU_STILL_OBJECT_UNLIT_CLIP = "menu_still_object_unlit_clip"
 
 LookApplier.SHADER_PATHS = {
     [LookApplier.SHADER_TRI_PRISM_LOOK] = "Shaders/BLGL/TriPrismLook.shader",
@@ -28,6 +30,8 @@ LookApplier.SHADER_PATHS = {
     [LookApplier.SHADER_STILL_OBJECT_UNLIT] = "Shaders/BLGL/still_object_unlit.shader",
     [LookApplier.SHADER_STILL_OBJECT_UNLIT_SOLID] = "Shaders/BLGL/still_object_unlit_solid.shader",
     [LookApplier.SHADER_STENCIL_ID_RT_MASK] = "Shaders/BLGL/StencilIdRtMask.shader",
+    [LookApplier.SHADER_MENU_STILL_OBJECT_BASE_CLIP] = "Shaders/BLGL/MenuStillObjectBaseClip.shader",
+    [LookApplier.SHADER_MENU_STILL_OBJECT_UNLIT_CLIP] = "Shaders/BLGL/MenuStillObjectUnlitClip.shader",
 }
 
 LookApplier.SHADER_OPTIONS = {
@@ -414,6 +418,64 @@ function LookApplier.CreateStillObjectUnlitMaterial(look)
         tostring(look.additive == true),
         tostring(look.opaque == true)
     ))
+    return material
+end
+
+function LookApplier.BindStencilMask(material, stencilColor, maskTexture)
+    if not material or not stencilColor then
+        return material
+    end
+    material:SetShaderParameter("stencil_color", Variant(stencilColor))
+    if maskTexture then
+        material:SetSurfaceTexture("mask_rt", maskTexture)
+    end
+    return material
+end
+
+function LookApplier.CreateMenuStillObjectBaseClipMaterial(look, stencilColor, maskTexture)
+    look = look or {}
+    local shaderPath = LookApplier.SHADER_PATHS[LookApplier.SHADER_MENU_STILL_OBJECT_BASE_CLIP]
+    local material = Material:new()
+    if not material:SetSurfaceShader(shaderPath) then
+        print("LookApplier: failed to load " .. shaderPath)
+        return LookApplier.CreateStillObjectBaseMaterial(look)
+    end
+    local axis = look.lightAxis or { x = 0.35, y = 1.0, z = 0.25 }
+    material:SetShaderParameter("color_neg", Variant(HexToColor(look.colorNeg, Color(0.664, 0.562, 0.501, 1))))
+    material:SetShaderParameter("color_mid", Variant(HexToColor(look.colorMid, Color(0.804, 0.733, 0.639, 1))))
+    material:SetShaderParameter("color_pos", Variant(HexToColor(look.colorPos, Color(0.944, 0.902, 0.762, 1))))
+    material:SetShaderParameter("light_axis", Variant(Vector3(axis.x, axis.y, axis.z)))
+    LookApplier.BindStencilMask(material, stencilColor, maskTexture)
+    -- 不透明 scissor clip，写入深度，后面的丁达尔才能被门框挡住。
+    ConfigureSurfacePass(material, BLEND_REPLACE, true)
+    print("LookApplier: menu still-object base clip ready")
+    return material
+end
+
+function LookApplier.CreateMenuStillObjectUnlitClipMaterial(look, stencilColor, maskTexture)
+    look = look or {}
+    local shaderPath = LookApplier.SHADER_PATHS[LookApplier.SHADER_MENU_STILL_OBJECT_UNLIT_CLIP]
+    local material = Material:new()
+    if not material:SetSurfaceShader(shaderPath) then
+        print("LookApplier: failed to load " .. shaderPath)
+        return LookApplier.CreateStillObjectUnlitMaterial(look)
+    end
+    local color = HexToColor(look.color or look.baseColor, Color(1.0, 0.882, 0.290, 1))
+    material:SetShaderParameter("base_color", Variant(color))
+    local vFade = math.max(0.0, math.min(1.0, (tonumber(look.vFade) or 0.0) * 1.0))
+    local fadeUseObjectY = look.fadeUseObjectY == true and 1.0 or 0.0
+    material:SetShaderParameter("v_fade", Variant(vFade))
+    material:SetShaderParameter("fade_use_object_y", Variant(fadeUseObjectY))
+    LookApplier.BindStencilMask(material, stencilColor, maskTexture)
+    if look.cullFront then
+        material:SetCullMode(CULL_CW)
+    end
+    if look.additive then
+        -- 测深度、不写深度，避免盖过门框。
+        ConfigureSurfacePass(material, BLEND_ADDALPHA, false)
+        material:SetRenderOrder(200)
+    end
+    print("LookApplier: menu still-object unlit clip ready")
     return material
 end
 

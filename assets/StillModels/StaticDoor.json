@@ -1,0 +1,45 @@
+{
+  "id": "static_door",
+  "label": "选关静态开门",
+  "modelPath": "Meshes/StaticDoor.mdl",
+  "component": "StaticModel",
+  "rootRotation": { "x": 90, "y": 0, "z": 0 },
+  "rootOffset": { "x": 0, "y": 0.02, "z": 0 },
+  "slots": [
+    {
+      "index": 0,
+      "id": "frame",
+      "label": "门板",
+      "shader": "still_object_base",
+      "params": {
+        "colorNeg": "#4A536B",
+        "colorMid": "#6E8194",
+        "colorPos": "#90B1BD"
+      }
+    },
+    {
+      "index": 1,
+      "id": "light",
+      "label": "丁达尔",
+      "shader": "still_object_unlit",
+      "params": {
+        "color": "#FFD400"
+      },
+      "pass": {
+        "cullFront": true,
+        "additive": true,
+        "vFade": 1,
+        "fadeUseObjectY": true
+      }
+    },
+    {
+      "index": 2,
+      "id": "lit",
+      "label": "门内",
+      "shader": "still_object_unlit",
+      "params": {
+        "color": "#FAD526"
+      }
+    }
+  ]
+}

@@ -83,6 +83,19 @@ local FOG_TWEEN_DURATION = 0.45
 local EXIT_DROP = 8.0
 local EXIT_DURATION = 0.85
 
+-- 第二章选关门：assets/Levels/level-2-1.json stillObjects[0]
+-- StaticDoor 只有 3 个槽：门板 / 丁达尔 / 门内。门板走 2-1 的 frame 色。
+local MENU_CHAPTER2_DOOR_PARAMS = {
+    ["slots.frame.colorNeg"] = "#4A536B",
+    ["slots.frame.colorMid"] = "#6E8194",
+    ["slots.frame.colorPos"] = "#90B1BD",
+    ["slots.light.color"] = "#FFD400",
+    ["slots.lit.color"] = "#FAD526",
+}
+local MENU_CHAPTER2_DOOR_SCALE = 0.18 * 1.5
+local MENU_ALGERNON_SCALE = 1.25
+local MENU_CHAPTER2_STENCIL_ID = 1
+
 -- 第一章门框淡蓝：assets/Levels/level-1-1.json stillObjects[0].params
 local DOOR_FRAME_LOOK = {
     shader = LookApplier.SHADER_TRI_PRISM_LOOK,
@@ -693,7 +706,7 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
     local hexSide = edgeLength * 2.0 / math.sqrt(3.0)
     local radius = hexSide * math.sqrt(3.0) * 0.5
     local faceWidth = hexSide
-    local faceHeight = prismHeight * 0.85
+    local faceHeight = prismHeight * 0.85 * 3.0
     local thickness = 0.02
     local centerY = prismHeight + faceHeight * 0.5
     for i = 0, 5 do
@@ -855,8 +868,80 @@ function MenuPrism:AddAlgernonExhibit(parent, stencilId)
     end
     entry.model.viewMask = WORLD_BIT
     entry.model.castShadows = false
+    local current = entry.node.scale
+    entry.node.scale = Vector3(
+        current.x * MENU_ALGERNON_SCALE,
+        current.y * MENU_ALGERNON_SCALE,
+        current.z * MENU_ALGERNON_SCALE
+    )
+    local pos = entry.node.position
+    entry.node.position = Vector3(pos.x, pos.y * MENU_ALGERNON_SCALE, pos.z)
     self.exhibitNodes[#self.exhibitNodes + 1] = entry.node
     return entry.node
+end
+
+function MenuPrism:CreateMenuStillClipMaterial(slot, look, stencilId)
+    local stencilColor = StencilIdColor.ToColor(stencilId)
+    if slot.shader == LookApplier.SHADER_STILL_OBJECT_UNLIT then
+        if look.additive then
+            return LookApplier.CreateMenuStillObjectUnlitClipMaterial(look, stencilColor, self.rtTexture)
+        end
+        -- 门内不透明，走阿尔吉侬同款 clip，写入深度挡住丁达尔。
+        look.opaque = true
+        return self:CreateClipMaterial(stencilId, look)
+    end
+    return LookApplier.CreateMenuStillObjectBaseClipMaterial(look, stencilColor, self.rtTexture)
+end
+
+function MenuPrism:AddDoorExhibit(parent, stencilId)
+    local object = StillObject.New({
+        id = "menu_static_door",
+        name = "ExhibitDoor",
+        modelId = "static_door",
+        params = MENU_CHAPTER2_DOOR_PARAMS,
+    })
+    local asset = StillModelCatalog.Get("static_door")
+    local resource = cache:GetResource("Model", "Meshes/StaticDoor.mdl")
+    if not asset or not resource then
+        print("MenuPrism: missing StaticDoor asset/model")
+        return nil
+    end
+    -- 选关用无骨骼、固定开门的 StaticDoor。
+    local node = parent:CreateChild("ExhibitDoor")
+    local rotation = asset.rootRotation
+    node.rotation = Quaternion(rotation.x, Vector3.RIGHT)
+        * Quaternion(rotation.y, Vector3.UP)
+        * Quaternion(rotation.z, Vector3.FORWARD)
+    local drawable = node:CreateComponent("StaticModel")
+    drawable:SetModel(resource)
+    drawable.viewMask = WORLD_BIT
+    drawable.castShadows = false
+    local geoCount = drawable:GetNumGeometries()
+    local overrides = object:GetActiveParams()
+    for _, slot in ipairs(asset.slots) do
+        if slot.index >= 0 and slot.index < geoCount then
+            local look = StillModelCatalog.SlotLook(asset, slot, overrides)
+            drawable:SetMaterial(slot.index, self:CreateMenuStillClipMaterial(slot, look, stencilId))
+        end
+    end
+    local scale = MENU_CHAPTER2_DOOR_SCALE
+    node.scale = Vector3(scale, scale, scale)
+    local offset = asset.rootOffset or { x = 0, y = 0.02, z = 0 }
+    local unscaled = resource.boundingBox:Transformed(Matrix3x4(Vector3.ZERO, node.rotation, 1.0))
+    local lift = -unscaled.min.y * scale + (offset.y or 0.0) * scale
+    node.position = Vector3(0.0, lift, 0.0)
+    local world = node:GetWorldPosition()
+    print(string.format(
+        "MenuPrism: chapter 2 StaticDoor geos=%d scale=%.3f lift=%.3f world=(%.3f, %.3f, %.3f)",
+        geoCount,
+        scale,
+        lift,
+        world.x,
+        world.y,
+        world.z
+    ))
+    self.exhibitNodes[#self.exhibitNodes + 1] = node
+    return node
 end
 
 function MenuPrism:BuildExhibits(prismHeight)
@@ -870,15 +955,7 @@ function MenuPrism:BuildExhibits(prismHeight)
     print(string.format("MenuPrism: exhibits on solid top y=%.3f", prismHeight))
 
     self:AddAlgernonExhibit(self.exhibitRoot, 0)
-
-    local cube = self:AddExhibitModel(
-        self.exhibitRoot,
-        "ExhibitCube",
-        BoxGeometry(0.38, 0.38, 0.38):ToModel(),
-        1,
-        { color = "#90B1BD" }
-    )
-    cube.position = Vector3(0.0, 0.19, 0.0)
+    self:AddDoorExhibit(self.exhibitRoot, MENU_CHAPTER2_STENCIL_ID)
 
     local cylinder = self:AddExhibitModel(
         self.exhibitRoot,
