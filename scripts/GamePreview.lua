@@ -43,6 +43,10 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.camera = nil
     ---@type Viewport|nil
     self.viewport = nil
+    ---@type Vector3|nil
+    self.cameraBaseTarget = nil
+    ---@type Vector3|nil
+    self.cameraBasePosition = nil
     self.partRenderer = nil
     self.pathRuntime = nil
     self.player = nil
@@ -167,6 +171,9 @@ function GamePreview:Start()
     self.cameraNode, self.camera = FixedGameCamera.Create(
         self.scene,
         "FixedPreviewCamera",
+        self.levelDocument.fixedCamera
+    )
+    self.cameraBaseTarget, self.cameraBasePosition = FixedGameCamera.GetWorldPosition(
         self.levelDocument.fixedCamera
     )
     self.viewport = Viewport:new(self.scene, self.camera)
@@ -379,6 +386,47 @@ function GamePreview:SetPlayerVisible(visible)
         return false
     end
     return self.playerView:SetVisible(visible)
+end
+
+function GamePreview:SetCameraLiftOffset(offsetY)
+    if not self.cameraNode or not self.cameraBaseTarget or not self.cameraBasePosition then
+        return false
+    end
+    local offset = Vector3(0, offsetY or 0.0, 0)
+    self.cameraNode.position = self.cameraBasePosition + offset
+    self.cameraNode:LookAt(self.cameraBaseTarget + offset)
+    return true
+end
+
+function GamePreview:SetPartVisualPosition(partId, position)
+    if not self.partRenderer then
+        return false
+    end
+    local applied = self.partRenderer:SetVisualPosition(partId, position)
+    if applied then
+        self:SyncRiders()
+    end
+    return applied
+end
+
+function GamePreview:SetPartLookColors(partId, colorNeg, colorMid, colorPos, fogColor)
+    if not self.partRenderer then
+        return false
+    end
+    return self.partRenderer:SetPartLookColors(
+        partId,
+        colorNeg,
+        colorMid,
+        colorPos,
+        fogColor
+    )
+end
+
+function GamePreview:SetAtmosphereFogColor(color)
+    if not self.scene then
+        return false
+    end
+    return LookApplier.SetFogColor(self.scene, color)
 end
 
 function GamePreview:ApplyStillObject(object)
@@ -853,6 +901,8 @@ function GamePreview:Stop()
     self.cameraNode = nil
     self.camera = nil
     self.viewport = nil
+    self.cameraBaseTarget = nil
+    self.cameraBasePosition = nil
 end
 
 return GamePreview

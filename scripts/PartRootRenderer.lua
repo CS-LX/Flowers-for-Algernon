@@ -345,6 +345,20 @@ function PartRootRenderer:SetVisualPosition(partId, position)
     return true
 end
 
+function PartRootRenderer:SetPartLookColors(partId, colorNeg, colorMid, colorPos, fogColor)
+    local entry = self.partRoots[partId]
+    if not entry or not entry.lookMaterial then
+        return false
+    end
+    entry.lookMaterial:SetShaderParameter("color_neg", Variant(colorNeg))
+    entry.lookMaterial:SetShaderParameter("color_mid", Variant(colorMid))
+    entry.lookMaterial:SetShaderParameter("color_pos", Variant(colorPos))
+    if fogColor then
+        entry.lookMaterial:SetShaderParameter("fog_color", Variant(fogColor))
+    end
+    return true
+end
+
 function PartRootRenderer:GetLocalBounds(partId)
     local entry = self.partRoots[partId]
     if not entry then

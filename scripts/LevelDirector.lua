@@ -394,6 +394,38 @@ function LevelDirector:SetPartVisualYaw(partId, yawDegrees)
     return preview.partRenderer:SetVisualYaw(partId, yawDegrees)
 end
 
+function LevelDirector:SetPartVisualPosition(partId, position)
+    local preview = self:GetPreview()
+    if not preview or not preview.SetPartVisualPosition then
+        return false
+    end
+    return preview:SetPartVisualPosition(partId, position)
+end
+
+function LevelDirector:SetCameraLiftOffset(offsetY)
+    local preview = self:GetPreview()
+    if not preview or not preview.SetCameraLiftOffset then
+        return false
+    end
+    return preview:SetCameraLiftOffset(offsetY)
+end
+
+function LevelDirector:SetPartLookColors(partId, colorNeg, colorMid, colorPos, fogColor)
+    local preview = self:GetPreview()
+    if not preview or not preview.SetPartLookColors then
+        return false
+    end
+    return preview:SetPartLookColors(partId, colorNeg, colorMid, colorPos, fogColor)
+end
+
+function LevelDirector:SetAtmosphereFogColor(color)
+    local preview = self:GetPreview()
+    if not preview or not preview.SetAtmosphereFogColor then
+        return false
+    end
+    return preview:SetAtmosphereFogColor(color)
+end
+
 ---@param partId string
 ---@param steps number
 ---@param refreshPath boolean|nil

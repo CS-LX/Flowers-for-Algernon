@@ -195,4 +195,84 @@ return {
             mode = "modal",
         },
     },
+    -- 2-4 是第二章的收束：查理不再依赖研究员或阿尔吉侬，自己找到离开实验室的路。
+    -- 后续润色时建议在去留选择中补充以下对白：
+    -- 研究员：“最高处的那扇门，是离开实验室的出口。”
+    -- 研究员：“你可以留下，继续在这里接受观察；也可以走出去。由你自己决定。”
+    -- 查理：“那阿尔吉侬呢？”
+    -- 研究员：“它还要留在这里，完成剩下的观察。”
+    -- 查理：“那我先出去。不过……我还会回来看看它。”
+    --
+    -- 设计原因：阿尔吉侬没有跟随 Lift 不是遗漏，而是因为它仍被作为实验对象留在研究所。
+    -- 这组对白要明确承认查理与阿尔吉侬在此暂时分别，避免玩家误以为剧情遗忘了阿尔吉侬；
+    -- 同时提前建立“查理会回来找它”的承诺，为第三章主动返回、发现阿尔吉侬衰退，
+    -- 以及最终把它带出实验室并沿真实道路去墓前送花建立完整因果链。
+    -- 2-4 是查理第一次为自己选择离开；后续则由他替阿尔吉侬完成离开，形成前后对照。
+    ch2_4_intro = {
+        {
+            id = "ch2.4.intro.1",
+            style = "researcher",
+            speaker = "研究员",
+            text = "你已经学会看见道路，也学会让道路出现。",
+            mode = "modal",
+        },
+        {
+            id = "ch2.4.intro.2",
+            style = "researcher",
+            speaker = "研究员",
+            text = "最高处的那扇门，是离开实验室的出口。",
+            mode = "modal",
+        },
+        {
+            id = "ch2.4.intro.3",
+            style = "researcher",
+            speaker = "研究员",
+            text = "你可以留下，继续在这里接受测试；也可以走出去。由你自己决定。",
+            mode = "modal",
+        },
+        {
+            id = "ch2.4.intro.4",
+            style = "charlie",
+            text = "我想出去。我想看看，外面的路现在是什么样。",
+            mode = "modal",
+        },
+    },
+    ch2_4_path = {
+        {
+            id = "ch2.4.path.1",
+            style = "charlie",
+            text = "我知道该怎么走了。",
+            mode = "banner",
+        },
+    },
+    ch2_4_lift_begin = {
+        {
+            id = "ch2.4.lift_begin.1",
+            style = "charlie",
+            text = "它在动……这是要带我去哪儿？",
+            mode = "banner",
+        },
+        {
+            id = "ch2.4.lift_begin.2",
+            style = "researcher",
+            speaker = "研究员",
+            text = "出去看看吧，查理。",
+            mode = "banner",
+        },
+    },
+    ch2_4_farewell = {
+        {
+            id = "ch2.4.farewell.1",
+            style = "researcher",
+            speaker = "研究员",
+            text = "接下来的路，你自己走。",
+            mode = "modal",
+        },
+        {
+            id = "ch2.4.farewell.2",
+            style = "charlie",
+            text = "嗯。我自己走。",
+            mode = "modal",
+        },
+    },
 }
