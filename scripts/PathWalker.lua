@@ -149,6 +149,13 @@ function PathWalker:GetCurrentPartId()
     return record and record.partId or nil
 end
 
+function PathWalker:GetCurrentEdgeTargetKey()
+    if not self.walking or not self.path then
+        return nil
+    end
+    return self.path[self.pathIndex + 1]
+end
+
 function PathWalker:FollowCurrentNodeVisual(partRenderer)
     if self.walking then
         return false

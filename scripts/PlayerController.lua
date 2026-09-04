@@ -74,6 +74,10 @@ function PlayerController:GetCurrentPartId()
     return self.walker:GetCurrentPartId()
 end
 
+function PlayerController:GetCurrentEdgeTargetKey()
+    return self.walker:GetCurrentEdgeTargetKey()
+end
+
 function PlayerController:SetMechanismLocked(locked)
     self.mechanismLocked = locked == true
     if self.mechanismLocked then
