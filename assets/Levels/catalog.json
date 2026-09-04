@@ -23,7 +23,7 @@
       "stages": [
         { "name": "研究室", "sourcePath": "Levels/level-2-1.json", "fogColor": "#102121" },
         { "name": "远处的房间", "sourcePath": "Levels/level-2-2.json", "fogColor": "#102121" },
-        { "name": "两座塔之间" },
+        { "name": "两座塔之间", "sourcePath": "Levels/level-2-3.json", "fogColor": "#102121" },
         { "name": "高处的窗", "sourcePath": "Levels/level-2-4.json", "fogColor": "#102121" }
       ]
     },
