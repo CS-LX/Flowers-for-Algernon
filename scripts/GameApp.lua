@@ -22,7 +22,7 @@ local UI = require("urhox-libs/UI")
 ---@field menuCameraNode Node|nil
 ---@field menuCamera Camera|nil
 ---@field menuViewport Viewport|nil
----@field menuPrism MenuPrism|nil
+---@field menuPrism table|nil
 ---@field playHud PlayHud|nil
 ---@field session table|nil
 ---@field levelEditor LevelEditor|nil
@@ -53,7 +53,7 @@ function GameApp.New()
     self.menuCamera = nil
     ---@type Viewport|nil
     self.menuViewport = nil
-    ---@type MenuPrism|nil
+    ---@type table|nil
     self.menuPrism = nil
     ---@type PlayHud|nil
     self.playHud = nil
