@@ -5,7 +5,7 @@
 - `mode=modal`：锁输入，必须点完
 - `mode=banner`：底部条，默认可走
 - `style=charlie`：查理
-- `style=normal`：研究员等其他人，需要 `speaker`
+- `style=researcher`：研究员等其他人，需要 `speaker`
 
 ---
 
@@ -99,7 +99,7 @@
 
 `id` 前缀：`ch1.2.researcher`
 
-1. `ch1.2.researcher.1` · normal · 研究员 · modal
+1. `ch1.2.researcher.1` · researcher · 研究员 · modal
 
 来吧，往这边走，沿着路过来。
 
@@ -109,15 +109,15 @@
 
 1. `ch1.2.clear.1` · charlie · modal
 你……是谁？我怎么会在这里？
-2. `ch1.2.clear.2` · normal · 研究员 · modal
+2. `ch1.2.clear.2` · researcher · 研究员 · modal
 ……看来连这也记不得了。你叫查理，而我，只是一名研究员。
-3. `ch1.2.clear.3` · normal · 研究员 · modal
+3. `ch1.2.clear.3` · researcher · 研究员 · modal
 在这个世界上，绝大多数人都能看清并踏上那些隐秘的认知路径。
-4. `ch1.2.clear.4` · normal · 研究员 · modal
+4. `ch1.2.clear.4` · researcher · 研究员 · modal
 但你不同。你看不见它们，更无法踏足其上。
-5. `ch1.2.clear.5` · normal · 研究员 · modal
+5. `ch1.2.clear.5` · researcher · 研究员 · modal
 所以你主动来到研究所找到我，希望能治好这种认知障碍。
-6. `ch1.2.clear.6` · normal · 研究员 · modal
+6. `ch1.2.clear.6` · researcher · 研究员 · modal
 刚才只是一次测试……看来你的病情比预想中更严重，甚至开始侵蚀记忆了。
 
 ---
@@ -132,7 +132,7 @@
 怎么又是这样……眼前的路又是断的。
 2. `ch1.3.intro.2` · charlie · modal
 明明刚才那只小老鼠好像走过类似的结构，现在却完全看不出规律……
-3. `ch1.3.intro.3` · normal · 研究员 · modal
+3. `ch1.3.intro.3` · researcher · 研究员 · modal
 别急。先走到你脚下这条路的尽头——对，就是悬崖边缘。
 
 ### rotate · 玩家走到悬崖，建筑开始转
@@ -146,7 +146,7 @@
 
 ### after_rotate · 转到位后
 
-1. `ch1.3.after_rotate.1` · normal · 研究员 · modal
+1. `ch1.3.after_rotate.1` · researcher · 研究员 · modal
 看到了吗？通路已经建立。现在试着走过来。
 2. `ch1.3.after_rotate.2` · charlie · modal
 好……我试试看。
@@ -159,19 +159,19 @@
 
 1. `ch1.3.clear.1` · charlie · modal
 我刚才……是不是踩在了一条根本不存在的路上？！我的病是不是好了？！
-2. `ch1.3.clear.2` · normal · 研究员 · modal
+2. `ch1.3.clear.2` · researcher · 研究员 · modal
 很遗憾，并没有。刚才是我在外部强制干预了你的空间认知；一旦离开我的干预，你依然会变回原样。
-3. `ch1.3.clear.3` · normal · 研究员 · modal
+3. `ch1.3.clear.3` · researcher · 研究员 · modal
 不过……我确实找到了一种彻底根治的方法。
-4. `ch1.3.clear.4` · normal · 研究员 · modal
+4. `ch1.3.clear.4` · researcher · 研究员 · modal
 刚才那只叫阿尔吉侬的小鼠，你也看见了，它能坦然走过那些“你眼中不存在”的道路。
-5. `ch1.3.clear.5` · normal · 研究员 · modal
+5. `ch1.3.clear.5` · researcher · 研究员 · modal
 因为它接受了我研发的意识重构手术。手术在它身上非常成功……
-6. `ch1.3.clear.6` · normal · 研究员 · modal
+6. `ch1.3.clear.6` · researcher · 研究员 · modal
 ……但这种手术，还从未在人类身上尝试过。
 7. `ch1.3.clear.7` · charlie · modal
 请让我试试吧！我也想像阿尔吉侬那样……能亲眼看见、亲脚踏上属于我自己的路！
-8. `ch1.3.clear.8` · normal · 研究员 · modal
+8. `ch1.3.clear.8` · researcher · 研究员 · modal
 这扇门后就是手术室。重构意识的风险完全未知，你真的做好准备了吗？
 9. `ch1.3.clear.9` · charlie · modal
 我准备好了。
