@@ -1071,7 +1071,7 @@ function PathRuntime:FindPath(startKey, goalKey)
     return nil, "unreachable"
 end
 
-function PathRuntime:FindPathIncludingCandidates(startKey, goalKey)
+function PathRuntime:FindPathIncludingCandidates(startKey, goalKey, blockedFromKey, blockedToKey)
     if not self.nodesByKey[startKey] or not self.nodesByKey[goalKey] then
         return nil, "node-not-found"
     end
@@ -1080,6 +1080,9 @@ function PathRuntime:FindPathIncludingCandidates(startKey, goalKey)
     end
     local adjacency = {}
     local function AddEdge(fromKey, toKey)
+        if fromKey == blockedFromKey and toKey == blockedToKey then
+            return
+        end
         adjacency[fromKey] = adjacency[fromKey] or {}
         adjacency[fromKey][#adjacency[fromKey] + 1] = toKey
     end

@@ -249,6 +249,14 @@ function LevelDirector:MoveAlgernonToIncludingCandidates(nodeKey)
     return preview.algernon:MoveToIncludingCandidates(nodeKey)
 end
 
+function LevelDirector:StartAlgernonExploration(nodeKey, options)
+    local preview = self:GetPreview()
+    if not preview or not preview.algernon then
+        return false, "no algernon"
+    end
+    return preview.algernon:StartExploration(nodeKey, options)
+end
+
 function LevelDirector:MoveAlgernonToWorld(worldPoint)
     local preview = self:GetPreview()
     if not preview then

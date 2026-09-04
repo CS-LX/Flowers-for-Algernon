@@ -125,4 +125,74 @@ return {
             mode = "modal",
         },
     },
+    -- 2-3 的对照实验只通过措辞暗示，不直接说出“术后功效测试”。
+    -- “熟悉这里的结构”“形成自己的判断”让研究员的话里有话，但不会把查理当成被比较的对象，
+    -- 也避免把阿尔吉侬先到写成对查理的嘲讽或否定。
+    ch2_3_intro = {
+        {
+            id = "ch2.3.intro.1",
+            style = "researcher",
+            speaker = "研究员",
+            text = "这里是阿尔吉侬做寻路测试的地方。它以前很快就通过了。",
+            mode = "modal",
+        },
+        {
+            id = "ch2.3.intro.2",
+            style = "researcher",
+            speaker = "研究员",
+            text = "不过，走通一条路只是开始。真正重要的是，你能不能理解道路为什么会出现。",
+            mode = "modal",
+        },
+        {
+            id = "ch2.3.intro.3",
+            style = "charlie",
+            text = "我和阿尔吉侬一起试试。也许我能找到自己的路。",
+            mode = "modal",
+        },
+    },
+    charlie_first = {
+        {
+            id = "ch2.3.charlie_first.1",
+            style = "researcher",
+            speaker = "研究员",
+            text = "很好。你先一步走到了这里。手术后的变化，比预期还要明显。",
+            mode = "modal",
+        },
+        {
+            id = "ch2.3.charlie_first.2",
+            style = "charlie",
+            text = "我只是顺着看见的路走过来了。原来我真的能做到。",
+            mode = "modal",
+        },
+    },
+    algernon_first_banner = {
+        {
+            id = "ch2.3.algernon_first.banner",
+            style = "charlie",
+            text = "阿尔吉侬好快！它已经到终点了。",
+            mode = "banner",
+        },
+    },
+    algernon_first = {
+        {
+            id = "ch2.3.algernon_first.1",
+            style = "researcher",
+            speaker = "研究员",
+            text = "别急，慢慢来。阿尔吉侬熟悉这里的结构，但你正在学会理解它。",
+            mode = "modal",
+        },
+        {
+            id = "ch2.3.algernon_first.2",
+            style = "charlie",
+            text = "我明白了。它走过的路，可以告诉我该看哪里，但我要自己找到下一步。",
+            mode = "modal",
+        },
+        {
+            id = "ch2.3.algernon_first.3",
+            style = "researcher",
+            speaker = "研究员",
+            text = "正是这样。你不是在追赶它，你是在形成自己的判断。",
+            mode = "modal",
+        },
+    },
 }
