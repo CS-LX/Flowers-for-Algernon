@@ -3,20 +3,26 @@
 
 local Normal = require "StoryTextStyles.Normal"
 local Charlie = require "StoryTextStyles.Charlie"
+local Researcher = require "StoryTextStyles.Researcher"
 
 local StoryTextStyle = {}
 
 StoryTextStyle.NORMAL = "normal"
 StoryTextStyle.CHARLIE = "charlie"
+StoryTextStyle.RESEARCHER = "researcher"
 
 local STYLES = {
     [StoryTextStyle.NORMAL] = Normal,
     [StoryTextStyle.CHARLIE] = Charlie,
+    [StoryTextStyle.RESEARCHER] = Researcher,
 }
 
 function StoryTextStyle.ResolveName(name)
-    if name == StoryTextStyle.CHARLIE or name == "查理" then
+    if name == StoryTextStyle.CHARLIE then
         return StoryTextStyle.CHARLIE
+    end
+    if name == StoryTextStyle.RESEARCHER then
+        return StoryTextStyle.RESEARCHER
     end
     return StoryTextStyle.NORMAL
 end

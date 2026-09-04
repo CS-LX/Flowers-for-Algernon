@@ -1,4 +1,4 @@
--- 查理：字号在正常值附近抖动，小概率轻微倾斜。
+-- 查理：字号在正常值附近抖动，小概率轻微左右倾斜。
 -- 错别字后续再接；这一版只做形态。
 
 local Charlie = {}
@@ -12,7 +12,7 @@ local SHADOW = {
     color = { 18, 14, 10, 150 },
 }
 local ITALIC_CHANCE = 0.12
-local ITALIC_ROTATE = -20
+local ITALIC_ROTATE = 10
 
 local function HashSeed(text, extra)
     local seed = 2166136261
@@ -43,12 +43,19 @@ function Charlie.Layout(text, options)
     local glyphs = {}
     EachChar(text, function(ch)
         local sizeJitter = math.random(-2, 2)
-        local italic = math.random() < ITALIC_CHANCE
+        local rotate = 0
+        if math.random() < ITALIC_CHANCE then
+            if math.random() < 0.5 then
+                rotate = -ITALIC_ROTATE
+            else
+                rotate = ITALIC_ROTATE
+            end
+        end
         glyphs[#glyphs + 1] = {
             text = ch,
             fontSize = BASE_SIZE + sizeJitter,
             fontColor = COLOR,
-            rotate = italic and ITALIC_ROTATE or 0,
+            rotate = rotate,
             textShadow = SHADOW,
         }
     end)

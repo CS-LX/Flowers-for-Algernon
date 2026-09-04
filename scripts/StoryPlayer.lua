@@ -37,11 +37,11 @@ local function CopyLine(source)
         blockInput = false
     end
     local text = tostring(source.text or "")
-    local style = source.style or source.speaker
+    local style = StoryTextStyle.ResolveName(source.style)
     return {
         id = source.id,
         speaker = source.speaker,
-        style = StoryTextStyle.ResolveName(style),
+        style = style,
         text = text,
         image = source.image,
         background = source.background,

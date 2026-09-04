@@ -247,6 +247,7 @@ function StoryView:EnsureGlyphs(layout)
             text = glyph.text,
             fontSize = glyph.fontSize,
             fontColor = glyph.fontColor,
+            fontWeight = glyph.fontWeight or "normal",
             textShadow = glyph.textShadow,
             rotate = glyph.rotate or 0,
             visible = false,
