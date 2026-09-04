@@ -54,6 +54,10 @@ function PlayerController:IsWalking()
     return self.walker:IsWalking()
 end
 
+function PlayerController:IsSettledAtNode()
+    return self.walker:IsSettledAtNode()
+end
+
 function PlayerController:GetCurrentNodeKey()
     return self.walker:GetCurrentNodeKey()
 end

@@ -24,6 +24,7 @@ end
 ---@field currentNodeKey string
 ---@field targetKey string|nil
 ---@field walking boolean
+---@field settledAtNode boolean
 ---@field currentEdgeIsCandidate boolean
 ---@field onStarted fun(targetKey: string)|nil
 ---@field onArrived fun(nodeKey: string)|nil
@@ -49,6 +50,7 @@ function PathWalker.New(pathRuntime, spawnNodeKey, camera, options)
     ---@type string|nil
     self.targetKey = nil
     self.walking = false
+    self.settledAtNode = false
     self.currentEdgeIsCandidate = false
     self.started = false
     ---@type fun(targetKey: string)|nil
@@ -65,6 +67,7 @@ function PathWalker:Start()
     end
     self.position = CopyVector(spawn.worldPoint)
     self:SetNodeOrientation(spawn)
+    self.settledAtNode = true
     self.started = true
     print("PathWalker: " .. self.name .. " spawned at " .. self.spawnNodeKey)
     return true
@@ -89,6 +92,10 @@ function PathWalker:SetNodeOrientation(record)
 end
 
 function PathWalker:Stop()
+    local record = self.pathRuntime:GetNode(self.currentNodeKey)
+    local nodePoint = record and record.worldPoint
+    self.settledAtNode = nodePoint ~= nil
+        and (self.position - nodePoint):Length() <= ARRIVAL_DISTANCE
     self.path = nil
     self.walking = false
     self.currentEdgeIsCandidate = false
@@ -121,11 +128,16 @@ function PathWalker:TeleportTo(nodeKey)
     self.currentNodeKey = nodeKey
     self.position = CopyVector(record.worldPoint)
     self:SetNodeOrientation(record)
+    self.settledAtNode = true
     return true
 end
 
 function PathWalker:IsWalking()
     return self.walking
+end
+
+function PathWalker:IsSettledAtNode()
+    return self.settledAtNode == true and not self.walking
 end
 
 function PathWalker:GetCurrentNodeKey()
@@ -157,7 +169,7 @@ function PathWalker:GetCurrentEdgeTargetKey()
 end
 
 function PathWalker:FollowCurrentNodeVisual(partRenderer)
-    if self.walking then
+    if self.walking or not self.settledAtNode then
         return false
     end
     local record = self.pathRuntime:GetNode(self.currentNodeKey)
@@ -196,6 +208,7 @@ function PathWalker:MoveTo(path, targetKey)
     if firstPoint and distanceToFirst > ARRIVAL_DISTANCE then
         self.pathIndex = 0
         self.walking = true
+        self.settledAtNode = false
         self.currentEdgeIsCandidate = self.pathRuntime:IsCandidateEdge(
             self.currentNodeKey,
             self.path[1]
@@ -214,11 +227,13 @@ function PathWalker:MoveTo(path, targetKey)
     self.currentEdgeIsCandidate = self.pathRuntime:IsCandidateEdge(fromKey, toKey)
         or self.pathRuntime:IsConfiguredCandidateEdge(fromKey, toKey)
     self.walking = #self.path > 1
+    self.settledAtNode = not self.walking
     if self.walking and self.onStarted then
         self.onStarted(targetKey)
     end
     if not self.walking then
         self.path = nil
+        self.settledAtNode = true
         if self.onArrived and type(targetKey) == "string" then
             self.onArrived(targetKey)
         end
@@ -278,6 +293,7 @@ function PathWalker:Update(timeStep)
             local arrivedKey = self.targetKey
             self.path = nil
             self.walking = false
+            self.settledAtNode = true
             self.currentEdgeIsCandidate = false
             print("PathWalker: " .. self.name .. " reached " .. tostring(arrivedKey))
             if self.onArrived and type(arrivedKey) == "string" then

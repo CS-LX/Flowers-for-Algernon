@@ -1,6 +1,7 @@
 -- 叙事门静物的触发辅助脚本。
 -- JSON / Inspector 只声明 triggerable 和 Trigger ID；
--- 是否开火由这里判断：角色进入门体积，并且 open >= 0.95。
+-- 是否开火由这里判断：角色已稳定落在 PathNode、进入门体积，并且 open >= 0.95。
+-- 不能在角色仍沿最后一条边移动时触发，否则结束锁会中断 Walker，角色仍归属于上一节点。
 
 local Door = {}
 
@@ -10,6 +11,7 @@ Door.BOUNDS_INFLATE = 0.08
 
 ---@class DoorTriggerContext
 ---@field playerPosition Vector3|nil
+---@field playerSettled boolean
 ---@field worldBox BoundingBox|nil
 
 ---@param box BoundingBox
@@ -44,11 +46,13 @@ function Door.ShouldFire(object, context)
     if open < Door.OPEN_THRESHOLD then
         return false
     end
-    if not context or not context.playerPosition or not context.worldBox then
+    if not context or not context.playerSettled
+        or not context.playerPosition or not context.worldBox then
         return false
     end
     return Door.IsEntered({
         playerPosition = context.playerPosition,
+        playerSettled = true,
         worldBox = Door.InflateBox(context.worldBox, Door.BOUNDS_INFLATE),
     })
 end

@@ -58,11 +58,15 @@ end
 ---@param playerPosition Vector3
 ---@return table
 function LevelTriggerRuntime:BuildStillContext(object, playerPosition)
+    local preview = self.session.preview
+    local player = preview and preview.player
     local context = {
         playerPosition = playerPosition,
+        playerSettled = player and player.IsSettledAtNode
+            and player:IsSettledAtNode()
+            or false,
         worldBox = nil,
     }
-    local preview = self.session.preview
     local renderer = preview and preview.partRenderer
     if not renderer or not renderer.GetStillWorldBoundingBox then
         return context
