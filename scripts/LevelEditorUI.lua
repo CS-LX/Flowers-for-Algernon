@@ -31,7 +31,15 @@ end
 function LevelEditorUI:Build()
     UI.Init({
         theme = "default-dark",
-        fonts = { { name = "sans", path = "Fonts/MiSans-Regular.ttf" } },
+        fonts = {
+            {
+                family = "sans",
+                weights = {
+                    normal = "Fonts/MiSans-Regular.ttf",
+                    bold = "Fonts/MiSans-Bold.ttf",
+                },
+            },
+        },
         scale = UI.Scale.DEFAULT,
     })
 
