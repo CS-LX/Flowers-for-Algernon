@@ -9,6 +9,14 @@ local Story = require "Story.Chapter2"
 local Director2_4 = LevelDirector.Extend()
 
 local LIFT_PART_ID = "part_mainpart_1_2"
+local LIFT_FINISH_KEYS = {
+    ["part_mainpart_1_2:finish_1"] = true,
+    ["part_mainpart_1_2:finish_2"] = true,
+    ["part_mainpart_1_2:finish_3"] = true,
+    ["part_mainpart_1_2:finish_4"] = true,
+    ["part_mainpart_1_2:finish_5"] = true,
+    ["part_mainpart_1_2:finish_6"] = true,
+}
 local LIFT_HEIGHT = 15.0
 local LIFT_DURATION = 16.0
 local CAMERA_LEAD_HEIGHT = 2.0
@@ -47,6 +55,9 @@ function Director2_4:OnStart()
     self.narrativeFinished = false
     self.finishPayload = nil
     self.pathBannerPlayed = false
+    self.pathBannerPlaying = false
+    self.liftStoryPending = false
+    self.liftStoryPlayed = false
     self.liftElapsed = 0.0
     self.liftStartPosition = { x = 0.0, y = 0.0, z = 0.0 }
     self.partColorStarts = {}
@@ -92,6 +103,11 @@ function Director2_4:OnStart()
             self:OnPlayerStarted(targetKey)
         end)
     end
+    if player and player.AddOnArrived then
+        player:AddOnArrived(function(nodeKey)
+            self:OnPlayerArrived(nodeKey)
+        end)
+    end
 
     self:PlayStory(Story.ch2_4_intro, {
         onComplete = function()
@@ -104,6 +120,15 @@ function Director2_4:OnStart()
     })
 end
 
+function Director2_4:OnPlayerArrived(nodeKey)
+    if self.stage ~= "await_finish" or self.finishStoryPlayed
+        or not LIFT_FINISH_KEYS[nodeKey] then
+        return
+    end
+    print("Director2_4: settled on lift finish node " .. tostring(nodeKey))
+    self:FinishLevel()
+end
+
 function Director2_4:OnPlayerStarted(targetKey)
     if self.stage ~= "await_finish" or self.pathBannerPlayed then
         return
@@ -114,8 +139,25 @@ function Director2_4:OnPlayerStarted(targetKey)
         return
     end
     self.pathBannerPlayed = true
-    self:PlayStory(Story.ch2_4_path)
+    self.pathBannerPlaying = true
+    self:PlayStory(Story.ch2_4_path, {
+        onComplete = function()
+            self.pathBannerPlaying = false
+            if self.liftStoryPending then
+                self:PlayLiftStory()
+            end
+        end,
+    })
     print("Director2_4: independent exit path target=" .. tostring(targetKey))
+end
+
+function Director2_4:PlayLiftStory()
+    if self.liftStoryPlayed then
+        return
+    end
+    self.liftStoryPending = false
+    self.liftStoryPlayed = true
+    self:PlayStory(Story.ch2_4_lift_begin)
 end
 
 function Director2_4:ApplyTransitionColors(progress)
@@ -149,7 +191,11 @@ function Director2_4:BeginLift(payload)
     self.liftElapsed = 0.0
     self:SetInputLocked(true)
     self:SetPlayerLocked(true)
-    self:PlayStory(Story.ch2_4_lift_begin)
+    if self.pathBannerPlaying then
+        self.liftStoryPending = true
+    else
+        self:PlayLiftStory()
+    end
     print(string.format(
         "Director2_4: lift transition begin height=%.1f duration=%.1f",
         LIFT_HEIGHT,
