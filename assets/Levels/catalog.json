@@ -33,7 +33,7 @@
       "title": "高处没有朋友",
       "stencilId": 2,
       "stages": [
-        { "name": "玻璃之间" },
+        { "name": "玻璃之间", "sourcePath": "Levels/level-3-1.json", "fogColor": "#304A59" },
         { "name": "旁观席" },
         { "name": "阿尔吉侬的记录" },
         { "name": "最后的报告" }
