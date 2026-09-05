@@ -22,6 +22,11 @@ function AlgernonController.New(pathRuntime, spawnNodeKey, camera)
     self.walker = PathWalker.New(pathRuntime, spawnNodeKey, camera, {
         name = "algernon",
         speed = DEFAULT_SPEED,
+        smooth = true,
+        cornerRadius = 0.18,
+        accelTime = 0.32,
+        decelTime = 0.4,
+        turnRate = 8.0,
     })
     self.enabled = false
     self.visible = false
@@ -191,8 +196,11 @@ function AlgernonController:ContinueExploration()
         self.exploration = nil
         return false, "exploration path has no next node"
     end
-    local nextCandidate = self.pathRuntime:IsConfiguredCandidateEdge(currentKey, nextKey)
-        or self.pathRuntime:IsCandidateEdge(currentKey, nextKey)
+    local function IsCandidate(fromKey, toKey)
+        return self.pathRuntime:IsConfiguredCandidateEdge(fromKey, toKey)
+            or self.pathRuntime:IsCandidateEdge(fromKey, toKey)
+    end
+    local nextCandidate = IsCandidate(currentKey, nextKey)
     local shouldPause = not exploration.skipPause
         and exploration.lastNodeKey ~= nil
         and exploration.previousCandidate ~= nextCandidate
@@ -207,10 +215,20 @@ function AlgernonController:ContinueExploration()
         exploration.nextCandidate = nextCandidate
         return true
     end
+    local run = { currentKey, nextKey }
+    for index = 3, #path do
+        local fromKey = path[index - 1]
+        local toKey = path[index]
+        if IsCandidate(fromKey, toKey) ~= nextCandidate then
+            break
+        end
+        run[#run + 1] = toKey
+    end
+    local runTarget = run[#run]
     exploration.paused = false
     exploration.lastNodeKey = currentKey
     exploration.previousCandidate = nextCandidate
-    local moved, moveError = self.walker:MoveTo({ currentKey, nextKey }, nextKey)
+    local moved, moveError = self.walker:MoveTo(run, runTarget)
     if not moved then
         self.exploration = nil
         return false, moveError
