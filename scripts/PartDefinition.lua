@@ -120,6 +120,41 @@ local function CopyMoverAxes(source)
     return axes
 end
 
+local MOVER_LIMIT_KEYS = {
+    minQ = true,
+    maxQ = true,
+    minR = true,
+    maxR = true,
+    minLayer = true,
+    maxLayer = true,
+}
+
+local function ParseOptionalNumber(value)
+    if value == nil or value == "" then
+        return nil
+    end
+    return tonumber(value)
+end
+
+local function CopyMoverLimits(source)
+    source = source or {}
+    return {
+        minQ = ParseOptionalNumber(source.minQ),
+        maxQ = ParseOptionalNumber(source.maxQ),
+        minR = ParseOptionalNumber(source.minR),
+        maxR = ParseOptionalNumber(source.maxR),
+        minLayer = ParseOptionalNumber(source.minLayer),
+        maxLayer = ParseOptionalNumber(source.maxLayer),
+    }
+end
+
+local function CopyMover(source)
+    source = source or {}
+    local mover = CopyMoverLimits(source)
+    mover.axes = CopyMoverAxes(source.axes)
+    return mover
+end
+
 local function CopyPivot(source)
     source = source or {}
     local cell = source.cell or {}
@@ -185,10 +220,7 @@ function PartDefinition:Init(data)
     end
 
     if HasMode(self.behaviorModes, PartDefinition.MODE_MOVER) then
-        local source = sourceBehaviors.mover or {}
-        self.behaviors.mover = {
-            axes = CopyMoverAxes(source.axes),
-        }
+        self.behaviors.mover = CopyMover(sourceBehaviors.mover)
     end
 
     if HasMode(self.behaviorModes, PartDefinition.MODE_TRIGGERABLE) then
@@ -350,9 +382,7 @@ function PartDefinition:SetBehaviorMode(mode, enabled)
             state = self.transform.rotation.yawSteps,
         }
     elseif mode == PartDefinition.MODE_MOVER and enabled then
-        self.behaviors.mover = self.behaviors.mover or {
-            axes = CopyMoverAxes(),
-        }
+        self.behaviors.mover = self.behaviors.mover or CopyMover()
     elseif mode == PartDefinition.MODE_TRIGGERABLE and enabled then
         self.behaviors.triggerable = self.behaviors.triggerable or { triggerId = "" }
     end
@@ -383,6 +413,25 @@ function PartDefinition:SetMoverAxis(axis, enabled)
     return true
 end
 
+function PartDefinition:SetMoverLimit(name, value)
+    if not self:HasBehavior(PartDefinition.MODE_MOVER) then
+        return false
+    end
+    if not MOVER_LIMIT_KEYS[name] then
+        return false
+    end
+    if value == nil or value == "" then
+        self.behaviors.mover[name] = nil
+        return true
+    end
+    local number = tonumber(value)
+    if not number then
+        return false
+    end
+    self.behaviors.mover[name] = number
+    return true
+end
+
 function PartDefinition:SetTriggerId(triggerId)
     if not self:HasBehavior(PartDefinition.MODE_TRIGGERABLE) then
         return false
@@ -410,10 +459,7 @@ function PartDefinition:ToTable()
         }
     end
     if self:HasBehavior(PartDefinition.MODE_MOVER) then
-        local mover = self.behaviors.mover
-        behaviors.mover = {
-            axes = CopyMoverAxes(mover.axes),
-        }
+        behaviors.mover = CopyMover(self.behaviors.mover)
     end
     if self:HasBehavior(PartDefinition.MODE_TRIGGERABLE) then
         behaviors.triggerable = {

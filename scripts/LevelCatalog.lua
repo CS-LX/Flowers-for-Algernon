@@ -39,9 +39,9 @@ local FALLBACK_CONFIG = {
             title = "跑不过的迷宫",
             stencilId = 0,
             stages = {
-                { name = "门", sourcePath = "Levels/level-1-1.json", fogColor = "#937754" },
-                { name = "白鼠先行", sourcePath = "Levels/level-1-2.json", fogColor = "#937754" },
-                { name = "另一种世界", sourcePath = "Levels/level-1-3.json", fogColor = "#937754" },
+                { name = "雾中盲途", sourcePath = "Levels/level-1-1.json", fogColor = "#937754" },
+                { name = "虚空足迹", sourcePath = "Levels/level-1-2.json", fogColor = "#937754" },
+                { name = "错位之契", sourcePath = "Levels/level-1-3.json", fogColor = "#937754" },
             },
         },
     },

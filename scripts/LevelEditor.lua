@@ -1051,6 +1051,27 @@ function LevelEditor:SetSelectedMoverAxis(axis, enabled)
     return true
 end
 
+function LevelEditor:SetSelectedMoverLimit(name, value)
+    local part = self:GetSelectedPart()
+    if not part or not part:HasBehavior("mover") then
+        self:RefreshLevelUI("当前 Part 未启用 Mover")
+        return false
+    end
+    if not part:SetMoverLimit(name, value) then
+        self:RefreshLevelUI("Mover 上下限只能是数字，留空表示不限制")
+        return false
+    end
+    self.levelDocument.dirty = true
+    local shown = part.behaviors.mover[name]
+    self:RefreshLevelUI(string.format(
+        "已更新 %s Mover %s=%s",
+        part.name,
+        name,
+        shown == nil and "不限制" or tostring(shown)
+    ))
+    return true
+end
+
 function LevelEditor:SetSelectedStillInteraction(mode, enabled)
     local object = self:GetSelectedStillObject()
     if not object or not object:SetInteraction(mode, enabled) then

@@ -10,9 +10,9 @@
       "title": "跑不过的迷宫",
       "stencilId": 0,
       "stages": [
-        { "name": "门", "sourcePath": "Levels/level-1-1.json", "fogColor": "#937754" },
-        { "name": "白鼠先行", "sourcePath": "Levels/level-1-2.json", "fogColor": "#937754" },
-        { "name": "另一种世界", "sourcePath": "Levels/level-1-3.json", "fogColor": "#937754" }
+        { "name": "雾中盲途", "sourcePath": "Levels/level-1-1.json", "fogColor": "#937754" },
+        { "name": "虚空足迹", "sourcePath": "Levels/level-1-2.json", "fogColor": "#937754" },
+        { "name": "错位之契", "sourcePath": "Levels/level-1-3.json", "fogColor": "#937754" }
       ]
     },
     {
@@ -21,10 +21,10 @@
       "title": "打开的世界",
       "stencilId": 1,
       "stages": [
-        { "name": "研究室", "sourcePath": "Levels/level-2-1.json", "fogColor": "#102121" },
-        { "name": "远处的房间", "sourcePath": "Levels/level-2-2.json", "fogColor": "#102121" },
-        { "name": "两座塔之间", "sourcePath": "Levels/level-2-3.json", "fogColor": "#102121" },
-        { "name": "高处的窗", "sourcePath": "Levels/level-2-4.json", "fogColor": "#102121" }
+        { "name": "盲点重塑", "sourcePath": "Levels/level-2-1.json", "fogColor": "#102121" },
+        { "name": "编织空间", "sourcePath": "Levels/level-2-2.json", "fogColor": "#102121" },
+        { "name": "独行的轨迹", "sourcePath": "Levels/level-2-3.json", "fogColor": "#102121" },
+        { "name": "高处的告别", "sourcePath": "Levels/level-2-4.json", "fogColor": "#102121" }
       ]
     },
     {
@@ -33,7 +33,7 @@
       "title": "高处没有朋友",
       "stencilId": 2,
       "stages": [
-        { "name": "玻璃之间", "sourcePath": "Levels/level-3-1.json", "fogColor": "#304A59" },
+        { "name": "玻璃之间", "sourcePath": "Levels/level-3-1.json", "fogColor": "#5197AB" },
         { "name": "旁观席" },
         { "name": "阿尔吉侬的记录" },
         { "name": "最后的报告" }

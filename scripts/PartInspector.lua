@@ -30,6 +30,15 @@ function PartInspector.New(editor)
     self.moverQToggle = nil
     self.moverRToggle = nil
     self.moverLayerToggle = nil
+    self.moverMinQField = nil
+    self.moverMaxQField = nil
+    self.moverMinRField = nil
+    self.moverMaxRField = nil
+    self.moverMinLayerField = nil
+    self.moverMaxLayerField = nil
+    self.moverQLimitRow = nil
+    self.moverRLimitRow = nil
+    self.moverLayerLimitRow = nil
     self.triggerableToggle = nil
     self.triggerIdField = nil
     self.pivotModeDropdown = nil
@@ -161,6 +170,46 @@ function PartInspector:Build()
         height = 24,
         fontSize = 10,
         onChange = function(_, checked) editor:SetSelectedMoverAxis("layer", checked) end,
+    }
+    local function LimitField(placeholder, name)
+        return UI.TextField {
+            value = "",
+            placeholder = placeholder,
+            height = 26,
+            fontSize = 10,
+            onSubmit = function(_, value) editor:SetSelectedMoverLimit(name, value) end,
+            onBlur = function(field) editor:SetSelectedMoverLimit(name, field:GetValue()) end,
+        }
+    end
+    self.moverMinQField = LimitField("MinQ 留空不限", "minQ")
+    self.moverMaxQField = LimitField("MaxQ 留空不限", "maxQ")
+    self.moverMinRField = LimitField("MinR 留空不限", "minR")
+    self.moverMaxRField = LimitField("MaxR 留空不限", "maxR")
+    self.moverMinLayerField = LimitField("MinLayer 留空不限", "minLayer")
+    self.moverMaxLayerField = LimitField("MaxLayer 留空不限", "maxLayer")
+    self.moverQLimitRow = UI.Panel {
+        flexDirection = "row",
+        gap = 6,
+        children = {
+            UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.moverMinQField } },
+            UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.moverMaxQField } },
+        },
+    }
+    self.moverRLimitRow = UI.Panel {
+        flexDirection = "row",
+        gap = 6,
+        children = {
+            UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.moverMinRField } },
+            UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.moverMaxRField } },
+        },
+    }
+    self.moverLayerLimitRow = UI.Panel {
+        flexDirection = "row",
+        gap = 6,
+        children = {
+            UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.moverMinLayerField } },
+            UI.Panel { flexGrow = 1, flexShrink = 1, minWidth = 0, children = { self.moverMaxLayerField } },
+        },
     }
     self.triggerableToggle = UI.Checkbox {
         checked = false,
@@ -469,6 +518,9 @@ function PartInspector:Build()
                 children = {
                     UI.Panel { flexDirection = "row", gap = 10, children = { self.rotatorToggle, self.moverToggle, self.triggerableToggle } },
                     UI.Panel { flexDirection = "row", gap = 10, children = { self.moverQToggle, self.moverRToggle, self.moverLayerToggle } },
+                    self.moverQLimitRow,
+                    self.moverRLimitRow,
+                    self.moverLayerLimitRow,
                     Shared.FieldRow("Trigger ID", self.triggerIdField),
                     self.modeLabel,
                     self.capabilityLabel,
@@ -555,6 +607,15 @@ function PartInspector:Clear()
     self.moverQToggle:SetDisabled(true)
     self.moverRToggle:SetDisabled(true)
     self.moverLayerToggle:SetDisabled(true)
+    self.moverMinQField:SetValue("")
+    self.moverMaxQField:SetValue("")
+    self.moverMinRField:SetValue("")
+    self.moverMaxRField:SetValue("")
+    self.moverMinLayerField:SetValue("")
+    self.moverMaxLayerField:SetValue("")
+    self.moverQLimitRow:SetVisible(false)
+    self.moverRLimitRow:SetVisible(false)
+    self.moverLayerLimitRow:SetVisible(false)
     self.triggerableToggle:SetChecked(false)
     self.triggerIdField:SetValue("")
     self.pivotModeDropdown.props.value = "origin"
@@ -649,6 +710,19 @@ function PartInspector:Refresh()
     self.moverQToggle:SetChecked(hasMover and moverAxes.q == true)
     self.moverRToggle:SetChecked(hasMover and moverAxes.r == true)
     self.moverLayerToggle:SetChecked(hasMover and moverAxes.layer == true)
+    local mover = part.behaviors.mover or {}
+    local function LimitText(value)
+        return value == nil and "" or tostring(value)
+    end
+    self.moverMinQField:SetValue(LimitText(mover.minQ))
+    self.moverMaxQField:SetValue(LimitText(mover.maxQ))
+    self.moverMinRField:SetValue(LimitText(mover.minR))
+    self.moverMaxRField:SetValue(LimitText(mover.maxR))
+    self.moverMinLayerField:SetValue(LimitText(mover.minLayer))
+    self.moverMaxLayerField:SetValue(LimitText(mover.maxLayer))
+    self.moverQLimitRow:SetVisible(hasMover and moverAxes.q == true)
+    self.moverRLimitRow:SetVisible(hasMover and moverAxes.r == true)
+    self.moverLayerLimitRow:SetVisible(hasMover and moverAxes.layer == true)
     self.triggerableToggle:SetChecked(part:HasBehavior("triggerable"))
     self.triggerIdField:SetValue(part.behaviors.triggerable and part.behaviors.triggerable.triggerId or "")
     local pivotCell = part:GetPivotCell()

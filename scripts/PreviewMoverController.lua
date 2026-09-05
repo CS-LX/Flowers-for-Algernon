@@ -196,17 +196,34 @@ function PreviewMoverController:GridToWorld(hexQ, hexR, layer)
     )
 end
 
+function PreviewMoverController:ClampAxis(value, minValue, maxValue)
+    if minValue ~= nil then
+        value = math.max(minValue, value)
+    end
+    if maxValue ~= nil then
+        value = math.min(maxValue, value)
+    end
+    return value
+end
+
 function PreviewMoverController:ConstrainGrid(part, hexQ, hexR, layer)
     local baseQ, baseR, baseLayer = self:WorldToGrid(self.basePosition)
     local axes = self:GetEnabledAxes(part)
+    local mover = part.behaviors.mover or {}
     if not axes.q then
         hexQ = baseQ
+    else
+        hexQ = self:ClampAxis(hexQ, mover.minQ, mover.maxQ)
     end
     if not axes.r then
         hexR = baseR
+    else
+        hexR = self:ClampAxis(hexR, mover.minR, mover.maxR)
     end
     if not axes.layer then
         layer = baseLayer
+    else
+        layer = self:ClampAxis(layer, mover.minLayer, mover.maxLayer)
     end
     return hexQ, hexR, layer
 end
