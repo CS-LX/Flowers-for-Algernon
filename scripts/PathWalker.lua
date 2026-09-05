@@ -124,10 +124,6 @@ function PathWalker:SetNodeOrientation(record)
 end
 
 function PathWalker:Stop()
-    local record = self.pathRuntime:GetNode(self.currentNodeKey)
-    local nodePoint = record and record.worldPoint
-    self.settledAtNode = nodePoint ~= nil
-        and (self.position - nodePoint):Length() <= ARRIVAL_DISTANCE
     self.path = nil
     self.walking = false
     self.currentEdgeIsCandidate = false
@@ -135,6 +131,7 @@ function PathWalker:Stop()
     self.currentSpeed = 0.0
     self.travel = nil
     self.travelIndex = 1
+    self.settledAtNode = true
 end
 
 function PathWalker:GetTargetKey()
@@ -205,7 +202,7 @@ function PathWalker:GetCurrentEdgeTargetKey()
 end
 
 function PathWalker:FollowCurrentNodeVisual(partRenderer)
-    if self.walking or not self.settledAtNode then
+    if self.walking then
         return false
     end
     local record = self.pathRuntime:GetNode(self.currentNodeKey)
@@ -252,9 +249,7 @@ function PathWalker:MoveTo(path, targetKey)
             self.currentNodeKey,
             self.path[1]
         ) or self.currentEdgeIsCandidate
-        if self.smooth then
-            self:BeginTravel()
-        end
+        self:BeginTravel()
         if self.onStarted then
             self.onStarted(targetKey)
         end
@@ -278,7 +273,7 @@ function PathWalker:MoveTo(path, targetKey)
         if self.onArrived and type(targetKey) == "string" then
             self.onArrived(targetKey)
         end
-    elseif self.smooth then
+    else
         self:BeginTravel()
     end
     return true
@@ -307,7 +302,7 @@ function PathWalker:GetStepDistance(fromPoint, toPoint, worldDistance, timeStep,
     end
     local viewDistance = ViewPlaneDistance(self.camera, fromPoint, toPoint)
     if viewDistance <= 0.0001 then
-        return math.min(worldDistance, worldStep)
+        return worldDistance
     end
     local viewStep = worldStep * (worldDistance / viewDistance)
     return math.min(worldDistance, viewStep)
@@ -326,36 +321,6 @@ function PathWalker:GetNodePoint(nodeKey)
     return CopyVector(record.worldPoint), record
 end
 
-function PathWalker:GetRemainingDistance()
-    if not self.path then
-        return 0.0
-    end
-    local remaining = 0.0
-    local from = self.position
-    for index = self.pathIndex + 1, #self.path do
-        local point = self:GetNodePoint(self.path[index])
-        if point then
-            remaining = remaining + (point - from):Length()
-            from = point
-        end
-    end
-    return remaining
-end
-
-function PathWalker:UpdateCurrentEdgeFlag()
-    if not self.path then
-        self.currentEdgeIsCandidate = false
-        return
-    end
-    local fromKey = self.path[self.pathIndex]
-    local toKey = self.path[self.pathIndex + 1]
-    if not fromKey or not toKey then
-        self.currentEdgeIsCandidate = false
-        return
-    end
-    self.currentEdgeIsCandidate = self:IsCandidatePair(fromKey, toKey)
-end
-
 function PathWalker:FinishPath()
     local arrivedKey = self.targetKey
     self.path = nil
@@ -371,26 +336,23 @@ function PathWalker:FinishPath()
     end
 end
 
-function PathWalker:AdvanceToNode(nodeKey, record)
-    self.currentNodeKey = nodeKey
-    self.pathIndex = self.pathIndex + 1
-    if record then
-        self:SetNodeOrientation(record)
-    end
-    if self.pathIndex >= #self.path then
-        if record and record.worldPoint then
-            self.position = CopyVector(record.worldPoint)
-        end
-        self:FinishPath()
-        return true
-    end
-    self:UpdateCurrentEdgeFlag()
-    return false
-end
-
 local function QuadraticBezier(p0, p1, p2, t)
     local u = 1.0 - t
     return p0 * (u * u) + p1 * (2.0 * u * t) + p2 * (t * t)
+end
+
+local function ScreenLength(from, to)
+    local dx = to.x - from.x
+    local dy = to.y - from.y
+    return math.sqrt(dx * dx + dy * dy)
+end
+
+local function ScreenBezier(p0, p1, p2, t)
+    local u = 1.0 - t
+    return Vector2(
+        p0.x * (u * u) + p1.x * (2.0 * u * t) + p2.x * (t * t),
+        p0.y * (u * u) + p1.y * (2.0 * u * t) + p2.y * (t * t)
+    )
 end
 
 function PathWalker:AppendTravelSample(point, nodeKey, record, candidate, pathIndex)
@@ -418,32 +380,91 @@ function PathWalker:AppendTravelSample(point, nodeKey, record, candidate, pathIn
     }
 end
 
+function PathWalker:GetPortalWaypoint(fromKey, toKey, fallbackFrom, fallbackTo)
+    if fromKey and toKey and self:IsCandidatePair(fromKey, toKey) then
+        local seam = self.pathRuntime:GetProjectedSeamMid(fromKey, toKey)
+        if seam then
+            return self.pathRuntime:UnprojectToNode(toKey, seam)
+                or self.pathRuntime:UnprojectToNode(fromKey, seam)
+        end
+        if self.camera and fallbackFrom and fallbackTo then
+            local fromScreen = self.camera:WorldToScreenPoint(fallbackFrom)
+            local toScreen = self.camera:WorldToScreenPoint(fallbackTo)
+            local mid = Vector2(
+                (fromScreen.x + toScreen.x) * 0.5,
+                (fromScreen.y + toScreen.y) * 0.5
+            )
+            return self.pathRuntime:UnprojectToNode(toKey, mid)
+                or self.pathRuntime:UnprojectToNode(fromKey, mid)
+        end
+        return fallbackTo
+    end
+    local portal = fromKey and toKey and self.pathRuntime:GetPortalPoint(fromKey, toKey) or nil
+    if portal then
+        return portal
+    end
+    if fallbackFrom and fallbackTo then
+        return (fallbackFrom + fallbackTo) * 0.5
+    end
+    return fallbackTo
+end
+
 function PathWalker:BeginTravel()
     self.travel = {}
     self.travelIndex = 1
     if not self.path then
         return
     end
-    self:AppendTravelSample(self.position, nil, nil, self.currentEdgeIsCandidate, self.pathIndex)
-    local waypoints = {}
-    waypoints[#waypoints + 1] = {
-        key = nil,
-        point = CopyVector(self.position),
-        record = nil,
-        pathIndex = self.pathIndex,
+    local currentRecord = self.pathRuntime:GetNode(self.currentNodeKey)
+    self:AppendTravelSample(
+        self.position,
+        nil,
+        currentRecord,
+        self.currentEdgeIsCandidate,
+        self.pathIndex
+    )
+    local waypoints = {
+        {
+            key = self.currentNodeKey,
+            point = CopyVector(self.position),
+            record = currentRecord,
+            pathIndex = self.pathIndex,
+            candidate = self.currentEdgeIsCandidate,
+        },
     }
     local startIndex = self.pathIndex + 1
     if startIndex < 1 then
         startIndex = 1
     end
     for index = startIndex, #self.path do
-        local point, record = self:GetNodePoint(self.path[index])
-        if point then
+        local toKey = self.path[index]
+        local toRecord = self.pathRuntime:GetNode(toKey)
+        local toPoint = toRecord and toRecord.worldPoint or nil
+        if toRecord and toPoint then
+            local from = waypoints[#waypoints]
+            local portal = self:GetPortalWaypoint(from.key, toKey, from.point, toPoint)
+            if portal then
+                waypoints[#waypoints + 1] = {
+                    key = toKey,
+                    point = CopyVector(portal),
+                    record = toRecord,
+                    pathIndex = index,
+                    candidate = self:IsCandidatePair(from.key, toKey),
+                }
+            end
+        end
+    end
+    local lastKey = self.path[#self.path]
+    local lastPoint, lastRecord = self:GetNodePoint(lastKey)
+    if lastPoint then
+        local lastWp = waypoints[#waypoints]
+        if not lastWp or (lastWp.point - lastPoint):Length() > ARRIVAL_DISTANCE then
             waypoints[#waypoints + 1] = {
-                key = self.path[index],
-                point = point,
-                record = record,
-                pathIndex = index,
+                key = lastKey,
+                point = lastPoint,
+                record = lastRecord,
+                pathIndex = #self.path,
+                candidate = false,
             }
         end
     end
@@ -454,41 +475,77 @@ function PathWalker:BeginTravel()
         local prev = waypoints[index - 1]
         local curr = waypoints[index]
         local nextWp = waypoints[index + 1]
-        local fromKey = prev.key or self.currentNodeKey
-        local candidate = false
-        if fromKey and curr.key then
-            candidate = self:IsCandidatePair(fromKey, curr.key)
-        end
-        if nextWp then
+        local candidate = curr.candidate == true
+        if nextWp and candidate and self.camera then
+            local prevScreen = self.camera:WorldToScreenPoint(prev.point)
+            local currScreen = self.camera:WorldToScreenPoint(curr.point)
+            local nextScreen = self.camera:WorldToScreenPoint(nextWp.point)
+            local incoming = ScreenLength(prevScreen, currScreen)
+            local outgoing = ScreenLength(currScreen, nextScreen)
+            local turnDot = 1.0
+            local radius = 0.0
+            if incoming > 0.0001 and outgoing > 0.0001 then
+                local ix = (currScreen.x - prevScreen.x) / incoming
+                local iy = (currScreen.y - prevScreen.y) / incoming
+                local ox = (nextScreen.x - currScreen.x) / outgoing
+                local oy = (nextScreen.y - currScreen.y) / outgoing
+                turnDot = ix * ox + iy * oy
+                radius = math.min(0.04, incoming * 0.45, outgoing * 0.45)
+            end
+            if radius >= 0.004 and turnDot < 0.94 then
+                local ix = (currScreen.x - prevScreen.x) / incoming
+                local iy = (currScreen.y - prevScreen.y) / incoming
+                local ox = (nextScreen.x - currScreen.x) / outgoing
+                local oy = (nextScreen.y - currScreen.y) / outgoing
+                local p0 = Vector2(currScreen.x - ix * radius, currScreen.y - iy * radius)
+                local p1 = Vector2(currScreen.x, currScreen.y)
+                local p2 = Vector2(currScreen.x + ox * radius, currScreen.y + oy * radius)
+                local function AppendScreen(screen, nodeKey)
+                    local world = self.pathRuntime:UnprojectToNode(curr.key, screen)
+                        or self.pathRuntime:UnprojectToNode(prev.key, screen)
+                    if world then
+                        self:AppendTravelSample(world, nodeKey, curr.record, true, curr.pathIndex)
+                    end
+                end
+                AppendScreen(p0, nil)
+                for sample = 1, 6 do
+                    AppendScreen(ScreenBezier(p0, p1, p2, sample / 6.0), sample == 3 and curr.key or nil)
+                end
+                AppendScreen(p2, curr.key)
+            else
+                self:AppendTravelSample(curr.point, curr.key, curr.record, true, curr.pathIndex)
+            end
+        elseif nextWp then
             local incoming = curr.point - prev.point
             local outgoing = nextWp.point - curr.point
             local incomingLength = incoming:Length()
             local outgoingLength = outgoing:Length()
             local radius = 0.0
+            local turnDot = 1.0
             if incomingLength > 0.0001 and outgoingLength > 0.0001 then
+                turnDot = (incoming / incomingLength):DotProduct(outgoing / outgoingLength)
                 radius = math.min(self.cornerRadius, incomingLength * 0.45, outgoingLength * 0.45)
             end
-            if radius >= 0.04 then
+            if radius >= 0.04 and turnDot < 0.94 then
                 local incomingDir = incoming / incomingLength
                 local outgoingDir = outgoing / outgoingLength
                 local p0 = curr.point - incomingDir * radius
                 local p1 = curr.point
                 local p2 = curr.point + outgoingDir * radius
-                self:AppendTravelSample(p0, nil, curr.record, candidate, curr.pathIndex)
+                self:AppendTravelSample(p0, nil, curr.record, false, curr.pathIndex)
                 for sample = 1, 6 do
                     local t = sample / 6.0
-                    local arrived = sample == 3
                     self:AppendTravelSample(
                         QuadraticBezier(p0, p1, p2, t),
-                        arrived and curr.key or nil,
+                        sample == 3 and curr.key or nil,
                         curr.record,
-                        candidate,
+                        false,
                         curr.pathIndex
                     )
                 end
-                self:AppendTravelSample(p2, curr.key, curr.record, candidate, curr.pathIndex)
+                self:AppendTravelSample(p2, curr.key, curr.record, false, curr.pathIndex)
             else
-                self:AppendTravelSample(curr.point, curr.key, curr.record, candidate, curr.pathIndex)
+                self:AppendTravelSample(curr.point, curr.key, curr.record, false, curr.pathIndex)
             end
         else
             self:AppendTravelSample(curr.point, curr.key, curr.record, candidate, curr.pathIndex)
@@ -503,8 +560,13 @@ function PathWalker:GetTravelRemaining()
     local remaining = 0.0
     local from = self.position
     for index = self.travelIndex + 1, #self.travel do
-        remaining = remaining + (self.travel[index].point - from):Length()
-        from = self.travel[index].point
+        local sample = self.travel[index]
+        if sample.candidate and self.camera then
+            remaining = remaining + ViewPlaneDistance(self.camera, from, sample.point)
+        else
+            remaining = remaining + (sample.point - from):Length()
+        end
+        from = sample.point
     end
     return remaining
 end
@@ -550,7 +612,7 @@ function PathWalker:UpdateSmooth(timeStep)
         self:BeginTravel()
     end
     if not self.travel or #self.travel < 2 then
-        self.smooth = false
+        self:FinishPath()
         return
     end
     if self.travelIndex >= #self.travel then
@@ -625,40 +687,7 @@ function PathWalker:Update(timeStep)
         timeStep = 0.0001
     end
     self.lastTimeStep = timeStep
-    if self.smooth then
-        self:UpdateSmooth(timeStep)
-        return
-    end
-    local targetKey = self.path[self.pathIndex + 1]
-    local target = self.pathRuntime:GetNode(targetKey)
-    if not target or not target.worldPoint then
-        self.path = nil
-        self.walking = false
-        self.currentEdgeIsCandidate = false
-        return
-    end
-
-    local delta = target.worldPoint - self.position
-    local distance = delta:Length()
-    if distance <= ARRIVAL_DISTANCE then
-        self.position = CopyVector(target.worldPoint)
-        self:SetNodeOrientation(target)
-        self.currentNodeKey = targetKey
-        self.pathIndex = self.pathIndex + 1
-        if self.pathIndex >= #self.path then
-            self:FinishPath()
-        else
-            self:UpdateCurrentEdgeFlag()
-        end
-        return
-    end
-
-    local step = self:GetStepDistance(self.position, target.worldPoint, distance, timeStep)
-    local direction = delta / distance
-    local nextPos = self.position + direction * step
-    self.position = nextPos
-    local normal = target.worldNormal and CopyVector(target.worldNormal) or Vector3.UP
-    self:SetMovementOrientation(direction, normal)
+    self:UpdateSmooth(timeStep)
 end
 
 return PathWalker

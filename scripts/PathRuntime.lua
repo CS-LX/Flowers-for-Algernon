@@ -107,6 +107,32 @@ local function HasPositiveEdgeOverlap(edgeA, edgeB, tolerance)
     return overlap > tolerance
 end
 
+-- 共享边重叠段的中点。三角带的中线门户，不是重心。
+local function GetOverlapMidpoint(edgeA, edgeB, tolerance)
+    local direction = edgeA.second - edgeA.first
+    local length = direction:Length()
+    if length <= tolerance then
+        return nil, 0.0
+    end
+    local normalized = direction / length
+    local otherDirection = edgeB.second - edgeB.first
+    if normalized:CrossProduct(otherDirection):Length() > tolerance * length then
+        return nil, 0.0
+    end
+    if (edgeB.first - edgeA.first):CrossProduct(normalized):Length() > tolerance then
+        return nil, 0.0
+    end
+    local otherFirst = (edgeB.first - edgeA.first):DotProduct(normalized)
+    local otherSecond = (edgeB.second - edgeA.first):DotProduct(normalized)
+    local overlapStart = math.max(0.0, math.min(otherFirst, otherSecond))
+    local overlapEnd = math.min(length, math.max(otherFirst, otherSecond))
+    local overlap = overlapEnd - overlapStart
+    if overlap <= tolerance then
+        return nil, 0.0
+    end
+    return edgeA.first + normalized * ((overlapStart + overlapEnd) * 0.5), overlap
+end
+
 local function IsFaceAdjacent(source, target, grid)
     local sourceFace = GetNodeFace(source, grid)
     local targetFace = GetNodeFace(target, grid)
@@ -1179,6 +1205,129 @@ end
 
 function PathRuntime:GetNode(key)
     return self.nodesByKey[key]
+end
+
+local function UnprojectToFace(camera, screen, vertices, normal)
+    if not camera or not screen or not vertices then
+        return nil
+    end
+    local ray = camera:GetScreenRay(screen.x, screen.y)
+    local distance = RayFace(ray, vertices)
+    if not distance then
+        return nil
+    end
+    local point = ray.origin + ray.direction * distance
+    if normal then
+        point = point + normal:Normalized() * 0.035
+    end
+    return point
+end
+
+function PathRuntime:UnprojectToNode(nodeKey, screen)
+    local record = self.nodesByKey[nodeKey]
+    if not record or not record.node or not self.camera or not self.grid or not self.partRenderer then
+        return nil, nil
+    end
+    local vertices, normal = GetWorldFace(record, self.grid, self.partRenderer)
+    local point = UnprojectToFace(self.camera, screen, vertices, normal)
+    return point, record
+end
+
+-- 两节点共享边重叠段中点。直走廊走门户，不走重心。
+function PathRuntime:GetPortalPoint(fromKey, toKey)
+    local fromRecord = self.nodesByKey[fromKey]
+    local toRecord = self.nodesByKey[toKey]
+    if not fromRecord or not toRecord or not fromRecord.node or not toRecord.node then
+        return nil
+    end
+    if not self.grid or not self.partRenderer then
+        return nil
+    end
+    local fromVertices, fromNormal = GetWorldFace(fromRecord, self.grid, self.partRenderer)
+    local toVertices, toNormal = GetWorldFace(toRecord, self.grid, self.partRenderer)
+    if not fromVertices or not toVertices then
+        return nil
+    end
+    local fromName = fromRecord.node.face
+    local toName = toRecord.node.face
+    local fromEdges = {}
+    local toEdges = {}
+    for index = 1, #fromVertices do
+        local nextIndex = index % #fromVertices + 1
+        local first = fromVertices[index]
+        local second = fromVertices[nextIndex]
+        if fromName == "top" or fromName == "bottom"
+            or IsVerticalEdge(first, second, FACE_TOLERANCE) then
+            fromEdges[#fromEdges + 1] = { first = first, second = second }
+        end
+    end
+    for index = 1, #toVertices do
+        local nextIndex = index % #toVertices + 1
+        local first = toVertices[index]
+        local second = toVertices[nextIndex]
+        if toName == "top" or toName == "bottom"
+            or IsVerticalEdge(first, second, FACE_TOLERANCE) then
+            toEdges[#toEdges + 1] = { first = first, second = second }
+        end
+    end
+    local bestPoint = nil
+    local bestOverlap = 0.0
+    for _, fromEdge in ipairs(fromEdges) do
+        for _, toEdge in ipairs(toEdges) do
+            local midpoint, overlap = GetOverlapMidpoint(fromEdge, toEdge, FACE_COINCIDENCE_TOLERANCE)
+            if midpoint and overlap > bestOverlap then
+                bestOverlap = overlap
+                local normal = fromNormal or toNormal or Vector3.UP
+                bestPoint = midpoint + normal:Normalized() * 0.035
+            end
+        end
+    end
+    return bestPoint
+end
+
+-- 候选边的屏幕接缝中点。真实空间可以不相接，只看投影重叠。
+function PathRuntime:GetProjectedSeamMid(fromKey, toKey)
+    local fromRecord = self.nodesByKey[fromKey]
+    local toRecord = self.nodesByKey[toKey]
+    if not fromRecord or not toRecord or not fromRecord.node or not toRecord.node then
+        return nil
+    end
+    if not self.camera or not self.grid or not self.partRenderer then
+        return nil
+    end
+    local fromLocal = fromRecord.node:GetLocalFaceEdges(self.grid)
+    local toLocal = toRecord.node:GetLocalFaceEdges(self.grid)
+    if not fromLocal or not toLocal then
+        return nil
+    end
+    local fromProjected = ProjectEdges(
+        self.camera,
+        TransformEdges(self.partRenderer, fromRecord.partId, fromLocal)
+    )
+    local toProjected = ProjectEdges(
+        self.camera,
+        TransformEdges(self.partRenderer, toRecord.partId, toLocal)
+    )
+    local accepted, _, fromIndex, toIndex = FindPositiveOverlapPair(
+        fromProjected,
+        toProjected,
+        SCREEN_EDGE_TOLERANCE
+    )
+    if not accepted or not fromIndex or not toIndex then
+        return nil
+    end
+    local segment = GetProjectedOverlapSegment(
+        fromProjected[fromIndex],
+        toProjected[toIndex],
+        SCREEN_EDGE_TOLERANCE
+    )
+    if not segment then
+        return nil
+    end
+    return Vector2(
+        (segment.first.x + segment.second.x) * 0.5,
+        (segment.first.y + segment.second.y) * 0.5
+    )
 end
 
 local function IsSameVoxelCell(cellA, cellB)
