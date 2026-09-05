@@ -73,6 +73,8 @@ function PathWalker.New(pathRuntime, spawnNodeKey, camera, options)
     self.walking = false
     self.settledAtNode = false
     self.currentEdgeIsCandidate = false
+    ---@type string|nil
+    self.candidateHoldKey = nil
     self.started = false
     ---@type fun(targetKey: string)|nil
     self.onStarted = nil
@@ -132,6 +134,7 @@ function PathWalker:Stop()
     self.travel = nil
     self.travelIndex = 1
     self.settledAtNode = true
+    self:RefreshCandidateHold()
 end
 
 function PathWalker:GetTargetKey()
@@ -162,6 +165,7 @@ function PathWalker:TeleportTo(nodeKey)
     self:SetNodeOrientation(record)
     self.settledAtNode = true
     self.currentSpeed = 0.0
+    self.candidateHoldKey = nil
     return true
 end
 
@@ -185,8 +189,24 @@ function PathWalker:GetRotation()
     return Quaternion(self.rotation)
 end
 
+function PathWalker:RefreshCandidateHold()
+    if self.currentEdgeIsCandidate then
+        return
+    end
+    if not self.candidateHoldKey then
+        return
+    end
+    if not self.pathRuntime:IsPointOnNodeFace(self.candidateHoldKey, self.position) then
+        self.candidateHoldKey = nil
+    end
+end
+
 function PathWalker:GetViewState()
-    return self.currentEdgeIsCandidate and "topmost" or "normal"
+    self:RefreshCandidateHold()
+    if self.currentEdgeIsCandidate or self.candidateHoldKey then
+        return "topmost"
+    end
+    return "normal"
 end
 
 function PathWalker:GetCurrentPartId()
@@ -323,6 +343,9 @@ end
 
 function PathWalker:FinishPath()
     local arrivedKey = self.targetKey
+    if self.currentEdgeIsCandidate then
+        self.candidateHoldKey = arrivedKey or self.currentNodeKey
+    end
     self.path = nil
     self.walking = false
     self.settledAtNode = true
@@ -330,6 +353,7 @@ function PathWalker:FinishPath()
     self.currentSpeed = 0.0
     self.travel = nil
     self.travelIndex = 1
+    self:RefreshCandidateHold()
     print("PathWalker: " .. self.name .. " reached " .. tostring(arrivedKey))
     if self.onArrived and type(arrivedKey) == "string" then
         self.onArrived(arrivedKey)
@@ -574,13 +598,20 @@ end
 function PathWalker:ConsumeTravelSample(sample)
     if sample.candidate ~= nil then
         self.currentEdgeIsCandidate = sample.candidate
+        if sample.candidate then
+            self.candidateHoldKey = sample.nodeKey or self.currentNodeKey
+        end
     end
     if type(sample.pathIndex) == "number" and sample.pathIndex > self.pathIndex then
         self.pathIndex = sample.pathIndex
     end
     if sample.nodeKey then
         self.currentNodeKey = sample.nodeKey
+        if self.currentEdgeIsCandidate then
+            self.candidateHoldKey = sample.nodeKey
+        end
     end
+    self:RefreshCandidateHold()
 end
 
 function PathWalker:UpdateDesiredSpeed(remaining)
@@ -646,6 +677,9 @@ function PathWalker:UpdateSmooth(timeStep)
             self:ConsumeTravelSample(nextSample)
         else
             self.currentEdgeIsCandidate = nextSample.candidate == true
+            if self.currentEdgeIsCandidate then
+                self.candidateHoldKey = nextSample.nodeKey or self.currentNodeKey
+            end
             local step = self:GetStepDistance(
                 self.position,
                 nextSample.point,

@@ -1207,6 +1207,18 @@ function PathRuntime:GetNode(key)
     return self.nodesByKey[key]
 end
 
+function PathRuntime:IsPointOnNodeFace(nodeKey, worldPoint)
+    local record = self.nodesByKey[nodeKey]
+    if not record or not record.node or not worldPoint or not self.grid or not self.partRenderer then
+        return false
+    end
+    local vertices, normal = GetWorldFace(record, self.grid, self.partRenderer)
+    if not vertices or not normal then
+        return false
+    end
+    return IsPointInsideFace(worldPoint, vertices, normal, FACE_COINCIDENCE_TOLERANCE)
+end
+
 local function UnprojectToFace(camera, screen, vertices, normal)
     if not camera or not screen or not vertices then
         return nil
