@@ -10,6 +10,11 @@ function PlayerController.New(pathRuntime, spawnNodeKey, camera)
     local self = setmetatable({}, PlayerController)
     self.walker = PathWalker.New(pathRuntime, spawnNodeKey, camera, {
         name = "player",
+        smooth = true,
+        cornerRadius = 0.18,
+        accelTime = 0.16,
+        decelTime = 0.2,
+        turnRate = 8.0,
     })
     self.mechanismLocked = false
     self.arrivedListeners = {}
