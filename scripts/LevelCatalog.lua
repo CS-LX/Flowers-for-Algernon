@@ -10,6 +10,9 @@ local LookApplier = require "LookApplier"
 ---@field index number
 ---@field chapter number
 ---@field code string
+---@field chapterLabel string
+---@field chapterTitle string
+---@field stageName string
 ---@field title string
 ---@field subtitle string
 ---@field sourcePath string
@@ -154,11 +157,15 @@ local function BuildCatalog(config)
                         local path = type(stageInfo.sourcePath) == "string" and stageInfo.sourcePath or ""
                         local stageName = tostring(stageInfo.name or "占位")
                         local fogHex = type(stageInfo.fogColor) == "string" and stageInfo.fogColor or nil
-                        LevelCatalog.LEVELS[index] = {
+                        ---@type LevelDefinition
+                        local definition = {
                             id = string.format("ch%d_%d", chapterId, stage),
                             index = index,
                             chapter = chapterId,
                             code = code,
+                            chapterLabel = label,
+                            chapterTitle = title,
+                            stageName = stageName,
                             title = string.format("%s %s", code, stageName),
                             subtitle = string.format("第%s章 · %s", label, title),
                             sourcePath = path,
@@ -166,6 +173,7 @@ local function BuildCatalog(config)
                             fogColor = LookApplier.HexToColor(fogHex, LevelCatalog.CONFIG.placeholderFogColor),
                             placeholder = path == "",
                         }
+                        LevelCatalog.LEVELS[index] = definition
                         index = index + 1
                     end
                 end

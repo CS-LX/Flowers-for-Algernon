@@ -26,7 +26,10 @@ local StillModelCatalog = require "StillModelCatalog"
 ---@field exhibitRoot Node|nil
 ---@field exhibitNodes Node[]
 ---@field faceLabels Text3D[]
+---@field faceChapterLabels Text3D[]
+---@field faceTitleLabels Text3D[]
 ---@field labelLocalYaws number[]
+---@field glassRoot Node|nil
 ---@field rtCameraNode Node|nil
 ---@field rtCamera Camera|nil
 ---@field rtViewport Viewport|nil
@@ -68,10 +71,19 @@ local WORLD_BIT = 2
 local PRISM_DROP = 1.05
 local CLIP_SHADER = "Shaders/BLGL/StencilIdRtClip.shader"
 local FACE_LABEL_FONT = "Fonts/MiSans-Regular.ttf"
-local FACE_LABEL_SIZE = 72.0
-local FACE_LABEL_SCALE = 0.25
+local FACE_CHAPTER_SIZE = 22.0
+local FACE_TITLE_SIZE = 34.0
+local FACE_CHAPTER_SCALE = 0.11
+local FACE_TITLE_SCALE = 0.16
 local FACE_LABEL_LIFT = 0.012
-local FACE_LABEL_COLOR = Color(0.10, 0.14, 0.20, 1.0)
+-- 凹刻感：比石面略深，不是海报黑。
+local FACE_CHAPTER_COLOR = Color(0.30, 0.33, 0.35, 0.72)
+local FACE_TITLE_COLOR = Color(0.14, 0.16, 0.18, 0.90)
+local FACE_CHAPTER_Y = 0.14
+local FACE_TITLE_Y = -0.04
+local GLASS_HEIGHT_SCALE = 2.35
+local GLASS_THICKNESS = 0.012
+local GLASS_COLOR = Color(0.78, 0.88, 0.92, 0.14)
 local PREVIEW_HEIGHT = 160
 local PHASE_IDLE = "idle"
 local PHASE_PENDING = "pending"
@@ -168,8 +180,14 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.exhibitNodes = {}
     ---@type Text3D[]
     self.faceLabels = {}
+    ---@type Text3D[]
+    self.faceChapterLabels = {}
+    ---@type Text3D[]
+    self.faceTitleLabels = {}
     ---@type number[]
     self.labelLocalYaws = {}
+    ---@type Node|nil
+    self.glassRoot = nil
     ---@type Node|nil
     self.rtCameraNode = nil
     ---@type Camera|nil
@@ -337,11 +355,33 @@ function MenuPrism:LevelForFaceYaw(localYaw, centerIndex, frontMaskIndex)
     return LevelCatalog.GetByIndex(centerIndex + slot)
 end
 
+function MenuPrism:FaceCopy(definition)
+    if not definition then
+        return "第    章", "—"
+    end
+    local label = tostring(definition.chapterLabel or definition.chapter or "")
+    -- 博物馆分类行：字距拉开，压过标题权重。
+    local chapter = "第  " .. label .. "  章"
+    local title = definition.stageName or "—"
+    if definition.placeholder then
+        title = "—"
+    end
+    return chapter, title
+end
+
 function MenuPrism:UpdateFaceLabels(centerIndex, frontMaskIndex)
-    for i, label in ipairs(self.faceLabels) do
+    for i = 1, #self.labelLocalYaws do
         local localYaw = self.labelLocalYaws[i] or 0.0
         local definition = self:LevelForFaceYaw(localYaw, centerIndex, frontMaskIndex)
-        label:SetText(definition and definition.code or "--")
+        local chapter, title = self:FaceCopy(definition)
+        local chapterLabel = self.faceChapterLabels[i]
+        local titleLabel = self.faceTitleLabels[i]
+        if chapterLabel then
+            chapterLabel:SetText(chapter)
+        end
+        if titleLabel then
+            titleLabel:SetText(title)
+        end
     end
 end
 
@@ -550,6 +590,7 @@ function MenuPrism:Build()
         end
     end
     self:BuildMaskQuads(edgeLength, height)
+    self:BuildGlassHood(edgeLength, height)
     self:BuildFaceLabels(edgeLength)
     self:BuildExhibits(height)
     self:ApplyVisualYaw(SNAP_OFFSET_DEGREES)
@@ -728,8 +769,94 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
     print("MenuPrism: six mask faces ready")
 end
 
+function MenuPrism:CreateFaceText(parent, name, font, fontSize, color, localY, scale)
+    local node = parent:CreateChild(name)
+    node.position = Vector3(0.0, localY, 0.0)
+    node.scale = Vector3(scale, scale, scale)
+    local text = node:CreateComponent("Text3D")
+    text:SetFont(font, fontSize)
+    text:SetText("")
+    text:SetColor(color)
+    text:SetAlignment(HA_CENTER, VA_CENTER)
+    text:SetTextAlignment(HA_CENTER)
+    text:SetFaceCameraMode(FC_NONE)
+    text:SetFixedScreenSize(false)
+    text.viewMask = WORLD_BIT
+    return text
+end
+
+function MenuPrism:CreateGlassMaterial()
+    local material = Material:new()
+    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTextureAlpha.xml"))
+    material:SetShaderParameter("MatDiffColor", Variant(GLASS_COLOR))
+    material:SetShaderParameter("MatSpecColor", Variant(Color(0.85, 0.92, 0.96, 1.0)))
+    material:SetShaderParameter("Metallic", Variant(0.04))
+    material:SetShaderParameter("Roughness", Variant(0.06))
+    return material
+end
+
+function MenuPrism:BindGlassDrawable(node)
+    local drawable = node:GetComponent("StaticModel")
+    if not drawable then
+        drawable = node:GetComponent("CustomGeometry")
+    end
+    if drawable then
+        drawable.viewMask = WORLD_BIT
+        drawable.castShadows = false
+    end
+end
+
+function MenuPrism:BuildGlassHood(edgeLength, prismHeight)
+    if not self.root then
+        return
+    end
+    self.glassRoot = self.root:CreateChild("MenuGlassHood")
+    local glassHeight = prismHeight * GLASS_HEIGHT_SCALE
+    local material = self:CreateGlassMaterial()
+    -- 实体六棱柱外接半径 = edge，边心距 = edge·√3/2。玻璃贴外侧面，不贴顶点。
+    local apothem = edgeLength * math.sqrt(3.0) * 0.5
+    local paneRadius = apothem + GLASS_THICKNESS * 0.5
+    local centerY = prismHeight + glassHeight * 0.5
+    for i = 0, 5 do
+        local yaw = i * 60.0 + SNAP_OFFSET_DEGREES
+        local rad = math.rad(yaw)
+        local node = self.glassRoot:CreateChild("GlassPane_" .. tostring(i + 1))
+        node.position = Vector3(math.sin(rad) * paneRadius, centerY, math.cos(rad) * paneRadius)
+        node.rotation = Quaternion(yaw, Vector3.UP)
+        node.scale = Vector3(edgeLength, glassHeight, GLASS_THICKNESS)
+        local model = node:CreateComponent("StaticModel")
+        model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+        model:SetMaterial(material)
+        self:BindGlassDrawable(node)
+    end
+    local lidVoxels = VoxelRenderer.CreateHexagonOfVoxels(
+        self.scene,
+        Vector3(0.0, prismHeight + glassHeight, 0.0),
+        {
+            GLASS_COLOR,
+            GLASS_COLOR,
+            GLASS_COLOR,
+            GLASS_COLOR,
+            GLASS_COLOR,
+            GLASS_COLOR,
+        },
+        {
+            parent = self.glassRoot,
+            edgeLength = edgeLength,
+            height = GLASS_THICKNESS,
+            material = material,
+        }
+    )
+    for _, node in ipairs(lidVoxels) do
+        self:BindGlassDrawable(node)
+    end
+    print(string.format("MenuPrism: glass vitrine flush apothem=%.3f height=%.3f", apothem, glassHeight))
+end
+
 function MenuPrism:BuildFaceLabels(edgeLength)
     self.faceLabels = {}
+    self.faceChapterLabels = {}
+    self.faceTitleLabels = {}
     self.labelLocalYaws = {}
     if #self.voxelNodes == 0 then
         return
@@ -740,26 +867,36 @@ function MenuPrism:BuildFaceLabels(edgeLength)
         return
     end
     -- Text3D 必须保留默认字体材质；自定义 shader 会冲掉字形图集，变成方块。
-    local radius = edgeLength / math.sqrt(3.0)
-    local outward = radius * 0.5 + FACE_LABEL_LIFT
+    -- 三角体外侧面在局部 +X = edge / (2√3)。
+    local outward = edgeLength / (2.0 * math.sqrt(3.0)) + FACE_LABEL_LIFT
     for i, voxelNode in ipairs(self.voxelNodes) do
-        local labelNode = voxelNode:CreateChild("FaceLabel_" .. tostring(i))
+        local labelNode = voxelNode:CreateChild("FaceInscription_" .. tostring(i))
         labelNode.position = Vector3(outward, 0.0, 0.0)
         labelNode.rotation = Quaternion(-90.0, Vector3.UP)
-        labelNode.scale = Vector3(FACE_LABEL_SCALE, FACE_LABEL_SCALE, FACE_LABEL_SCALE)
-        local text = labelNode:CreateComponent("Text3D")
-        text:SetFont(font, FACE_LABEL_SIZE)
-        text:SetText("--")
-        text:SetColor(FACE_LABEL_COLOR)
-        text:SetAlignment(HA_CENTER, VA_CENTER)
-        text:SetTextAlignment(HA_CENTER)
-        text:SetFaceCameraMode(FC_NONE)
-        text:SetFixedScreenSize(false)
-        text.viewMask = WORLD_BIT
-        self.faceLabels[#self.faceLabels + 1] = text
+        local chapter = self:CreateFaceText(
+            labelNode,
+            "Chapter",
+            font,
+            FACE_CHAPTER_SIZE,
+            FACE_CHAPTER_COLOR,
+            FACE_CHAPTER_Y,
+            FACE_CHAPTER_SCALE
+        )
+        local title = self:CreateFaceText(
+            labelNode,
+            "Title",
+            font,
+            FACE_TITLE_SIZE,
+            FACE_TITLE_COLOR,
+            FACE_TITLE_Y,
+            FACE_TITLE_SCALE
+        )
+        self.faceChapterLabels[#self.faceChapterLabels + 1] = chapter
+        self.faceTitleLabels[#self.faceTitleLabels + 1] = title
+        self.faceLabels[#self.faceLabels + 1] = title
         self.labelLocalYaws[#self.labelLocalYaws + 1] = (i - 1) * STEP_DEGREES + 90.0
     end
-    print("MenuPrism: six solid-face labels ready")
+    print("MenuPrism: six inscribed plinth labels ready")
 end
 
 local function ColorFromLook(look, fallback)
@@ -1208,7 +1345,10 @@ function MenuPrism:Destroy()
     self.exhibitRoot = nil
     self.exhibitNodes = {}
     self.faceLabels = {}
+    self.faceChapterLabels = {}
+    self.faceTitleLabels = {}
     self.labelLocalYaws = {}
+    self.glassRoot = nil
     self.onFrontClicked = nil
     self.onFrontEditClicked = nil
     self.onExitReady = nil
