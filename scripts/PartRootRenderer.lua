@@ -381,7 +381,21 @@ end
 
 function PartRootRenderer:RaycastPart(partId, ray)
     local entry = self.partRoots[partId]
-    if not entry or not entry.contentRoot or not entry.minPoint or not entry.maxPoint then
+    if not entry or not entry.contentRoot or not ray then
+        return nil
+    end
+    if entry.voxelDocument then
+        local inverse = entry.contentRoot.worldTransform:Inverse()
+        local localRay = ray:Transformed(inverse)
+        local hit = self.grid:Raycast(localRay, entry.voxelDocument)
+        if not hit or not hit.cell then
+            return nil
+        end
+        local localPoint = localRay.origin + localRay.direction * hit.distance
+        local worldPoint = entry.contentRoot.worldTransform * localPoint
+        return (worldPoint - ray.origin):Length()
+    end
+    if not entry.minPoint or not entry.maxPoint then
         return nil
     end
     local inverse = entry.contentRoot.worldTransform:Inverse()
