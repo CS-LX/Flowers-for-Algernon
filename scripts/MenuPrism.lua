@@ -119,6 +119,18 @@ local MENU_ALGERNON_SCALE = 1.25 * 1.25
 local MENU_ALGERNON_YAW = 90.0
 local MENU_DOOR_YAW = -60.0
 local MENU_CHAPTER2_STENCIL_ID = 1
+local MENU_CHAPTER3_STENCIL_ID = 2
+local MENU_CHARLIE_MODEL = "Meshes/Player.mdl"
+local MENU_CHARLIE_TARGET_HEIGHT = 0.58
+local MENU_CHARLIE_SCALE = 1.25 * 1.25
+local MENU_CHARLIE_YAW = 90.0
+local MENU_CHARLIE_FACE_YAW = 180.0
+local MENU_CHARLIE_SLOT_COLORS = {
+    Color(0.234497, 0.672245, 0.684455, 1.0),
+    Color(0.61092, 0.238724, 0.0336636, 1.0),
+    Color(0.800007, 0.571508, 0.2597, 1.0),
+    Color(0.214029, 0.0960783, 0.0572623, 1.0),
+}
 
 -- 第一章门框淡蓝：assets/Levels/level-1-1.json stillObjects[0].params
 local DOOR_FRAME_LOOK = {
@@ -1015,7 +1027,7 @@ local function ColorFromLook(look, fallback)
     return Color(r / 255.0, g / 255.0, b / 255.0, 1.0)
 end
 
-function MenuPrism:CreateClipMaterial(stencilId, look)
+function MenuPrism:CreateClipMaterial(stencilId, look, doubleSided, twoTone)
     look = look or {}
     local material = Material:new()
     if not material:SetSurfaceShader(CLIP_SHADER) then
@@ -1028,6 +1040,10 @@ function MenuPrism:CreateClipMaterial(stencilId, look)
     material:SetShaderParameter("base_color", Variant(ColorFromLook(look)))
     material:SetShaderParameter("stencil_color", Variant(StencilIdColor.ToColor(stencilId)))
     material:SetShaderParameter("use_albedo_map", Variant(0.0))
+    material:SetShaderParameter("two_tone", Variant(twoTone and 1.0 or 0.0))
+    material:SetShaderParameter("light_axis", Variant(Vector3(0.35, 1.0, 0.25)))
+    material:SetShaderParameter("shade_saturation", Variant(0.2))
+    material:SetShaderParameter("shade_value", Variant(0.1))
     local albedoMap = type(look.albedoMap) == "string" and look.albedoMap or ""
     if albedoMap ~= "" then
         local texture = cache:GetResource("Texture2D", albedoMap)
@@ -1039,11 +1055,17 @@ function MenuPrism:CreateClipMaterial(stencilId, look)
     if self.rtTexture then
         material:SetSurfaceTexture("mask_rt", self.rtTexture)
     end
+    if doubleSided then
+        material:SetCullMode(CULL_NONE)
+    end
     local technique = material:GetTechnique(0)
     if technique and technique:HasPass("base") then
         local pass = technique:GetPass("base")
         pass:SetBlendMode(BLEND_REPLACE)
         pass:SetDepthWrite(true)
+        if doubleSided then
+            pass:SetCullMode(CULL_NONE)
+        end
     end
     return material
 end
@@ -1178,6 +1200,65 @@ function MenuPrism:AddDoorExhibit(parent, stencilId)
     return node
 end
 
+function MenuPrism:AddCharlieExhibit(parent, stencilId)
+    local model = cache:GetResource("Model", MENU_CHARLIE_MODEL)
+    if not model then
+        print("MenuPrism: missing Charlie exhibit " .. MENU_CHARLIE_MODEL)
+        return nil
+    end
+    local bounds = model.boundingBox
+    local height = bounds.max.y - bounds.min.y
+    if height < 0.001 then
+        height = MENU_CHARLIE_TARGET_HEIGHT
+    end
+    local fitScale = MENU_CHARLIE_TARGET_HEIGHT / height
+    local node = parent:CreateChild("ExhibitCharlie")
+    node.rotation = Quaternion(MENU_CHARLIE_YAW, Vector3.UP)
+    node.scale = Vector3(MENU_CHARLIE_SCALE, MENU_CHARLIE_SCALE, MENU_CHARLIE_SCALE)
+    local mesh = node:CreateChild("Mesh")
+    mesh.position = Vector3(0.0, -bounds.min.y * fitScale, 0.0)
+    mesh.rotation = Quaternion(MENU_CHARLIE_FACE_YAW, Vector3.UP)
+    mesh.scale = Vector3(fitScale, fitScale, fitScale)
+    local drawable = mesh:CreateComponent("StaticModel")
+    drawable:SetModel(model)
+    drawable.viewMask = WORLD_BIT
+    drawable.castShadows = false
+    local cloakGeoIndex = 0
+    local bestDelta = 999999
+    local geoCount = drawable:GetNumGeometries()
+    for geoIndex = 0, geoCount - 1 do
+        local geometry = model:GetGeometry(geoIndex, 0)
+        local vertexCount = geometry and geometry:GetVertexCount() or 0
+        local delta = math.abs(vertexCount - 10)
+        if delta < bestDelta then
+            bestDelta = delta
+            cloakGeoIndex = geoIndex
+        end
+    end
+    for geoIndex = 0, geoCount - 1 do
+        local color = MENU_CHARLIE_SLOT_COLORS[geoIndex + 1] or MENU_CHARLIE_SLOT_COLORS[1]
+        local look = { color = string.format("#%02X%02X%02X",
+            math.floor(color.r * 255.0 + 0.5),
+            math.floor(color.g * 255.0 + 0.5),
+            math.floor(color.b * 255.0 + 0.5)
+        ) }
+        local material = self:CreateClipMaterial(stencilId, look, geoIndex == cloakGeoIndex, true)
+        drawable:SetMaterial(geoIndex, material)
+    end
+    local world = node:GetWorldPosition()
+    print(string.format(
+        "MenuPrism: chapter 3 Charlie geos=%d fit=%.3f scale=%.3f world=(%.3f, %.3f, %.3f)",
+        geoCount,
+        fitScale,
+        MENU_CHARLIE_SCALE,
+        world.x,
+        world.y,
+        world.z
+    ))
+    self.exhibitNodes[#self.exhibitNodes + 1] = node
+    return node
+end
+
 function MenuPrism:BuildExhibits(prismHeight)
     if not self.root then
         return
@@ -1190,15 +1271,7 @@ function MenuPrism:BuildExhibits(prismHeight)
 
     self:AddAlgernonExhibit(self.exhibitRoot, 0)
     self:AddDoorExhibit(self.exhibitRoot, MENU_CHAPTER2_STENCIL_ID)
-
-    local cylinder = self:AddExhibitModel(
-        self.exhibitRoot,
-        "ExhibitCylinder",
-        CylinderGeometry(0.16, 0.16, 0.42, 16, 1, false):ToModel(),
-        2,
-        { color = "#72856F" }
-    )
-    cylinder.position = Vector3(0.0, 0.21, 0.0)
+    self:AddCharlieExhibit(self.exhibitRoot, MENU_CHAPTER3_STENCIL_ID)
 
     local prism = self:AddExhibitModel(
         self.exhibitRoot,

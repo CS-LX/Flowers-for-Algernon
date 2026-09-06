@@ -27,6 +27,9 @@ local SLOT_COLORS = {
     Color(0.800007, 0.571508, 0.2597, 1.0),
     Color(0.214029, 0.0960783, 0.0572623, 1.0),
 }
+local LIGHT_AXIS = Vector3(0.35, 1.0, 0.25)
+local SHADE_SATURATION = 0.2
+local SHADE_VALUE = 0.1
 
 local function FindCloakGeometryIndex(model)
     local bestIndex = 0
@@ -53,6 +56,9 @@ local function CreateColorMaterial(shaderPath, color, topmost)
         error("failed to load " .. shaderPath)
     end
     material:SetShaderParameter("base_color", Variant(color))
+    material:SetShaderParameter("light_axis", Variant(LIGHT_AXIS))
+    material:SetShaderParameter("shade_saturation", Variant(SHADE_SATURATION))
+    material:SetShaderParameter("shade_value", Variant(SHADE_VALUE))
     if topmost then
         material:SetRenderOrder(255)
     end
@@ -103,6 +109,7 @@ function PlayerView.New(scene, topmost)
         if isCloak then
             material:SetShaderParameter("cloak_pivot", Variant(CLOAK_PIVOT))
             material:SetShaderParameter("cloak_angle", Variant(0.0))
+            material:SetCullMode(CULL_NONE)
             self.cloakMaterial = material
         end
         drawable:SetMaterial(geoIndex, material)
