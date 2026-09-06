@@ -8,7 +8,7 @@ uniform vec3 light_axis = vec3(0.35, 1.0, 0.25);
 uniform vec4 mesh_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
 
 uniform vec3 fog_up = vec3(0.0, 1.0, 0.0);
-uniform vec4 fog_color : source_color = vec4(0.475, 0.761, 0.839, 1.0);
+uniform vec4 fog_color : source_color = vec4(0.204, 0.541, 0.639, 1.0);
 uniform float fog_height_a = 8.0;
 uniform float fog_height_b = 0.0;
 
@@ -16,8 +16,8 @@ varying vec3 world_n;
 varying vec3 world_p;
 
 void vertex() {
-    world_n = transpose(mat3(MODEL_MATRIX)) * NORMAL;
-    world_p = (transpose(MODEL_MATRIX) * vec4(VERTEX, 1.0)).xyz;
+    world_n = mat3(MODEL_MATRIX) * NORMAL;
+    world_p = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
 void fragment() {
@@ -40,10 +40,10 @@ void fragment() {
     float height = dot(world_p, up / upLength);
     float span = fog_height_b - fog_height_a;
     float fog = 0.0;
-    if (span > 0.0001 || span < -0.0001) {
+    if (abs(span) > 0.0001) {
         fog = clamp((height - fog_height_a) / span, 0.0, 1.0);
     }
     color = mix(color, fog_color.rgb, fog);
 
-    ALBEDO = pow(max(color, vec3(0.0)), vec3(2.2));
+    ALBEDO = color;
 }

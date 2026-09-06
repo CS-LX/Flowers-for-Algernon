@@ -19,7 +19,7 @@
         "colorNeg": "#FFFFFF",
         "colorMid": "#FFFFFF",
         "colorPos": "#FFFFFF",
-        "fogColor": "#79C2D6",
+        "fogColor": "#348AA3",
         "fogHeightA": 8.0,
         "fogHeightB": 0.0
       },
@@ -37,7 +37,7 @@
         "colorNeg": "#FFFFFF",
         "colorMid": "#FFFFFF",
         "colorPos": "#FFFFFF",
-        "fogColor": "#79C2D6",
+        "fogColor": "#348AA3",
         "fogHeightA": 8.0,
         "fogHeightB": 0.0
       },
@@ -55,7 +55,7 @@
         "colorNeg": "#FFFFFF",
         "colorMid": "#FFFFFF",
         "colorPos": "#FFFFFF",
-        "fogColor": "#79C2D6",
+        "fogColor": "#348AA3",
         "fogHeightA": 8.0,
         "fogHeightB": 0.0
       },
@@ -73,7 +73,7 @@
         "colorNeg": "#FFFFFF",
         "colorMid": "#FFFFFF",
         "colorPos": "#FFFFFF",
-        "fogColor": "#79C2D6",
+        "fogColor": "#348AA3",
         "fogHeightA": 8.0,
         "fogHeightB": 0.0
       },
