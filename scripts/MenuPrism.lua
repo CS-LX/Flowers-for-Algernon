@@ -917,10 +917,11 @@ function MenuPrism:BuildGlassHood(edgeLength, prismHeight)
 end
 
 function MenuPrism:CreatePlaqueMaterial()
+    -- 与底座同色相的淡蓝灰，更深、饱和度略收。
     return LookApplier.CreateStillObjectBaseMaterial({
-        colorNeg = "#263B3E",
-        colorMid = "#506B6E",
-        colorPos = "#78928D",
+        colorNeg = "#4A5460",
+        colorMid = "#5E6A76",
+        colorPos = "#74818C",
         lightAxis = { x = 0.35, y = 1.0, z = 0.25 },
     })
 end
