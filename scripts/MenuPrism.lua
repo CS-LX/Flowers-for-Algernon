@@ -116,6 +116,8 @@ local MENU_CHAPTER2_DOOR_PARAMS = {
 }
 local MENU_CHAPTER2_DOOR_SCALE = 0.18 * 1.5
 local MENU_ALGERNON_SCALE = 1.25
+local MENU_ALGERNON_YAW = 90.0
+local MENU_DOOR_YAW = -60.0
 local MENU_CHAPTER2_STENCIL_ID = 1
 
 -- 第一章门框淡蓝：assets/Levels/level-1-1.json stillObjects[0].params
@@ -1103,6 +1105,8 @@ function MenuPrism:AddAlgernonExhibit(parent, stencilId)
     entry.model.viewMask = WORLD_BIT
     entry.model.castShadows = false
     local current = entry.node.scale
+    local yawed = entry.node.rotation * Quaternion(MENU_ALGERNON_YAW, Vector3.UP)
+    entry.node.rotation = yawed
     entry.node.scale = Vector3(
         current.x * MENU_ALGERNON_SCALE,
         current.y * MENU_ALGERNON_SCALE,
@@ -1143,7 +1147,8 @@ function MenuPrism:AddDoorExhibit(parent, stencilId)
     -- 选关用无骨骼、固定开门的 StaticDoor。
     local node = parent:CreateChild("ExhibitDoor")
     local rotation = asset.rootRotation
-    node.rotation = Quaternion(rotation.x, Vector3.RIGHT)
+    node.rotation = Quaternion(MENU_DOOR_YAW, Vector3.UP)
+        * Quaternion(rotation.x, Vector3.RIGHT)
         * Quaternion(rotation.y, Vector3.UP)
         * Quaternion(rotation.z, Vector3.FORWARD)
     local drawable = node:CreateComponent("StaticModel")
