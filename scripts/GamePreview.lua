@@ -78,6 +78,7 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.coverOnStart = false
     ---@type Color|nil
     self.coverColor = nil
+    self.frameTimeStep = 0.016
     return self
 end
 
@@ -535,6 +536,7 @@ function GamePreview:ResolveSharedPending()
 end
 
 function GamePreview:Update(timeStep)
+    self.frameTimeStep = timeStep
     PointerInput.BeginFrame()
     self:ResolveSharedPending()
     ---@type boolean
@@ -579,7 +581,12 @@ function GamePreview:PresentPlayer()
         self:ClearPlayerView()
         self.playerView = PlayerView.New(self.scene, topmost)
     end
-    self.playerView:Apply(self.player:GetPosition(), self.player:GetRotation())
+    self.playerView:Apply(
+        self.player:GetPosition(),
+        self.player:GetRotation(),
+        self.player:IsWalking(),
+        self.frameTimeStep or 0.016
+    )
 end
 
 function GamePreview:ClearPlayerView()

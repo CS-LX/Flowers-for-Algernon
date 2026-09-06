@@ -73,17 +73,14 @@ local CLIP_SHADER = "Shaders/BLGL/StencilIdRtClip.shader"
 local FACE_LABEL_FONT = "Fonts/MiSans-Regular.ttf"
 local FACE_CHAPTER_SIZE = 32.0
 local FACE_TITLE_SIZE = 52.0
-local FACE_CHAPTER_SCALE = 0.10
+local FACE_CHAPTER_SCALE = 0.16
 local FACE_TITLE_SCALE = 0.145
 local FACE_LABEL_LIFT = 0.014
 -- 展台铭文：分类行克制、主标题突出，两侧菱形只作校准点。
 local FACE_CHAPTER_COLOR = Color(0.62, 0.74, 0.72, 0.90)
 local FACE_TITLE_COLOR = Color(0.96, 0.98, 0.94, 1.0)
-local FACE_CHAPTER_Y = 0.11
+local FACE_CHAPTER_Y = 0.105
 local FACE_TITLE_Y = -0.07
-local FACE_RULE_Y = 0.03
-local FACE_RULE_SIZE = Vector3(0.28, 0.006, 0.004)
-local FACE_RULE_COLOR = Color(0.62, 0.76, 0.72, 0.28)
 local FACE_ORNAMENT_COLOR = Color(0.70, 0.82, 0.78, 0.55)
 local FACE_ORNAMENT_OFFSET_X = 0.24
 local FACE_ORNAMENT_Y = 0.11
@@ -944,21 +941,6 @@ function MenuPrism:CreateDiamond(parent, name, x, y)
     return node
 end
 
-function MenuPrism:CreateRule(parent)
-    local node = parent:CreateChild("PlaqueRule")
-    node.position = Vector3(0.0, FACE_RULE_Y, -0.018)
-    node.scale = FACE_RULE_SIZE
-    local model = node:CreateComponent("StaticModel")
-    model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-    local material = Material:new()
-    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml"))
-    material:SetShaderParameter("MatDiffColor", Variant(FACE_RULE_COLOR))
-    model:SetMaterial(material)
-    model.viewMask = WORLD_BIT
-    model.castShadows = false
-    return node
-end
-
 function MenuPrism:BuildFaceLabels(edgeLength)
     self.faceLabels = {}
     self.faceChapterLabels = {}
@@ -985,7 +967,6 @@ function MenuPrism:BuildFaceLabels(edgeLength)
         plate:SetMaterial(self:CreatePlaqueMaterial())
         plate.viewMask = WORLD_BIT
         plate.castShadows = false
-        self:CreateRule(plaque)
         self:CreateDiamond(plaque, "DiamondLeft", -FACE_ORNAMENT_OFFSET_X, FACE_ORNAMENT_Y)
         self:CreateDiamond(plaque, "DiamondRight", FACE_ORNAMENT_OFFSET_X, FACE_ORNAMENT_Y)
         local chapter = self:CreateFaceText(
