@@ -17,8 +17,16 @@ function PlayerController.New(pathRuntime, spawnNodeKey, camera)
         turnRate = 8.0,
     })
     self.mechanismLocked = false
+    self.inputLocked = false
     self.arrivedListeners = {}
+    ---@type fun(nodeKey: string)|nil
+    self.stopAtNodeListener = nil
     self.walker.onArrived = function(nodeKey)
+        local stopListener = self.stopAtNodeListener
+        self.stopAtNodeListener = nil
+        if stopListener then
+            stopListener(nodeKey)
+        end
         if self.arrivedListeners[1] then
             for _, listener in ipairs(self.arrivedListeners) do
                 listener(nodeKey)
@@ -34,6 +42,30 @@ end
 
 function PlayerController:Stop()
     self.walker:Stop()
+end
+
+function PlayerController:StopAtCurrentNode(onSettled)
+    local stopped, settled = self.walker:StopAtCurrentNode()
+    if not stopped then
+        return false, settled
+    end
+    if settled then
+        self.stopAtNodeListener = nil
+        if type(onSettled) == "function" then
+            onSettled(self:GetCurrentNodeKey())
+        end
+        return true, true
+    end
+    if type(onSettled) == "function" then
+        self.stopAtNodeListener = onSettled
+    else
+        self.stopAtNodeListener = nil
+    end
+    return true, false
+end
+
+function PlayerController:IsInputLocked()
+    return self.inputLocked == true or self.mechanismLocked == true
 end
 
 function PlayerController:GetTargetKey()
@@ -87,6 +119,15 @@ function PlayerController:GetCurrentEdgeTargetKey()
     return self.walker:GetCurrentEdgeTargetKey()
 end
 
+function PlayerController:SetInputLocked(locked, onSettled)
+    self.inputLocked = locked == true
+    if not self.inputLocked then
+        self.stopAtNodeListener = nil
+        return true, true
+    end
+    return self:StopAtCurrentNode(onSettled)
+end
+
 function PlayerController:SetMechanismLocked(locked)
     self.mechanismLocked = locked == true
     if self.mechanismLocked then
@@ -118,6 +159,9 @@ end
 function PlayerController:MoveTo(path, targetKey)
     if self.mechanismLocked then
         return false, "player is locked to a moving part"
+    end
+    if self.inputLocked then
+        return false, "player input is locked"
     end
     return self.walker:MoveTo(path, targetKey)
 end

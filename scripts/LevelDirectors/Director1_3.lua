@@ -83,16 +83,27 @@ function Director1_3:BeginRotation()
     if self.stage ~= "await_cliff" then
         return
     end
-    self.stage = "rotate"
+    self.stage = "halt_for_rotate"
     self.stageElapsed = 0.0
     self:SetInputLocked(true)
-    self:SetPlayerLocked(true)
+    print("Director1_3: player reached cliff, waiting to settle before rotate")
+    self:SetPlayerLocked(true, function()
+        self:StartRotation()
+    end)
+end
+
+function Director1_3:StartRotation()
+    if self.stage ~= "halt_for_rotate" then
+        return
+    end
+    self.stage = "rotate"
+    self.stageElapsed = 0.0
     self.rotationTweenState = { yaw = self.rotatorStartYaw }
     self.rotationElapsed = 0.0
     self.rotationTween = true
     self:SetPartVisualYaw(ROTATOR_PART_ID, self.rotatorStartYaw * 60.0)
     self:PlayStory(Story.ch1_3_rotate)
-    print("Director1_3: player reached cliff, rotating Part to yawSteps=" .. tostring(self.rotatorEndYaw))
+    print("Director1_3: settled, rotating Part to yawSteps=" .. tostring(self.rotatorEndYaw))
 end
 
 function Director1_3:FinishRotation()
@@ -121,15 +132,25 @@ function Director1_3:OnPlayerAtRotatorEnd()
     if self.stage ~= "await_rotator_end" then
         return
     end
-    self:StopPlayer()
-    self.stage = "restore"
+    self.stage = "halt_for_restore"
     self.stageElapsed = 0.0
     self:SetInputLocked(true)
-    self:SetPlayerLocked(true)
+    print("Director1_3: player reached rotator end, waiting to settle before restore")
+    self:SetPlayerLocked(true, function()
+        self:StartRestore()
+    end)
+end
+
+function Director1_3:StartRestore()
+    if self.stage ~= "halt_for_restore" then
+        return
+    end
+    self.stage = "restore"
+    self.stageElapsed = 0.0
     self.restoreTweenState = { yaw = self.rotatorEndYaw }
     self.restoreElapsed = 0.0
     self.restoreTween = true
-    print("Director1_3: player reached rotator end, restoring Part")
+    print("Director1_3: settled, restoring Part")
 end
 
 function Director1_3:FinishRestore()

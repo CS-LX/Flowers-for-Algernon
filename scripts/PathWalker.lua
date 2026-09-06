@@ -141,6 +141,51 @@ function PathWalker:Stop()
     self:RefreshCandidateHold()
 end
 
+-- 演出截停：先停在当前 hop 的目标节点，不瞬移、不中途冻住。
+-- 已在节点上则直接停。正在走路则把路径裁到即将到达的那个节点。
+-- 第二个返回值 settled：true 表示已经站在节点上，false 表示还在走到停点。
+function PathWalker:StopAtCurrentNode()
+    if not self.walking or not self.path then
+        self:Stop()
+        return true, true
+    end
+    local stopKey = self.path[self.pathIndex]
+    if type(stopKey) ~= "string" or stopKey == "" then
+        stopKey = self.currentNodeKey
+    end
+    local nextKey = self.path[self.pathIndex + 1]
+    if type(nextKey) == "string" and nextKey ~= "" then
+        stopKey = nextKey
+    end
+    if type(stopKey) ~= "string" or stopKey == "" then
+        self:Stop()
+        return true, true
+    end
+    if self.targetKey == stopKey then
+        return true, false
+    end
+    local fromKey = self.currentNodeKey
+    if self.pathIndex > 0 then
+        local pathFrom = self.path[self.pathIndex]
+        if type(pathFrom) == "string" and pathFrom ~= "" then
+            fromKey = pathFrom
+        end
+    end
+    if type(fromKey) == "string" and fromKey ~= "" and fromKey ~= stopKey then
+        self.path = { fromKey, stopKey }
+        self.pathIndex = 1
+    else
+        self.path = { stopKey }
+        self.pathIndex = 0
+    end
+    self.targetKey = stopKey
+    self.walking = true
+    self.settledAtNode = false
+    self:BeginTravel()
+    print("PathWalker: " .. self.name .. " stopping at " .. stopKey)
+    return true, false
+end
+
 function PathWalker:GetTargetKey()
     return self.targetKey
 end

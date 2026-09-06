@@ -148,18 +148,22 @@ function LevelDirector:SetInputLocked(locked)
     return true
 end
 
-function LevelDirector:SetPlayerLocked(locked)
-    local preview = self:GetPreview()
-    if preview and preview.riderFollow then
-        preview.riderFollow:LockPlayer(locked)
-        return true
-    end
+---@param locked boolean
+---@param onSettled fun(nodeKey: string)|nil
+---@return boolean, boolean|nil
+function LevelDirector:SetPlayerLocked(locked, onSettled)
     local player = self:GetPlayer()
     if not player then
         return false
     end
+    if player.SetInputLocked then
+        return player:SetInputLocked(locked, onSettled)
+    end
     player:SetMechanismLocked(locked)
-    return true
+    if locked and type(onSettled) == "function" then
+        onSettled(player:GetCurrentNodeKey())
+    end
+    return true, true
 end
 
 function LevelDirector:SyncRiders()

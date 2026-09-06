@@ -128,7 +128,8 @@ function GamePreview:HandlePointer()
     if not self.player then
         return
     end
-    if self.inputLocked or self.storyBlocked or self.player.mechanismLocked then
+    if self.inputLocked or self.storyBlocked or self.player.mechanismLocked
+        or (self.player.IsInputLocked and self.player:IsInputLocked()) then
         return
     end
     local fromPendingClick = (self.rotatorController and self.rotatorController:ConsumePendingClick())
@@ -260,7 +261,11 @@ function GamePreview:CanMovePart(part)
     if self.inputLocked or self.storyBlocked then
         return false
     end
-    if self.player and (self.player:IsWalking() or self.player.mechanismLocked) then
+    if self.player and (
+        self.player:IsWalking()
+        or self.player.mechanismLocked
+        or (self.player.IsInputLocked and self.player:IsInputLocked())
+    ) then
         return false
     end
     if not part then
@@ -377,6 +382,10 @@ end
 function GamePreview:StopPlayer()
     if not self.player then
         return false
+    end
+    if self.player.StopAtCurrentNode then
+        local stopped = self.player:StopAtCurrentNode()
+        return stopped
     end
     self.player:Stop()
     return true
