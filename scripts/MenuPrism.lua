@@ -35,7 +35,6 @@ local StillModelCatalog = require "StillModelCatalog"
 ---@field rtViewport Viewport|nil
 ---@field rtTexture Texture2D|nil
 ---@field rtDepth Texture2D|nil
----@field preview BorderImage|nil
 ---@field rtWidth integer
 ---@field rtHeight integer
 ---@field yawDegrees number
@@ -96,7 +95,6 @@ local GLASS_HEIGHT_SCALE = 0.18 * 1.5
 local GLASS_TINT = Color(0.68, 0.82, 0.84, 1.0)
 local GLASS_EDGE_TINT = Color(0.94, 0.99, 0.97, 1.0)
 local PEDESTAL_CENTER_OFFSET_Y = -0.32
-local PREVIEW_HEIGHT = 160
 local PHASE_IDLE = "idle"
 local PHASE_PENDING = "pending"
 local PHASE_DRAG = "drag"
@@ -212,8 +210,6 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.rtTexture = nil
     ---@type Texture2D|nil
     self.rtDepth = nil
-    ---@type BorderImage|nil
-    self.preview = nil
     self.rtWidth = 0
     self.rtHeight = 0
     self.yawDegrees = 0.0
@@ -610,9 +606,8 @@ function MenuPrism:Build()
     self.yawDegrees = SNAP_OFFSET_DEGREES
     self.targetYawDegrees = SNAP_OFFSET_DEGREES
     self.snapYawDegrees = SNAP_OFFSET_DEGREES
-    self:CreatePreview()
     self:SyncRtCamera()
-    print("MenuPrism: pale-blue hex prism + red mask RT ready")
+    print("MenuPrism: pale-blue hex prism + mask RT ready")
     return true
 end
 
@@ -741,7 +736,6 @@ function MenuPrism:ResizeRtIfNeeded()
     surface:SetUpdateMode(SURFACE_UPDATEALWAYS)
     self.rtWidth = width
     self.rtHeight = height
-    self:SyncPreviewSize()
     print(string.format("MenuPrism: RT resized to %dx%d", width, height))
 end
 
@@ -750,16 +744,15 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
         return
     end
     -- 挂在棱柱根上，跟着一起转。
-    -- 六个三棱柱中心距 = edge/√3，整体外接半径 = 2*edge/√3。
-    -- 面宽取外接六边形边长 = 2*edge/√3，面心距 = √3/2 * 边长 = edge。
-    -- 本地 yaw 加 30°，与下方棱柱侧面中点对齐。
-    -- 颜色只在 floor(yaw/60) 整档变化时更新：正对相机的面绿，其余红。
+    -- 下方六棱柱边长 = edge，顶点半径 = edge，侧面边心距 = (√3/2)*edge。
+    -- 面片中心必须落在边心距上，面宽 = edge，相邻面才能在顶点相接。
+    -- 用中心距 edge/√3 会缩进一圈，出现图里的六角断层。
+    -- 本地 yaw 加 30°，正对侧面中点。
     self.maskRoot = self.root:CreateChild("MenuMaskQuads")
     self.maskMaterials = {}
     self.maskLocalYaws = {}
-    local hexSide = edgeLength * 2.0 / math.sqrt(3.0)
-    local radius = hexSide * math.sqrt(3.0) * 0.5
-    local faceWidth = hexSide
+    local radius = edgeLength * math.sqrt(3.0) * 0.5
+    local faceWidth = edgeLength
     local faceHeight = prismHeight * 0.85 * 3.0
     local thickness = 0.02
     local centerY = prismHeight + faceHeight * 0.5
@@ -1227,34 +1220,6 @@ function MenuPrism:BuildExhibits(prismHeight)
     print("MenuPrism: five stencil exhibits ready")
 end
 
-function MenuPrism:CreatePreview()
-    local rtTexture = self.rtTexture
-    if not rtTexture then
-        print("MenuPrism: preview skipped, no RT texture")
-        return
-    end
-    self.preview = BorderImage:new()
-    self.preview:SetTexture(rtTexture)
-    self.preview:SetFullImageRect()
-    self.preview:SetAlignment(HA_RIGHT, VA_BOTTOM)
-    self.preview:SetPosition(-16, -16)
-    ui.root:AddChild(self.preview)
-    self:SyncPreviewSize()
-    print("MenuPrism: RT preview attached")
-end
-
-function MenuPrism:SyncPreviewSize()
-    if not self.preview or self.rtWidth <= 0 or self.rtHeight <= 0 then
-        return
-    end
-    local height = PREVIEW_HEIGHT
-    local width = math.floor(height * self.rtWidth / self.rtHeight + 0.5)
-    if width < 8 then
-        width = 8
-    end
-    self.preview:SetSize(width, height)
-end
-
 function MenuPrism:SampleTargetYaw()
     local startMouse = self.dragStartMouse
     if not startMouse then
@@ -1437,10 +1402,6 @@ function MenuPrism:Update(timeStep)
 end
 
 function MenuPrism:Destroy()
-    if self.preview then
-        self.preview:Remove()
-        self.preview = nil
-    end
     self.maskRoot = nil
     self.maskMaterials = {}
     self.maskLocalYaws = {}
