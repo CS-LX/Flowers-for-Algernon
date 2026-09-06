@@ -23,11 +23,11 @@ local CAMERA_LEAD_HEIGHT = 2.0
 local COLOR_DELAY = 1.0
 local COLOR_DURATION = LIFT_DURATION - COLOR_DELAY
 
-local CHAPTER3_FOG = "#304A59"
-local CHAPTER3_COLOR_NEG = "#294653"
-local CHAPTER3_COLOR_MID = "#4F7180"
-local CHAPTER3_COLOR_POS = "#86A7A5"
-local CHAPTER3_HEIGHT_FOG = "#3B5961"
+local CHAPTER3_FOG = "#348AA3"
+local CHAPTER3_COLOR_NEG = "#054460"
+local CHAPTER3_COLOR_MID = "#009FE6"
+local CHAPTER3_COLOR_POS = "#6EFFF6"
+local CHAPTER3_HEIGHT_FOG = "#79C2D6"
 
 local function Clamp01(value)
     return math.max(0.0, math.min(1.0, value))
@@ -63,11 +63,11 @@ function Director2_4:OnStart()
     self.partColorStarts = {}
     self.partIds = {}
 
-    self.chapter3FogColor = LookApplier.HexToColor(CHAPTER3_FOG, Color(0.19, 0.29, 0.35, 1.0))
-    self.chapter3ColorNeg = LookApplier.HexToColor(CHAPTER3_COLOR_NEG, Color(0.16, 0.27, 0.33, 1.0))
-    self.chapter3ColorMid = LookApplier.HexToColor(CHAPTER3_COLOR_MID, Color(0.31, 0.44, 0.50, 1.0))
-    self.chapter3ColorPos = LookApplier.HexToColor(CHAPTER3_COLOR_POS, Color(0.53, 0.65, 0.65, 1.0))
-    self.chapter3HeightFog = LookApplier.HexToColor(CHAPTER3_HEIGHT_FOG, Color(0.23, 0.35, 0.38, 1.0))
+    self.chapter3FogColor = LookApplier.HexToColor(CHAPTER3_FOG, Color(0.204, 0.541, 0.639, 1.0))
+    self.chapter3ColorNeg = LookApplier.HexToColor(CHAPTER3_COLOR_NEG, Color(0.020, 0.267, 0.376, 1.0))
+    self.chapter3ColorMid = LookApplier.HexToColor(CHAPTER3_COLOR_MID, Color(0.000, 0.624, 0.902, 1.0))
+    self.chapter3ColorPos = LookApplier.HexToColor(CHAPTER3_COLOR_POS, Color(0.431, 1.000, 0.965, 1.0))
+    self.chapter3HeightFog = LookApplier.HexToColor(CHAPTER3_HEIGHT_FOG, Color(0.475, 0.761, 0.839, 1.0))
 
     local document = self:GetDocument()
     local liftPart = self:GetPart(LIFT_PART_ID)
