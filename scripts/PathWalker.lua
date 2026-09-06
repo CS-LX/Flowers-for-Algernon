@@ -7,6 +7,8 @@ PathWalker.__index = PathWalker
 
 local DEFAULT_SPEED = 2.2
 local ARRIVAL_DISTANCE = 0.035
+-- 共面边心路点不停在边上，停在面心到边心之间靠近面心的位置。
+local PORTAL_FACE_BLEND = 0.3
 -- 屏幕几乎重叠的沿 Y 候选边：按视平面速度走；世界距离再大，也按屏幕位移计时。
 
 local function CopyVector(vector)
@@ -435,6 +437,9 @@ function PathWalker:GetPortalWaypoint(fromKey, toKey, fallbackFrom, fallbackTo)
         return fallbackTo
     end
     local portal = fromKey and toKey and self.pathRuntime:GetPortalPoint(fromKey, toKey) or nil
+    if portal and fallbackTo then
+        return portal * (1.0 - PORTAL_FACE_BLEND) + fallbackTo * PORTAL_FACE_BLEND
+    end
     if portal then
         return portal
     end
