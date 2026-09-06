@@ -218,14 +218,14 @@ function Shared.BindSlowDropdownWheel(dropdown)
         return
     end
     local native = dropdown.OnWheel
-    dropdown._slowWheelCarry = 0.0
     dropdown.OnWheel = function(self, dx, dy)
-        local scaled = (tonumber(dy) or 0.0) * Shared.DROPDOWN_WHEEL_SCALE
-        self._slowWheelCarry = (self._slowWheelCarry or 0.0) + scaled
+        -- 原生 OnWheel 把 dy 当整项偏移。一次滚轮 dy 往往远大于 1，直接传到最后。
+        local value = tonumber(dy) or 0.0
         local steps = 0
-        if self._slowWheelCarry >= 1.0 or self._slowWheelCarry <= -1.0 then
-            steps = self._slowWheelCarry > 0 and math.floor(self._slowWheelCarry) or math.ceil(self._slowWheelCarry)
-            self._slowWheelCarry = self._slowWheelCarry - steps
+        if value > 0 then
+            steps = 1
+        elseif value < 0 then
+            steps = -1
         end
         if steps ~= 0 and native then
             native(self, dx, steps)
