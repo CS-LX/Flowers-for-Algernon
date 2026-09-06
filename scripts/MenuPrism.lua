@@ -71,7 +71,6 @@ local WORLD_BIT = 2
 local PRISM_DROP = 1.05
 local CLIP_SHADER = "Shaders/BLGL/StencilIdRtClip.shader"
 local FACE_LABEL_FONT = "Fonts/MiSans-Regular.ttf"
-local FACE_TITLE_FONT = "Fonts/MiSans-Bold.ttf"
 local FACE_CHAPTER_SIZE = 40.0
 local FACE_TITLE_SIZE = 48.0
 local FACE_CHAPTER_SCALE = 0.16
@@ -919,10 +918,12 @@ function MenuPrism:BuildGlassHood(edgeLength, prismHeight)
 end
 
 function MenuPrism:CreatePlaqueMaterial()
-    local material = Material:new()
-    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml"))
-    material:SetShaderParameter("MatDiffColor", Variant(FACE_PLAQUE_COLOR))
-    return material
+    return LookApplier.CreateStillObjectBaseMaterial({
+        colorNeg = "#263B3E",
+        colorMid = "#506B6E",
+        colorPos = "#78928D",
+        lightAxis = { x = 0.35, y = 1.0, z = 0.25 },
+    })
 end
 
 function MenuPrism:CreateDiamond(parent, name, x, y)
@@ -960,13 +961,13 @@ function MenuPrism:BuildFaceLabels(edgeLength)
         local plaque = voxelNode:CreateChild("FacePlaque_" .. tostring(i))
         plaque.position = Vector3(outward, 0.0, 0.0)
         plaque.rotation = Quaternion(-90.0, Vector3.UP)
-        plaque.scale = Vector3(1.0, 1.0, 1.0)
-        local plate = plaque:CreateComponent("StaticModel")
+        local plateNode = plaque:CreateChild("PlaqueSurface")
+        plateNode.scale = FACE_PLAQUE_SIZE
+        local plate = plateNode:CreateComponent("StaticModel")
         plate:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
         plate:SetMaterial(self:CreatePlaqueMaterial())
         plate.viewMask = WORLD_BIT
         plate.castShadows = false
-        plate.node.scale = FACE_PLAQUE_SIZE
         self:CreateDiamond(plaque, "DiamondLeft", -FACE_ORNAMENT_OFFSET_X, FACE_ORNAMENT_Y)
         self:CreateDiamond(plaque, "DiamondRight", FACE_ORNAMENT_OFFSET_X, FACE_ORNAMENT_Y)
         local chapter = self:CreateFaceText(
@@ -981,7 +982,7 @@ function MenuPrism:BuildFaceLabels(edgeLength)
         local title = self:CreateFaceText(
             plaque,
             "Title",
-            FACE_TITLE_FONT,
+            FACE_LABEL_FONT,
             FACE_TITLE_SIZE,
             FACE_TITLE_COLOR,
             FACE_TITLE_Y,
