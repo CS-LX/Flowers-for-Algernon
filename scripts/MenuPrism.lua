@@ -91,6 +91,8 @@ local GLASS_SHADER = "Shaders/BLGL/MenuVitrineGlass.shader"
 local GLASS_THICKNESS = 0.008
 local GLASS_CLEARANCE = 0.50
 local GLASS_MIN_HEIGHT = 0.95
+-- 罩高按门放大前的尺度锁定，不跟展品缩放。
+local GLASS_HEIGHT_SCALE = 0.18 * 1.5
 local GLASS_TINT = Color(0.68, 0.82, 0.84, 1.0)
 local GLASS_EDGE_TINT = Color(0.94, 0.99, 0.97, 1.0)
 local PEDESTAL_CENTER_OFFSET_Y = -0.32
@@ -114,8 +116,8 @@ local MENU_CHAPTER2_DOOR_PARAMS = {
     ["slots.light.color"] = "#FFD400",
     ["slots.lit.color"] = "#FAD526",
 }
-local MENU_CHAPTER2_DOOR_SCALE = 0.18 * 1.5
-local MENU_ALGERNON_SCALE = 1.25
+local MENU_CHAPTER2_DOOR_SCALE = 0.18 * 1.5 * 1.5
+local MENU_ALGERNON_SCALE = 1.25 * 1.25
 local MENU_ALGERNON_YAW = 90.0
 local MENU_DOOR_YAW = -60.0
 local MENU_CHAPTER2_STENCIL_ID = 1
@@ -831,7 +833,7 @@ function MenuPrism:GetExhibitHeight()
     local rotation = Quaternion(90.0, Vector3.RIGHT)
     local rotated = bounds:Transformed(Matrix3x4(Vector3.ZERO, rotation, 1.0))
     local height = rotated.max.y - rotated.min.y
-    return math.max(GLASS_MIN_HEIGHT, height * MENU_CHAPTER2_DOOR_SCALE + GLASS_CLEARANCE)
+    return math.max(GLASS_MIN_HEIGHT, height * GLASS_HEIGHT_SCALE + GLASS_CLEARANCE)
 end
 
 function MenuPrism:CreateGlassShellGeometry(edgeLength, bottomY, topY)
