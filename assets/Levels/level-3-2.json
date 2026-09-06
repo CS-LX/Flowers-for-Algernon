@@ -220,7 +220,7 @@
           "x": 0.35
         },
         "shader": "tri_prism_look_height_fog",
-        "fogColor": "#96C5D4",
+        "fogColor": "#79C2D6",
         "emissionStrength": 0.25,
         "emissionColor": "#F9FF00",
         "colorPos": "#96FF81",
@@ -1302,7 +1302,7 @@
           "x": 0.35
         },
         "shader": "tri_prism_look_height_fog",
-        "fogColor": "#96C5D4",
+        "fogColor": "#79C2D6",
         "emissionStrength": 0.25,
         "emissionColor": "#F9FF00",
         "colorPos": "#6EFFF6",
@@ -2492,7 +2492,7 @@
           "x": 0.35
         },
         "shader": "tri_prism_look_height_fog",
-        "fogColor": "#96C5D4",
+        "fogColor": "#79C2D6",
         "emissionStrength": 0.25,
         "emissionColor": "#FFF4D2",
         "colorPos": "#DDFFA1",
@@ -2572,7 +2572,7 @@
     "fog": {
       "start": 1000,
       "density": 0,
-      "color": "#5197AB",
+      "color": "#348AA3",
       "finish": 2000,
       "heightFog": false
     },

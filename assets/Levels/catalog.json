@@ -33,9 +33,9 @@
       "title": "高处没有朋友",
       "stencilId": 2,
       "stages": [
-        { "name": "玻璃之间", "sourcePath": "Levels/level-3-1.json", "fogColor": "#5197AB" },
-        { "name": "旁观席", "sourcePath": "Levels/level-3-2.json", "fogColor": "#5197AB" },
-        { "name": "阿尔吉侬的记录", "sourcePath": "Levels/level-3-3.json", "fogColor": "#5197AB" },
+        { "name": "玻璃之间", "sourcePath": "Levels/level-3-1.json", "fogColor": "#348AA3" },
+        { "name": "旁观席", "sourcePath": "Levels/level-3-2.json", "fogColor": "#348AA3" },
+        { "name": "阿尔吉侬的记录", "sourcePath": "Levels/level-3-3.json", "fogColor": "#348AA3" },
         { "name": "最后的报告" }
       ]
     },
