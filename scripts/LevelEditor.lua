@@ -1924,15 +1924,46 @@ function LevelEditor:RestorePartYaw(part, yawSteps)
     self:RefreshPathRuntime()
 end
 
+function LevelEditor:ApplyPartFillState(part, state)
+    if not part or not state then
+        return
+    end
+    self:ApplyPartYawPreview(part, state.yawSteps)
+    local grid = self.partRenderer and self.partRenderer.grid
+    if grid and state.hexQ ~= nil and state.hexR ~= nil and state.layer ~= nil then
+        local world = grid:GetHexCenter(state.hexQ, state.hexR, state.layer * grid.voxelHeight)
+        if not part:SetPosition(world) then
+            part.transform.position = Vector3(world.x, world.y, world.z)
+        end
+        local root = self.partRenderer:GetRoot(part.id)
+        if root then
+            self.partRenderer:ApplyTransform(root, part)
+        end
+        if self.pathRuntime then
+            self.pathRuntime:UpdateNodeSpatialData()
+        end
+    end
+end
+
+function LevelEditor:CapturePartFillState(part)
+    local hexQ, hexR, layer = self:PartGridFromWorld(part)
+    return {
+        yawSteps = part.transform.rotation.yawSteps,
+        hexQ = hexQ,
+        hexR = hexR,
+        layer = layer,
+    }
+end
+
 function LevelEditor:RestoreFillYaw(job)
-    if not job or not job.originalYaws then
+    if not job or not job.originalStates then
         self:RefreshPathRuntime()
         return
     end
-    for partId, yaw in pairs(job.originalYaws) do
+    for partId, state in pairs(job.originalStates) do
         local part = self.levelDocument:GetPart(partId)
         if part then
-            self:ApplyPartYawPreview(part, yaw)
+            self:ApplyPartFillState(part, state)
         end
     end
     self:RefreshPathRuntime()
@@ -2033,16 +2064,51 @@ end
 local FILL_MODE_WITHIN = "within"
 local FILL_MODE_BETWEEN = "between"
 
+local FILL_MOVER_STEP = 0.5
+
 function LevelEditor:IsRotatorPart(part)
     return part ~= nil and part:HasBehavior(PartDefinition.MODE_ROTATOR)
+end
+
+function LevelEditor:IsMoverPart(part)
+    return part ~= nil and part:HasBehavior(PartDefinition.MODE_MOVER)
+end
+
+function LevelEditor:GetMoverAxes(part)
+    local axes = part and part.behaviors and part.behaviors.mover and part.behaviors.mover.axes or {}
+    return {
+        q = axes.q ~= false,
+        r = axes.r ~= false,
+        layer = axes.layer ~= false,
+    }
+end
+
+function LevelEditor:IsBoundedMover(part)
+    if not self:IsMoverPart(part) then
+        return false
+    end
+    local mover = part.behaviors.mover or {}
+    local axes = self:GetMoverAxes(part)
+    if axes.q and (mover.minQ == nil or mover.maxQ == nil) then
+        return false
+    end
+    if axes.r and (mover.minR == nil or mover.maxR == nil) then
+        return false
+    end
+    if axes.layer and (mover.minLayer == nil or mover.maxLayer == nil) then
+        return false
+    end
+    return true
 end
 
 function LevelEditor:CanFillBetweenParts(left, right)
     if not left or not right or left.id == right.id then
         return false
     end
-    -- rotator+rotator、rotator+静态、两静态。mover 不参与。
-    if left:HasBehavior(PartDefinition.MODE_MOVER) or right:HasBehavior(PartDefinition.MODE_MOVER) then
+    if self:IsMoverPart(left) and not self:IsBoundedMover(left) then
+        return false
+    end
+    if self:IsMoverPart(right) and not self:IsBoundedMover(right) then
         return false
     end
     return true
@@ -2053,6 +2119,73 @@ function LevelEditor:CollectPartYawStates(part)
         return { 0, 1, 2, 3, 4, 5 }
     end
     return { part.transform.rotation.yawSteps }
+end
+
+function LevelEditor:AxisRange(minValue, maxValue, current)
+    if minValue == nil or maxValue == nil then
+        return { current }
+    end
+    local lo = math.min(minValue, maxValue)
+    local hi = math.max(minValue, maxValue)
+    local values = {}
+    local steps = math.floor((hi - lo) / FILL_MOVER_STEP + 0.5)
+    for i = 0, steps do
+        values[#values + 1] = lo + i * FILL_MOVER_STEP
+    end
+    if #values == 0 then
+        values[1] = current
+    end
+    return values
+end
+
+function LevelEditor:PartGridFromWorld(part)
+    local grid = self.partRenderer and self.partRenderer.grid
+    local position = part.transform.position
+    if not grid or not position then
+        return 0, 0, 0
+    end
+    local hexQ, hexR = grid:WorldToHexFloat(position)
+    local layer = position.y / grid.voxelHeight
+    return hexQ, hexR, layer
+end
+
+function LevelEditor:CollectMoverGridStates(part)
+    if not self:IsBoundedMover(part) then
+        local hexQ, hexR, layer = self:PartGridFromWorld(part)
+        return { { hexQ = hexQ, hexR = hexR, layer = layer } }
+    end
+    local mover = part.behaviors.mover or {}
+    local axes = self:GetMoverAxes(part)
+    local currentQ, currentR, currentLayer = self:PartGridFromWorld(part)
+    local qValues = axes.q and self:AxisRange(mover.minQ, mover.maxQ, currentQ) or { currentQ }
+    local rValues = axes.r and self:AxisRange(mover.minR, mover.maxR, currentR) or { currentR }
+    local layerValues = axes.layer and self:AxisRange(mover.minLayer, mover.maxLayer, currentLayer) or { currentLayer }
+    local states = {}
+    for _, hexQ in ipairs(qValues) do
+        for _, hexR in ipairs(rValues) do
+            for _, layer in ipairs(layerValues) do
+                states[#states + 1] = { hexQ = hexQ, hexR = hexR, layer = layer }
+            end
+        end
+    end
+    return states
+end
+
+function LevelEditor:CollectPartFillStates(part)
+    local yaws = self:CollectPartYawStates(part)
+    local grids = self:CollectMoverGridStates(part)
+    local states = {}
+    for _, yaw in ipairs(yaws) do
+        for _, grid in ipairs(grids) do
+            states[#states + 1] = {
+                yawSteps = yaw,
+                hexQ = grid.hexQ,
+                hexR = grid.hexR,
+                layer = grid.layer,
+            }
+        end
+    end
+    return states
 end
 
 function LevelEditor:TryAddFillCandidate(job, fromRecord, toRecord)
@@ -2112,7 +2245,7 @@ function LevelEditor:StartWithinPartFill(partId)
     end
     local job = self.candidateFillJob
     job.mode = FILL_MODE_WITHIN
-    job.originalYaws = { [part.id] = part.transform.rotation.yawSteps }
+    job.originalStates = { [part.id] = self:CapturePartFillState(part) }
     job.cancelled = false
     job.checked = 0
     job.added = 0
@@ -2122,7 +2255,7 @@ function LevelEditor:StartWithinPartFill(partId)
     job.seenPairs = {}
     job.progressText = "单 Part 跨层"
     local BATCH = 16
-    local yaws = self:CollectPartYawStates(part)
+    local states = self:CollectPartFillStates(part)
     job.thread = coroutine.create(function()
         local nodes = self:NodesForPart(part.id)
         local pairCount = 0
@@ -2131,21 +2264,21 @@ function LevelEditor:StartWithinPartFill(partId)
                 pairCount = pairCount + 1
             end
         end
-        job.total = math.max(1, pairCount * #yaws)
+        job.total = math.max(1, pairCount * #states)
         print(string.format(
-            "LevelEditor: within-part fill part=%s nodes=%d pairs=%d yaws=%d",
+            "LevelEditor: within-part fill part=%s nodes=%d pairs=%d states=%d",
             part.id,
             #nodes,
             pairCount,
-            #yaws
+            #states
         ))
         local processed = 0
-        for yawIndex, yaw in ipairs(yaws) do
+        for stateIndex, state in ipairs(states) do
             if job.cancelled then
                 return
             end
-            job.progressText = string.format("单 Part 跨层  Yaw %d/%d", yawIndex, #yaws)
-            self:ApplyPartYawPreview(part, yaw)
+            job.progressText = string.format("单 Part 跨层  状态 %d/%d", stateIndex, #states)
+            self:ApplyPartFillState(part, state)
             job.worldFaces = self.pathRuntime:CollectWorldFaces()
             for i = 1, #nodes - 1 do
                 local source = nodes[i]
@@ -2186,7 +2319,13 @@ function LevelEditor:StartBetweenPartsFill(leftId, rightId)
         return false, "两个 Part 不能相同"
     end
     if not self:CanFillBetweenParts(left, right) then
-        return false, "只允许 rotator+rotator、rotator+静态、两静态"
+        if self:IsMoverPart(left) and not self:IsBoundedMover(left) then
+            return false, left.name .. " 是无界 mover，无法填充"
+        end
+        if self:IsMoverPart(right) and not self:IsBoundedMover(right) then
+            return false, right.name .. " 是无界 mover，无法填充"
+        end
+        return false, "无法填充这两个 Part"
     end
     local rebuilt, rebuildError = self:RefreshPathRuntime()
     if not rebuilt then
@@ -2194,9 +2333,9 @@ function LevelEditor:StartBetweenPartsFill(leftId, rightId)
     end
     local job = self.candidateFillJob
     job.mode = FILL_MODE_BETWEEN
-    job.originalYaws = {
-        [left.id] = left.transform.rotation.yawSteps,
-        [right.id] = right.transform.rotation.yawSteps,
+    job.originalStates = {
+        [left.id] = self:CapturePartFillState(left),
+        [right.id] = self:CapturePartFillState(right),
     }
     job.cancelled = false
     job.checked = 0
@@ -2207,39 +2346,39 @@ function LevelEditor:StartBetweenPartsFill(leftId, rightId)
     job.seenPairs = {}
     job.progressText = "两 Part"
     local BATCH = 16
-    local leftYaws = self:CollectPartYawStates(left)
-    local rightYaws = self:CollectPartYawStates(right)
+    local leftStates = self:CollectPartFillStates(left)
+    local rightStates = self:CollectPartFillStates(right)
     job.thread = coroutine.create(function()
         local leftNodes = self:NodesForPart(left.id)
         local rightNodes = self:NodesForPart(right.id)
         local pairCount = #leftNodes * #rightNodes
-        job.total = math.max(1, pairCount * #leftYaws * #rightYaws)
+        job.total = math.max(1, pairCount * #leftStates * #rightStates)
         print(string.format(
-            "LevelEditor: between-part fill %s(%d) x %s(%d) yaw=%dx%d",
+            "LevelEditor: between-part fill %s(%d) x %s(%d) states=%dx%d",
             left.id,
             #leftNodes,
             right.id,
             #rightNodes,
-            #leftYaws,
-            #rightYaws
+            #leftStates,
+            #rightStates
         ))
         local processed = 0
-        for _, leftYaw in ipairs(leftYaws) do
+        for leftIndex, leftState in ipairs(leftStates) do
             if job.cancelled then
                 return
             end
-            self:ApplyPartYawPreview(left, leftYaw)
-            for _, rightYaw in ipairs(rightYaws) do
+            self:ApplyPartFillState(left, leftState)
+            for rightIndex, rightState in ipairs(rightStates) do
                 if job.cancelled then
                     return
                 end
-                self:ApplyPartYawPreview(right, rightYaw)
+                self:ApplyPartFillState(right, rightState)
                 job.progressText = string.format(
-                    "两 Part  Yaw %d/%d × %d/%d",
-                    leftYaw + 1,
-                    6,
-                    rightYaw + 1,
-                    6
+                    "两 Part  状态 %d/%d × %d/%d",
+                    leftIndex,
+                    #leftStates,
+                    rightIndex,
+                    #rightStates
                 )
                 job.worldFaces = self.pathRuntime:CollectWorldFaces()
                 for _, source in ipairs(leftNodes) do
@@ -2313,7 +2452,7 @@ function LevelEditor:OpenCandidateFillDialog()
     }
     secondDropdown:SetVisible(false)
     local hintLabel = UI.Label {
-        text = "单 Part：不同 layer 的点对，且必须通过摄像机投影校验。rotator 扫 6 档 Yaw。",
+        text = "单 Part：不同 layer 的点对，且必须通过摄像机投影校验。rotator 扫 6 档 Yaw；有界 mover 扫全部网格状态。",
         fontSize = 10,
         whiteSpace = "normal",
     }
@@ -2346,9 +2485,9 @@ function LevelEditor:OpenCandidateFillDialog()
         local between = mode == FILL_MODE_BETWEEN
         secondDropdown:SetVisible(between)
         if between then
-            hintLabel:SetText("两 Part：rotator 走 6 档 Yaw，静态保持当前朝向。通过摄像机投影校验才写入。")
+            hintLabel:SetText("两 Part：rotator 扫 6 档 Yaw；有界 mover 扫全部网格状态；无界 mover 无法填充。通过摄像机投影校验才写入。")
         else
-            hintLabel:SetText("单 Part：不同 layer 的点对，且必须通过摄像机投影校验。rotator 扫 6 档 Yaw。")
+            hintLabel:SetText("单 Part：不同 layer 的点对，且必须通过摄像机投影校验。rotator 扫 6 档 Yaw；有界 mover 扫全部网格状态。")
         end
     end
     modeDropdown.props.onChange = function()
