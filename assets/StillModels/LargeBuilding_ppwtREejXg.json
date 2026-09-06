@@ -16,9 +16,9 @@
       "shader": "still_object_mesh_tint_fog",
       "params": {
         "meshColor": "#474A54",
-        "colorNeg": "#FFFFFF",
-        "colorMid": "#FFFFFF",
-        "colorPos": "#FFFFFF",
+        "colorNeg": "#1E7CC4",
+        "colorMid": "#A9D4F0",
+        "colorPos": "#FFF4E8",
         "fogColor": "#348AA3",
         "fogHeightA": 8.0,
         "fogHeightB": 0.0
@@ -34,9 +34,9 @@
       "shader": "still_object_mesh_tint_fog",
       "params": {
         "meshColor": "#8C8C8C",
-        "colorNeg": "#FFFFFF",
-        "colorMid": "#FFFFFF",
-        "colorPos": "#FFFFFF",
+        "colorNeg": "#1E7CC4",
+        "colorMid": "#A9D4F0",
+        "colorPos": "#FFF4E8",
         "fogColor": "#348AA3",
         "fogHeightA": 8.0,
         "fogHeightB": 0.0
@@ -52,9 +52,9 @@
       "shader": "still_object_mesh_tint_fog",
       "params": {
         "meshColor": "#82C4FF",
-        "colorNeg": "#FFFFFF",
-        "colorMid": "#FFFFFF",
-        "colorPos": "#FFFFFF",
+        "colorNeg": "#1E7CC4",
+        "colorMid": "#A9D4F0",
+        "colorPos": "#FFF4E8",
         "fogColor": "#348AA3",
         "fogHeightA": 8.0,
         "fogHeightB": 0.0
@@ -70,9 +70,9 @@
       "shader": "still_object_mesh_tint_fog",
       "params": {
         "meshColor": "#1F212B",
-        "colorNeg": "#FFFFFF",
-        "colorMid": "#FFFFFF",
-        "colorPos": "#FFFFFF",
+        "colorNeg": "#1E7CC4",
+        "colorMid": "#A9D4F0",
+        "colorPos": "#FFF4E8",
         "fogColor": "#348AA3",
         "fogHeightA": 8.0,
         "fogHeightB": 0.0
