@@ -22,11 +22,6 @@ function AlgernonController.New(pathRuntime, spawnNodeKey, camera)
     self.walker = PathWalker.New(pathRuntime, spawnNodeKey, camera, {
         name = "algernon",
         speed = DEFAULT_SPEED,
-        smooth = true,
-        cornerRadius = 0.18,
-        accelTime = 0.32,
-        decelTime = 0.4,
-        turnRate = 8.0,
     })
     self.enabled = false
     self.visible = false

@@ -7,10 +7,6 @@ PathWalker.__index = PathWalker
 
 local DEFAULT_SPEED = 2.2
 local ARRIVAL_DISTANCE = 0.035
-local DEFAULT_CORNER_RADIUS = 0.16
-local DEFAULT_ACCEL_TIME = 0.28
-local DEFAULT_DECEL_TIME = 0.34
-local DEFAULT_TURN_RATE = 9.0
 -- 屏幕几乎重叠的沿 Y 候选边：按视平面速度走；世界距离再大，也按屏幕位移计时。
 
 local function CopyVector(vector)
@@ -22,13 +18,6 @@ end
 ---@field camera Camera|nil
 ---@field name string
 ---@field speed number
----@field smooth boolean
----@field cornerRadius number
----@field accelTime number
----@field decelTime number
----@field turnRate number
----@field currentSpeed number
----@field lastTimeStep number
 ---@field position Vector3
 ---@field rotation Quaternion
 ---@field path string[]|nil
@@ -57,13 +46,6 @@ function PathWalker.New(pathRuntime, spawnNodeKey, camera, options)
     self.camera = camera
     self.name = type(options.name) == "string" and options.name or "walker"
     self.speed = tonumber(options.speed) or DEFAULT_SPEED
-    self.smooth = options.smooth == true
-    self.cornerRadius = tonumber(options.cornerRadius) or DEFAULT_CORNER_RADIUS
-    self.accelTime = tonumber(options.accelTime) or DEFAULT_ACCEL_TIME
-    self.decelTime = tonumber(options.decelTime) or DEFAULT_DECEL_TIME
-    self.turnRate = tonumber(options.turnRate) or DEFAULT_TURN_RATE
-    self.currentSpeed = 0.0
-    self.lastTimeStep = 0.016
     ---@type table[]|nil
     self.travel = nil
     self.travelIndex = 1
@@ -107,16 +89,6 @@ function PathWalker:SetMovementOrientation(direction, normal)
     end
     local rotation = Quaternion()
     rotation:FromLookRotation(tangent:Normalized(), normal)
-    if self.smooth then
-        local dt = self.lastTimeStep
-        if dt < 0.0001 then
-            dt = 0.0001
-        end
-        local t = 1.0 - math.exp(-self.turnRate * dt)
-        local current = self.rotation
-        self.rotation = current:Slerp(rotation, t)
-        return
-    end
     self.rotation = rotation
 end
 
@@ -134,7 +106,6 @@ function PathWalker:Stop()
     self.walking = false
     self.currentEdgeIsCandidate = false
     self.targetKey = nil
-    self.currentSpeed = 0.0
     self.travel = nil
     self.travelIndex = 1
     self.settledAtNode = true
@@ -213,7 +184,6 @@ function PathWalker:TeleportTo(nodeKey)
     self.position = CopyVector(record.worldPoint)
     self:SetNodeOrientation(record)
     self.settledAtNode = true
-    self.currentSpeed = 0.0
     self.candidateHoldKey = nil
     return true
 end
@@ -406,7 +376,6 @@ function PathWalker:FinishPath()
     self.walking = false
     self.settledAtNode = true
     self.currentEdgeIsCandidate = false
-    self.currentSpeed = 0.0
     self.travel = nil
     self.travelIndex = 1
     self:RefreshCandidateHold()
@@ -414,11 +383,6 @@ function PathWalker:FinishPath()
     if self.onArrived and type(arrivedKey) == "string" then
         self.onArrived(arrivedKey)
     end
-end
-
-local function QuadraticBezier(p0, p1, p2, t)
-    local u = 1.0 - t
-    return p0 * (u * u) + p1 * (2.0 * u * t) + p2 * (t * t)
 end
 
 function PathWalker:AppendTravelSample(point, nodeKey, record, candidate, pathIndex, topmost)
@@ -594,70 +558,14 @@ function PathWalker:BeginTravel()
         return
     end
     for index = 2, #waypoints do
-        local prev = waypoints[index - 1]
         local curr = waypoints[index]
-        local nextWp = waypoints[index + 1]
         local candidate = curr.candidate == true
         local topmost = curr.topmost == true or candidate
-        local nextCandidate = nextWp ~= nil and nextWp.candidate == true
-        -- 世界圆角只给共面真边。跨层候选拐角会把弦切进体素。
-        if nextWp and not candidate and not nextCandidate then
-            local incoming = curr.point - prev.point
-            local outgoing = nextWp.point - curr.point
-            local incomingLength = incoming:Length()
-            local outgoingLength = outgoing:Length()
-            local radius = 0.0
-            local turnDot = 1.0
-            if incomingLength > 0.0001 and outgoingLength > 0.0001 then
-                turnDot = (incoming / incomingLength):DotProduct(outgoing / outgoingLength)
-                radius = math.min(self.cornerRadius, incomingLength * 0.45, outgoingLength * 0.45)
-            end
-            if radius >= 0.04 and turnDot < 0.94 then
-                local incomingDir = incoming / incomingLength
-                local outgoingDir = outgoing / outgoingLength
-                local p0 = curr.point - incomingDir * radius
-                local p1 = curr.point
-                local p2 = curr.point + outgoingDir * radius
-                self:AppendTravelSample(p0, nil, curr.record, false, curr.pathIndex, false)
-                for sample = 1, 6 do
-                    local t = sample / 6.0
-                    self:AppendTravelSample(
-                        QuadraticBezier(p0, p1, p2, t),
-                        sample == 3 and curr.key or nil,
-                        curr.record,
-                        false,
-                        curr.pathIndex,
-                        false
-                    )
-                end
-                self:AppendTravelSample(p2, curr.key, curr.record, false, curr.pathIndex, false)
-            else
-                self:AppendTravelSample(curr.point, curr.key, curr.record, false, curr.pathIndex, false)
-            end
-        else
-            self:AppendTravelSample(curr.point, curr.key, curr.record, candidate, curr.pathIndex, topmost)
-        end
+        self:AppendTravelSample(curr.point, curr.key, curr.record, candidate, curr.pathIndex, topmost)
     end
 end
 
-function PathWalker:GetDecelRemaining()
-    if not self.travel or self.travelIndex >= #self.travel then
-        return 0.0
-    end
-    local remaining = 0.0
-    local from = self.position
-    for index = self.travelIndex + 1, #self.travel do
-        local sample = self.travel[index]
-        if sample.candidate then
-            -- 跨层 hop 的世界 Y 差不参与刹车；接缝不是终点。
-            from = sample.point
-        else
-            remaining = remaining + (sample.point - from):Length()
-            from = sample.point
-        end
-    end
-    return remaining
-end
+
 
 function PathWalker:ConsumeTravelSample(sample)
     if sample.candidate ~= nil then
@@ -681,30 +589,6 @@ function PathWalker:ConsumeTravelSample(sample)
     self:RefreshCandidateHold()
 end
 
-function PathWalker:UpdateDesiredSpeed(remaining)
-    local maxSpeed = self.speed
-    local desired = maxSpeed
-    local decelDistance = maxSpeed * self.decelTime
-    if remaining < decelDistance and decelDistance > 0.0001 then
-        desired = maxSpeed * (remaining / decelDistance)
-        if desired < maxSpeed * 0.12 then
-            desired = maxSpeed * 0.12
-        end
-    end
-    return desired
-end
-
-function PathWalker:TickSpeed(desired, timeStep)
-    local maxSpeed = self.speed
-    local accel = maxSpeed / math.max(self.accelTime, 0.05)
-    local decel = maxSpeed / math.max(self.decelTime, 0.05)
-    if self.currentSpeed < desired then
-        self.currentSpeed = math.min(desired, self.currentSpeed + accel * timeStep)
-    else
-        self.currentSpeed = math.max(desired, self.currentSpeed - decel * timeStep)
-    end
-end
-
 function PathWalker:UpdateSmooth(timeStep)
     if not self.travel or #self.travel < 2 then
         self:BeginTravel()
@@ -722,21 +606,7 @@ function PathWalker:UpdateSmooth(timeStep)
         return
     end
 
-    local remaining = self:GetDecelRemaining()
-    local upcoming = self.travel[self.travelIndex + 1]
-    local desired = self.speed
-    if upcoming and upcoming.candidate then
-        desired = self.speed
-        self.currentSpeed = self.speed
-    else
-        desired = self:UpdateDesiredSpeed(remaining)
-        if remaining < ARRIVAL_DISTANCE * 4.0 then
-            desired = math.min(desired, self.speed * 0.18)
-        end
-    end
-    self:TickSpeed(desired, timeStep)
-
-    local budget = self.currentSpeed * timeStep
+    local budget = self.speed * timeStep
     local guard = 0
     while budget > 0.00001 and self.travelIndex < #self.travel and guard < 32 do
         guard = guard + 1
@@ -806,7 +676,6 @@ function PathWalker:Update(timeStep)
     if timeStep < 0.0001 then
         timeStep = 0.0001
     end
-    self.lastTimeStep = timeStep
     self:UpdateSmooth(timeStep)
 end
 
