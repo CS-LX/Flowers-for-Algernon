@@ -237,6 +237,11 @@ function PathWalker:GetViewState()
     return "normal"
 end
 
+function PathWalker:ClearTopmostHold()
+    self.currentEdgeIsCandidate = false
+    self.candidateHoldKey = nil
+end
+
 function PathWalker:GetCurrentPartId()
     local record = self.pathRuntime:GetNode(self.currentNodeKey)
     return record and record.partId or nil

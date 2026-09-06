@@ -106,6 +106,12 @@ function PlayerController:GetViewState()
     return self.walker:GetViewState()
 end
 
+function PlayerController:ClearTopmostHold()
+    if self.walker.ClearTopmostHold then
+        self.walker:ClearTopmostHold()
+    end
+end
+
 function PlayerController:GetCurrentPartId()
     return self.walker:GetCurrentPartId()
 end
