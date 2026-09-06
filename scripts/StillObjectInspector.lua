@@ -28,6 +28,14 @@ function StillObjectInspector.New(editor)
     self.fogHeightAField = nil
     ---@type TextField|nil
     self.fogHeightBField = nil
+    ---@type TextField|nil
+    self.gradeSaturationField = nil
+    ---@type TextField|nil
+    self.gradeValueField = nil
+    ---@type TextField|nil
+    self.gradeContrastField = nil
+    ---@type TextField|nil
+    self.gradeHazeField = nil
     ---@type Widget|nil
     self.lookPanel = nil
     ---@type Widget|nil
@@ -111,6 +119,38 @@ function StillObjectInspector:Build()
         fontSize = 10,
         onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.fogHeightB", value) end,
         onBlur = function(field) editor:SetSelectedStillParam("slots.wall.fogHeightB", field:GetValue()) end,
+    }
+    self.gradeSaturationField = UI.TextField {
+        value = "0.55",
+        placeholder = "饱和",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.gradeSaturation", value) end,
+        onBlur = function(field) editor:SetSelectedStillParam("slots.wall.gradeSaturation", field:GetValue()) end,
+    }
+    self.gradeValueField = UI.TextField {
+        value = "1.08",
+        placeholder = "明度",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.gradeValue", value) end,
+        onBlur = function(field) editor:SetSelectedStillParam("slots.wall.gradeValue", field:GetValue()) end,
+    }
+    self.gradeContrastField = UI.TextField {
+        value = "0.72",
+        placeholder = "对比",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.gradeContrast", value) end,
+        onBlur = function(field) editor:SetSelectedStillParam("slots.wall.gradeContrast", field:GetValue()) end,
+    }
+    self.gradeHazeField = UI.TextField {
+        value = "0.22",
+        placeholder = "霾",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.gradeHaze", value) end,
+        onBlur = function(field) editor:SetSelectedStillParam("slots.wall.gradeHaze", field:GetValue()) end,
     }
     self.lookPanel = UI.Panel {
         width = "100%",
@@ -339,6 +379,25 @@ function StillObjectInspector:RefreshLooks(object, asset)
         self.fogHeightBField:SetValue(string.format("%.2f", heightB))
         self.lookPanel:AddChild(Shared.FieldRow("雾起始", self.fogHeightAField))
         self.lookPanel:AddChild(Shared.FieldRow("雾终止", self.fogHeightBField))
+        local function GradeValue(path, fallback)
+            return tonumber(StillModelCatalog.ResolveParam(asset, overrides, path)) or fallback
+        end
+        if self.gradeSaturationField then
+            self.gradeSaturationField:SetValue(string.format("%.2f", GradeValue("slots.wall.gradeSaturation", 0.55)))
+            self.lookPanel:AddChild(Shared.FieldRow("饱和", self.gradeSaturationField))
+        end
+        if self.gradeValueField then
+            self.gradeValueField:SetValue(string.format("%.2f", GradeValue("slots.wall.gradeValue", 1.08)))
+            self.lookPanel:AddChild(Shared.FieldRow("明度", self.gradeValueField))
+        end
+        if self.gradeContrastField then
+            self.gradeContrastField:SetValue(string.format("%.2f", GradeValue("slots.wall.gradeContrast", 0.72)))
+            self.lookPanel:AddChild(Shared.FieldRow("对比", self.gradeContrastField))
+        end
+        if self.gradeHazeField then
+            self.gradeHazeField:SetValue(string.format("%.2f", GradeValue("slots.wall.gradeHaze", 0.22)))
+            self.lookPanel:AddChild(Shared.FieldRow("霾", self.gradeHazeField))
+        end
     end
 end
 

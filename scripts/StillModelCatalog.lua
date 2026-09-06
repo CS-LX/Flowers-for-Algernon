@@ -97,6 +97,10 @@ local function NormalizeSlotParams(shader, source)
             fogColor = NormalizeHex(source.fogColor, "#79C2D6"),
             fogHeightA = (tonumber(source.fogHeightA) or 8.0) * 1.0,
             fogHeightB = (tonumber(source.fogHeightB) or 0.0) * 1.0,
+            gradeSaturation = (tonumber(source.gradeSaturation) or 0.55) * 1.0,
+            gradeValue = (tonumber(source.gradeValue) or 1.08) * 1.0,
+            gradeContrast = (tonumber(source.gradeContrast) or 0.72) * 1.0,
+            gradeHaze = (tonumber(source.gradeHaze) or 0.22) * 1.0,
             lightAxis = {
                 x = tonumber((source.lightAxis or {}).x) or 0.35,
                 y = tonumber((source.lightAxis or {}).y) or 1.0,
@@ -470,7 +474,10 @@ function StillModelCatalog.SlotLook(asset, slot, overrides)
         end
         -- 楼宇面色 / 高度雾由墙面槽统一控制，各槽只保留自己的原面色。
         if slot.shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG and slot.id ~= "wall" then
-            local shared = { "colorNeg", "colorMid", "colorPos", "fogColor", "fogHeightA", "fogHeightB" }
+            local shared = {
+                "colorNeg", "colorMid", "colorPos", "fogColor", "fogHeightA", "fogHeightB",
+                "gradeSaturation", "gradeValue", "gradeContrast", "gradeHaze",
+            }
             for _, field in ipairs(shared) do
                 local value = StillModelCatalog.ResolveParam(asset, overrides, "slots.wall." .. field)
                 if value ~= nil then

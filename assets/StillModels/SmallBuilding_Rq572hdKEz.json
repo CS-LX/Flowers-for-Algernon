@@ -21,7 +21,11 @@
         "colorPos": "#FFF4E8",
         "fogColor": "#348AA3",
         "fogHeightA": 8.0,
-        "fogHeightB": 0.0
+        "fogHeightB": 0.0,
+        "gradeSaturation": 0.55,
+        "gradeValue": 1.08,
+        "gradeContrast": 0.72,
+        "gradeHaze": 0.22
       },
       "pass": {
         "opaque": true
@@ -39,7 +43,11 @@
         "colorPos": "#FFF4E8",
         "fogColor": "#348AA3",
         "fogHeightA": 8.0,
-        "fogHeightB": 0.0
+        "fogHeightB": 0.0,
+        "gradeSaturation": 0.55,
+        "gradeValue": 1.08,
+        "gradeContrast": 0.72,
+        "gradeHaze": 0.22
       },
       "pass": {
         "opaque": true
@@ -57,7 +65,11 @@
         "colorPos": "#FFF4E8",
         "fogColor": "#348AA3",
         "fogHeightA": 8.0,
-        "fogHeightB": 0.0
+        "fogHeightB": 0.0,
+        "gradeSaturation": 0.55,
+        "gradeValue": 1.08,
+        "gradeContrast": 0.72,
+        "gradeHaze": 0.22
       },
       "pass": {
         "opaque": true
@@ -75,7 +87,11 @@
         "colorPos": "#FFF4E8",
         "fogColor": "#348AA3",
         "fogHeightA": 8.0,
-        "fogHeightB": 0.0
+        "fogHeightB": 0.0,
+        "gradeSaturation": 0.55,
+        "gradeValue": 1.08,
+        "gradeContrast": 0.72,
+        "gradeHaze": 0.22
       },
       "pass": {
         "opaque": true
@@ -93,7 +109,11 @@
         "colorPos": "#FFF4E8",
         "fogColor": "#348AA3",
         "fogHeightA": 8.0,
-        "fogHeightB": 0.0
+        "fogHeightB": 0.0,
+        "gradeSaturation": 0.55,
+        "gradeValue": 1.08,
+        "gradeContrast": 0.72,
+        "gradeHaze": 0.22
       },
       "pass": {
         "opaque": true

@@ -371,6 +371,10 @@ function LookApplier.CreateStillObjectMeshTintFogMaterial(look)
     material:SetShaderParameter("fog_color", Variant(HexToColor(look.fogColor, Color(0.475, 0.761, 0.839, 1))))
     material:SetShaderParameter("fog_height_a", Variant((tonumber(look.fogHeightA) or 8.0) * 1.0))
     material:SetShaderParameter("fog_height_b", Variant((tonumber(look.fogHeightB) or 0.0) * 1.0))
+    material:SetShaderParameter("grade_saturation", Variant((tonumber(look.gradeSaturation) or 0.55) * 1.0))
+    material:SetShaderParameter("grade_value", Variant((tonumber(look.gradeValue) or 1.08) * 1.0))
+    material:SetShaderParameter("grade_contrast", Variant((tonumber(look.gradeContrast) or 0.72) * 1.0))
+    material:SetShaderParameter("grade_haze", Variant((tonumber(look.gradeHaze) or 0.22) * 1.0))
     print(string.format(
         "LookApplier: still-object mesh tint fog mesh=%s neg=%s mid=%s pos=%s fog=%s a=%.2f b=%.2f",
         tostring(look.meshColor),
