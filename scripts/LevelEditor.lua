@@ -58,7 +58,13 @@ end
 ---@field transformGrid table
 ---@field editorCamera table
 ---@field candidateFillJob table|nil
+---@field autosaveClock number
+---@field autosaveHintClock number
+---@field autosaveHintText string|nil
 LevelEditor.__index = LevelEditor
+
+local AUTOSAVE_INTERVAL = 10.0
+local AUTOSAVE_HINT_DURATION = 2.5
 
 local function CreateFixedEvaluationCamera(scene, levelDocument)
     return FixedGameCamera.Create(
@@ -101,6 +107,10 @@ function LevelEditor.New(scene, cameraNode, camera, mainViewport, levelDocument,
     self.ui = nil
     ---@type table|nil
     self.candidateFillJob = nil
+    self.autosaveClock = 0.0
+    self.autosaveHintClock = 0.0
+    ---@type string|nil
+    self.autosaveHintText = nil
     self.pendingLoadWarning = levelDocument.loadWarning
     self.transformGrid = {
         snapStep = 0.5,
@@ -2685,6 +2695,55 @@ function LevelEditor:SaveLevel()
     return true
 end
 
+function LevelEditor:ShowAutosaveHint(text)
+    self.autosaveHintText = text
+    self.autosaveHintClock = AUTOSAVE_HINT_DURATION
+    if self.ui then
+        self.ui:SetStatus(text)
+    end
+end
+
+function LevelEditor:AutoSaveLevel()
+    if self.mode ~= "level" then
+        return false
+    end
+    if self.candidateFillJob and self.candidateFillJob.thread then
+        return false
+    end
+    if not self.levelDocument.dirty then
+        return false
+    end
+    local saved, errorMessage = self.levelDocument:Save()
+    if not saved then
+        self:ShowAutosaveHint("自动保存失败：" .. tostring(errorMessage))
+        return false
+    end
+    self:ShowAutosaveHint("已自动保存关卡：" .. self.levelDocument.name)
+    return true
+end
+
+function LevelEditor:UpdateAutosave(timeStep)
+    if self.autosaveHintClock > 0.0 then
+        self.autosaveHintClock = self.autosaveHintClock - timeStep
+        if self.autosaveHintClock <= 0.0 then
+            self.autosaveHintClock = 0.0
+            self.autosaveHintText = nil
+            if self.ui then
+                self.ui:SetStatus("Level View")
+            end
+        end
+    end
+    if self.mode ~= "level" then
+        return
+    end
+    self.autosaveClock = self.autosaveClock + timeStep
+    if self.autosaveClock < AUTOSAVE_INTERVAL then
+        return
+    end
+    self.autosaveClock = 0.0
+    self:AutoSaveLevel()
+end
+
 -- 用户系统剪切板，不是 VoxelSandbox 的项目体素复制缓冲。
 function LevelEditor:CopyTextToUserClipboard(text)
     if type(text) ~= "string" or text == "" then
@@ -2795,6 +2854,7 @@ end
 
 function LevelEditor:Refresh(timeStep)
     timeStep = timeStep or 0.0
+    self:UpdateAutosave(timeStep)
     if ScreenColorPicker.Update() then
         return
     end
