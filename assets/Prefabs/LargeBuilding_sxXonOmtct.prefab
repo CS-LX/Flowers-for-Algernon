@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<node>
+	<attribute name="Is Enabled" value="true" />
+	<attribute name="Name" value="LargeBuilding_sxXonOmtct" />
+	<attribute name="Tags" value="" />
+	<attribute name="Position" value="0 0 0" />
+	<attribute name="Rotation" value="1 0 0 0" />
+	<attribute name="Scale" value="1 1 1" />
+	<attribute name="Variables" value="" />
+	<component type="StaticModel">
+		<attribute name="Model" value="Model;uuid://G4dVUbbFB6t1sfgOtpoq2JJ2" />
+		<attribute name="Material" value="Material;uuid://DX90MeQCwFarX43t9b1vtIE7;uuid://BTtF2cqbbW4WT_96a96UdsA2;uuid://GMbdIRVF8pWj08VoEMBWaFeh;uuid://G4_YKTYfuxGr31UqKpgsiGYk;uuid://Hdi5sW0kG35ITb0MDdwRyhps" />
+		<attribute name="Cast Shadows" value="true" />
+	</component>
+</node>

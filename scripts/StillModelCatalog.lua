@@ -17,6 +17,13 @@ local KNOWN_SIDECARS = {
     "StillModels/StillCapsule.json",
     "StillModels/StillCylinder.json",
     "StillModels/StillTriPrism.json",
+    "StillModels/LargeBuilding_3IhrYZp6tP.json",
+    "StillModels/LargeBuilding_h7Jaq7bqMq.json",
+    "StillModels/LargeBuilding_ppwtREejXg.json",
+    "StillModels/LargeBuilding_sxXonOmtct.json",
+    "StillModels/Skyscraper_XST1j6kYsL.json",
+    "StillModels/Skyscraper_obYD8hWLTZ.json",
+    "StillModels/SmallBuilding_Rq572hdKEz.json",
 }
 local cached_ = nil
 
@@ -80,6 +87,28 @@ local function NormalizeSlotParams(shader, source)
             albedoMap = albedoMap,
         }
     end
+    if shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG then
+        local fogUp = source.fogUp or {}
+        return {
+            meshColor = NormalizeHex(source.meshColor, "#FFFFFF"),
+            colorNeg = NormalizeHex(source.colorNeg, "#FFFFFF"),
+            colorMid = NormalizeHex(source.colorMid, "#FFFFFF"),
+            colorPos = NormalizeHex(source.colorPos, "#FFFFFF"),
+            fogColor = NormalizeHex(source.fogColor, "#79C2D6"),
+            fogHeightA = (tonumber(source.fogHeightA) or 8.0) * 1.0,
+            fogHeightB = (tonumber(source.fogHeightB) or 0.0) * 1.0,
+            lightAxis = {
+                x = tonumber((source.lightAxis or {}).x) or 0.35,
+                y = tonumber((source.lightAxis or {}).y) or 1.0,
+                z = tonumber((source.lightAxis or {}).z) or 0.25,
+            },
+            fogUp = {
+                x = tonumber(fogUp.x) or 0.0,
+                y = tonumber(fogUp.y) or 1.0,
+                z = tonumber(fogUp.z) or 0.0,
+            },
+        }
+    end
     return {
         colorNeg = NormalizeHex(source.colorNeg, "#A98F80"),
         colorMid = NormalizeHex(source.colorMid, "#CDBBA3"),
@@ -95,6 +124,9 @@ end
 local function NormalizeShader(value)
     if value == LookApplier.SHADER_STILL_OBJECT_UNLIT then
         return LookApplier.SHADER_STILL_OBJECT_UNLIT
+    end
+    if value == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG then
+        return LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG
     end
     return LookApplier.SHADER_STILL_OBJECT_BASE
 end
@@ -434,6 +466,16 @@ function StillModelCatalog.SlotLook(asset, slot, overrides)
             local value = StillModelCatalog.ResolveParam(asset, overrides, path)
             if value ~= nil then
                 look[field] = value
+            end
+        end
+        -- 楼宇面色 / 高度雾由墙面槽统一控制，各槽只保留自己的原面色。
+        if slot.shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG and slot.id ~= "wall" then
+            local shared = { "colorNeg", "colorMid", "colorPos", "fogColor", "fogHeightA", "fogHeightB" }
+            for _, field in ipairs(shared) do
+                local value = StillModelCatalog.ResolveParam(asset, overrides, "slots.wall." .. field)
+                if value ~= nil then
+                    look[field] = value
+                end
             end
         end
     end

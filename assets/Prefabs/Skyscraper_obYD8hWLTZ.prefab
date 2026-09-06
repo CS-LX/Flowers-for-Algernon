@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<node>
+	<attribute name="Is Enabled" value="true" />
+	<attribute name="Name" value="Skyscraper_obYD8hWLTZ" />
+	<attribute name="Tags" value="" />
+	<attribute name="Position" value="0 0 0" />
+	<attribute name="Rotation" value="1 0 0 0" />
+	<attribute name="Scale" value="1 1 1" />
+	<attribute name="Variables" value="" />
+	<component type="StaticModel">
+		<attribute name="Model" value="Model;uuid://Faam6Uez78oN9IiFdgx1cGEI" />
+		<attribute name="Material" value="Material;uuid://HKbN-cUfiVVqMuWhbpm-rWDT;uuid://BUuoUQRRD7BvFit9-XXuBBRm;uuid://A-HNufyKTPMwRCm3YfmJ9K9v;uuid://H_0LmRSBkSlCvu5B3bXhDT-t;uuid://E0Ky4d6iNKLsSGBKjWcdVuPo;uuid://F2H-SQgn-50si4BWxnSmasyn" />
+		<attribute name="Cast Shadows" value="true" />
+	</component>
+</node>

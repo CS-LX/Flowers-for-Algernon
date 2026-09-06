@@ -14,6 +14,8 @@ Shared.COMPONENT_HEADER = { 29, 36, 50, 255 }
 Shared.COMPONENT_ACCENT = { 78, 132, 194, 255 }
 -- 原 Inspector 滚轮倍率为 40，按 0.01 降低灵敏度。
 Shared.WHEEL_SCALE = 0.4
+-- Dropdown 默认按 dy 整项跳；静物模型列表再放慢。
+Shared.DROPDOWN_WHEEL_SCALE = 0.12
 -- ColorPicker 弹层固定画在字段下方，底部留空才能滚进视口。
 Shared.COLOR_POPUP_SPACER = 280
 
@@ -207,6 +209,27 @@ function Shared.BindSlowWheel(scroll)
             return false
         end
         scroll:ScrollBy(-dx * Shared.WHEEL_SCALE, -dy * Shared.WHEEL_SCALE)
+        return true
+    end
+end
+
+function Shared.BindSlowDropdownWheel(dropdown)
+    if not dropdown then
+        return
+    end
+    local native = dropdown.OnWheel
+    dropdown._slowWheelCarry = 0.0
+    dropdown.OnWheel = function(self, dx, dy)
+        local scaled = (tonumber(dy) or 0.0) * Shared.DROPDOWN_WHEEL_SCALE
+        self._slowWheelCarry = (self._slowWheelCarry or 0.0) + scaled
+        local steps = 0
+        if self._slowWheelCarry >= 1.0 or self._slowWheelCarry <= -1.0 then
+            steps = self._slowWheelCarry > 0 and math.floor(self._slowWheelCarry) or math.ceil(self._slowWheelCarry)
+            self._slowWheelCarry = self._slowWheelCarry - steps
+        end
+        if steps ~= 0 and native then
+            native(self, dx, steps)
+        end
         return true
     end
 end

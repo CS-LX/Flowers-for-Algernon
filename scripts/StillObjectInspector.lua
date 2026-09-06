@@ -4,6 +4,7 @@
 local UI = require("urhox-libs/UI")
 local Shared = require "InspectorShared"
 local StillModelCatalog = require "StillModelCatalog"
+local LookApplier = require "LookApplier"
 
 local StillObjectInspector = {}
 StillObjectInspector.__index = StillObjectInspector
@@ -23,6 +24,10 @@ function StillObjectInspector.New(editor)
     self.modelLabel = nil
     ---@type Dropdown|nil
     self.modelDropdown = nil
+    ---@type TextField|nil
+    self.fogHeightAField = nil
+    ---@type TextField|nil
+    self.fogHeightBField = nil
     ---@type Widget|nil
     self.lookPanel = nil
     ---@type Widget|nil
@@ -89,6 +94,23 @@ function StillObjectInspector:Build()
         height = 28,
         fontSize = 11,
         onChange = function(_, value) editor:SetSelectedStillModelId(value) end,
+    }
+    Shared.BindSlowDropdownWheel(self.modelDropdown)
+    self.fogHeightAField = UI.TextField {
+        value = "8.00",
+        placeholder = "起始",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.fogHeightA", value) end,
+        onBlur = function(field) editor:SetSelectedStillParam("slots.wall.fogHeightA", field:GetValue()) end,
+    }
+    self.fogHeightBField = UI.TextField {
+        value = "0.00",
+        placeholder = "终止",
+        height = 26,
+        fontSize = 10,
+        onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.fogHeightB", value) end,
+        onBlur = function(field) editor:SetSelectedStillParam("slots.wall.fogHeightB", field:GetValue()) end,
     }
     self.lookPanel = UI.Panel {
         width = "100%",
@@ -222,6 +244,12 @@ function StillObjectInspector:Clear()
     if self.lookPanel then
         self.lookPanel:ClearChildren()
     end
+    if self.fogHeightAField then
+        self.fogHeightAField:SetValue("")
+    end
+    if self.fogHeightBField then
+        self.fogHeightBField:SetValue("")
+    end
     if self.driverPanel then
         self.driverPanel:ClearChildren()
     end
@@ -301,6 +329,16 @@ function StillObjectInspector:RefreshLooks(object, asset)
         }
         picker:SetHex(current or "#FFFFFF")
         self.lookPanel:AddChild(Shared.FieldRow(field.label, picker))
+    end
+    local wall = StillModelCatalog.GetSlot(asset, "wall")
+    if wall and wall.shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG
+        and self.fogHeightAField and self.fogHeightBField then
+        local heightA = tonumber(StillModelCatalog.ResolveParam(asset, overrides, "slots.wall.fogHeightA")) or 8.0
+        local heightB = tonumber(StillModelCatalog.ResolveParam(asset, overrides, "slots.wall.fogHeightB")) or 0.0
+        self.fogHeightAField:SetValue(string.format("%.2f", heightA))
+        self.fogHeightBField:SetValue(string.format("%.2f", heightB))
+        self.lookPanel:AddChild(Shared.FieldRow("雾起始", self.fogHeightAField))
+        self.lookPanel:AddChild(Shared.FieldRow("雾终止", self.fogHeightBField))
     end
 end
 

@@ -17,6 +17,7 @@ local WHITEBOX_COLORS = {
 LookApplier.SHADER_TRI_PRISM_LOOK = "tri_prism_look"
 LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG = "tri_prism_look_height_fog"
 LookApplier.SHADER_STILL_OBJECT_BASE = "still_object_base"
+LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG = "still_object_mesh_tint_fog"
 LookApplier.SHADER_STILL_OBJECT_UNLIT = "still_object_unlit"
 LookApplier.SHADER_STILL_OBJECT_UNLIT_SOLID = "still_object_unlit_solid"
 LookApplier.SHADER_STENCIL_ID_RT_MASK = "stencil_id_rt_mask"
@@ -27,6 +28,7 @@ LookApplier.SHADER_PATHS = {
     [LookApplier.SHADER_TRI_PRISM_LOOK] = "Shaders/BLGL/TriPrismLook.shader",
     [LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG] = "Shaders/BLGL/TriPrismLookHeightFog.shader",
     [LookApplier.SHADER_STILL_OBJECT_BASE] = "Shaders/BLGL/still_object_base.shader",
+    [LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG] = "Shaders/BLGL/still_object_mesh_tint_fog.shader",
     [LookApplier.SHADER_STILL_OBJECT_UNLIT] = "Shaders/BLGL/still_object_unlit.shader",
     [LookApplier.SHADER_STILL_OBJECT_UNLIT_SOLID] = "Shaders/BLGL/still_object_unlit_solid.shader",
     [LookApplier.SHADER_STENCIL_ID_RT_MASK] = "Shaders/BLGL/StencilIdRtMask.shader",
@@ -346,6 +348,38 @@ function LookApplier.CreateStillObjectBaseMaterial(look)
         axis.x,
         axis.y,
         axis.z
+    ))
+    return material
+end
+
+function LookApplier.CreateStillObjectMeshTintFogMaterial(look)
+    look = look or {}
+    local shaderPath = LookApplier.SHADER_PATHS[LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG]
+    local material = Material:new()
+    if not material:SetSurfaceShader(shaderPath) then
+        print("LookApplier: failed to load " .. shaderPath)
+        return LookApplier.CreateWhiteboxMaterial(1)
+    end
+    local axis = look.lightAxis or { x = 0.35, y = 1.0, z = 0.25 }
+    local fogUp = look.fogUp or { x = 0.0, y = 1.0, z = 0.0 }
+    material:SetShaderParameter("color_neg", Variant(HexToColor(look.colorNeg, Color(1.0, 1.0, 1.0, 1))))
+    material:SetShaderParameter("color_mid", Variant(HexToColor(look.colorMid, Color(1.0, 1.0, 1.0, 1))))
+    material:SetShaderParameter("color_pos", Variant(HexToColor(look.colorPos, Color(1.0, 1.0, 1.0, 1))))
+    material:SetShaderParameter("light_axis", Variant(Vector3(axis.x, axis.y, axis.z)))
+    material:SetShaderParameter("mesh_color", Variant(HexToColor(look.meshColor, Color(1.0, 1.0, 1.0, 1))))
+    material:SetShaderParameter("fog_up", Variant(Vector3(fogUp.x, fogUp.y, fogUp.z)))
+    material:SetShaderParameter("fog_color", Variant(HexToColor(look.fogColor, Color(0.475, 0.761, 0.839, 1))))
+    material:SetShaderParameter("fog_height_a", Variant((tonumber(look.fogHeightA) or 8.0) * 1.0))
+    material:SetShaderParameter("fog_height_b", Variant((tonumber(look.fogHeightB) or 0.0) * 1.0))
+    print(string.format(
+        "LookApplier: still-object mesh tint fog mesh=%s neg=%s mid=%s pos=%s fog=%s a=%.2f b=%.2f",
+        tostring(look.meshColor),
+        tostring(look.colorNeg),
+        tostring(look.colorMid),
+        tostring(look.colorPos),
+        tostring(look.fogColor),
+        tonumber(look.fogHeightA) or 8.0,
+        tonumber(look.fogHeightB) or 0.0
     ))
     return material
 end

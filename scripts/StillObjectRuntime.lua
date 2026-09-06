@@ -100,6 +100,9 @@ local function CreateSlotMaterial(slot, look)
     if slot.shader == LookApplier.SHADER_STILL_OBJECT_UNLIT then
         return LookApplier.CreateStillObjectUnlitMaterial(look)
     end
+    if slot.shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG then
+        return LookApplier.CreateStillObjectMeshTintFogMaterial(look)
+    end
     return LookApplier.CreateStillObjectBaseMaterial(look)
 end
 
