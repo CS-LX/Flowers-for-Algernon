@@ -71,19 +71,30 @@ local WORLD_BIT = 2
 local PRISM_DROP = 1.05
 local CLIP_SHADER = "Shaders/BLGL/StencilIdRtClip.shader"
 local FACE_LABEL_FONT = "Fonts/MiSans-Regular.ttf"
-local FACE_CHAPTER_SIZE = 22.0
-local FACE_TITLE_SIZE = 34.0
-local FACE_CHAPTER_SCALE = 0.11
-local FACE_TITLE_SCALE = 0.16
-local FACE_LABEL_LIFT = 0.012
--- 凹刻感：比石面略深，不是海报黑。
-local FACE_CHAPTER_COLOR = Color(0.30, 0.33, 0.35, 0.72)
-local FACE_TITLE_COLOR = Color(0.14, 0.16, 0.18, 0.90)
-local FACE_CHAPTER_Y = 0.14
-local FACE_TITLE_Y = -0.04
-local GLASS_HEIGHT_SCALE = 2.35
-local GLASS_THICKNESS = 0.012
-local GLASS_COLOR = Color(0.78, 0.88, 0.92, 0.14)
+local FACE_TITLE_FONT = "Fonts/MiSans-Bold.ttf"
+local FACE_CHAPTER_SIZE = 40.0
+local FACE_TITLE_SIZE = 48.0
+local FACE_CHAPTER_SCALE = 0.16
+local FACE_TITLE_SCALE = 0.105
+local FACE_LABEL_LIFT = 0.014
+-- 展台铭文：深色独立铭牌承载浅色文字，章名和关卡名各自控制尺度。
+local FACE_CHAPTER_COLOR = Color(0.72, 0.83, 0.79, 1.0)
+local FACE_TITLE_COLOR = Color(0.94, 0.97, 0.93, 1.0)
+local FACE_CHAPTER_Y = 0.105
+local FACE_TITLE_Y = -0.075
+local FACE_ORNAMENT_COLOR = Color(0.82, 0.92, 0.87, 0.9)
+local FACE_ORNAMENT_OFFSET_X = 0.23
+local FACE_ORNAMENT_Y = 0.105
+local FACE_ORNAMENT_SCALE = 0.045
+local FACE_PLAQUE_COLOR = Color(0.20, 0.31, 0.32, 1.0)
+local FACE_PLAQUE_SIZE = Vector3(0.64, 0.32, 0.012)
+local GLASS_SHADER = "Shaders/BLGL/MenuVitrineGlass.shader"
+local GLASS_THICKNESS = 0.008
+local GLASS_CLEARANCE = 0.50
+local GLASS_MIN_HEIGHT = 0.95
+local GLASS_TINT = Color(0.68, 0.82, 0.84, 1.0)
+local GLASS_EDGE_TINT = Color(0.94, 0.99, 0.97, 1.0)
+local PEDESTAL_CENTER_OFFSET_Y = -0.32
 local PREVIEW_HEIGHT = 160
 local PHASE_IDLE = "idle"
 local PHASE_PENDING = "pending"
@@ -562,7 +573,7 @@ function MenuPrism:Build()
     self:LockSkyboxToWorld()
     self:CreateRt()
     self.root = self.scene:CreateChild("MenuPrismRoot")
-    self.restY = -PRISM_DROP
+    self.restY = -PRISM_DROP + PEDESTAL_CENTER_OFFSET_Y
     self.root.position = Vector3(0.0, self.restY, 0.0)
     self.voxelNodes = VoxelRenderer.CreateHexagonOfVoxels(
         self.scene,
@@ -769,29 +780,34 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
     print("MenuPrism: six mask faces ready")
 end
 
-function MenuPrism:CreateFaceText(parent, name, font, fontSize, color, localY, scale)
+function MenuPrism:CreateFaceText(parent, name, fontPath, fontSize, color, localY, scale)
     local node = parent:CreateChild(name)
-    node.position = Vector3(0.0, localY, 0.0)
+    node.position = Vector3(0.0, localY, -0.022)
     node.scale = Vector3(scale, scale, scale)
     local text = node:CreateComponent("Text3D")
-    text:SetFont(font, fontSize)
+    text:SetFont(cache:GetResource("Font", fontPath), fontSize)
     text:SetText("")
     text:SetColor(color)
     text:SetAlignment(HA_CENTER, VA_CENTER)
     text:SetTextAlignment(HA_CENTER)
     text:SetFaceCameraMode(FC_NONE)
     text:SetFixedScreenSize(false)
+    text:SetTextEffect(TE_NONE)
     text.viewMask = WORLD_BIT
     return text
 end
 
 function MenuPrism:CreateGlassMaterial()
     local material = Material:new()
-    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTextureAlpha.xml"))
-    material:SetShaderParameter("MatDiffColor", Variant(GLASS_COLOR))
-    material:SetShaderParameter("MatSpecColor", Variant(Color(0.85, 0.92, 0.96, 1.0)))
-    material:SetShaderParameter("Metallic", Variant(0.04))
-    material:SetShaderParameter("Roughness", Variant(0.06))
+    if not material:SetSurfaceShader(GLASS_SHADER) then
+        print("MenuPrism: failed to load vitrine glass shader")
+        return nil
+    end
+    material:SetShaderParameter("glass_tint", Variant(GLASS_TINT))
+    material:SetShaderParameter("fresnel_tint", Variant(GLASS_EDGE_TINT))
+    material:SetShaderParameter("face_alpha", Variant(0.025))
+    material:SetShaderParameter("fresnel_alpha", Variant(0.18))
+    material:SetShaderParameter("fresnel_power", Variant(3.0))
     return material
 end
 
@@ -806,51 +822,123 @@ function MenuPrism:BindGlassDrawable(node)
     end
 end
 
+function MenuPrism:GetExhibitHeight()
+    local resource = cache:GetResource("Model", "Meshes/StaticDoor.mdl")
+    if not resource then
+        return GLASS_MIN_HEIGHT
+    end
+    local bounds = resource.boundingBox
+    local rotation = Quaternion(90.0, Vector3.RIGHT)
+    local rotated = bounds:Transformed(Matrix3x4(Vector3.ZERO, rotation, 1.0))
+    local height = rotated.max.y - rotated.min.y
+    return math.max(GLASS_MIN_HEIGHT, height * MENU_CHAPTER2_DOOR_SCALE + GLASS_CLEARANCE)
+end
+
+function MenuPrism:CreateGlassShellGeometry(edgeLength, bottomY, topY)
+    local geometry = self.glassRoot:CreateComponent("CustomGeometry")
+    geometry:SetNumGeometries(2)
+    geometry:BeginGeometry(0, TRIANGLE_LIST)
+    local radius = edgeLength
+    local bottom = {}
+    local top = {}
+    for i = 0, 5 do
+        local angle = math.rad(i * 60.0 + SNAP_OFFSET_DEGREES)
+        bottom[i + 1] = Vector3(math.cos(angle) * radius, bottomY, -math.sin(angle) * radius)
+        top[i + 1] = Vector3(math.cos(angle) * radius, topY, -math.sin(angle) * radius)
+    end
+    for i = 1, 6 do
+        local nextIndex = i % 6 + 1
+        local a = bottom[i]
+        local b = bottom[nextIndex]
+        local c = top[nextIndex]
+        local d = top[i]
+        local normal = Vector3(-(b - a).z, 0.0, (b - a).x):Normalized()
+        geometry:DefineVertex(a)
+        geometry:DefineNormal(normal)
+        geometry:DefineColor(Color(1, 1, 1, 1))
+        geometry:DefineTexCoord(Vector2(0, 0))
+        geometry:DefineVertex(b)
+        geometry:DefineNormal(normal)
+        geometry:DefineColor(Color(1, 1, 1, 1))
+        geometry:DefineTexCoord(Vector2(1, 0))
+        geometry:DefineVertex(c)
+        geometry:DefineNormal(normal)
+        geometry:DefineColor(Color(1, 1, 1, 1))
+        geometry:DefineTexCoord(Vector2(1, 1))
+        geometry:DefineVertex(a)
+        geometry:DefineNormal(normal)
+        geometry:DefineColor(Color(1, 1, 1, 1))
+        geometry:DefineTexCoord(Vector2(0, 0))
+        geometry:DefineVertex(c)
+        geometry:DefineNormal(normal)
+        geometry:DefineColor(Color(1, 1, 1, 1))
+        geometry:DefineTexCoord(Vector2(1, 1))
+        geometry:DefineVertex(d)
+        geometry:DefineNormal(normal)
+        geometry:DefineColor(Color(1, 1, 1, 1))
+        geometry:DefineTexCoord(Vector2(0, 1))
+    end
+    local normal = Vector3.UP
+    local center = Vector3(0.0, topY, 0.0)
+    for i = 1, 6 do
+        local nextIndex = i % 6 + 1
+        geometry:DefineVertex(center)
+        geometry:DefineNormal(normal)
+        geometry:DefineColor(Color(1, 1, 1, 1))
+        geometry:DefineTexCoord(Vector2(0.5, 0.5))
+        geometry:DefineVertex(top[i])
+        geometry:DefineNormal(normal)
+        geometry:DefineColor(Color(1, 1, 1, 1))
+        geometry:DefineTexCoord(Vector2(0, 0))
+        geometry:DefineVertex(top[nextIndex])
+        geometry:DefineNormal(normal)
+        geometry:DefineColor(Color(1, 1, 1, 1))
+        geometry:DefineTexCoord(Vector2(1, 1))
+    end
+    geometry:Commit()
+    local material = self:CreateGlassMaterial()
+    if not material then
+        return nil
+    end
+    geometry:SetMaterial(material)
+    geometry.viewMask = WORLD_BIT
+    geometry.castShadows = false
+    return geometry
+end
+
 function MenuPrism:BuildGlassHood(edgeLength, prismHeight)
     if not self.root then
         return
     end
     self.glassRoot = self.root:CreateChild("MenuGlassHood")
-    local glassHeight = prismHeight * GLASS_HEIGHT_SCALE
-    local material = self:CreateGlassMaterial()
-    -- 实体六棱柱外接半径 = edge，边心距 = edge·√3/2。玻璃贴外侧面，不贴顶点。
-    local apothem = edgeLength * math.sqrt(3.0) * 0.5
-    local paneRadius = apothem + GLASS_THICKNESS * 0.5
-    local centerY = prismHeight + glassHeight * 0.5
-    for i = 0, 5 do
-        local yaw = i * 60.0 + SNAP_OFFSET_DEGREES
-        local rad = math.rad(yaw)
-        local node = self.glassRoot:CreateChild("GlassPane_" .. tostring(i + 1))
-        node.position = Vector3(math.sin(rad) * paneRadius, centerY, math.cos(rad) * paneRadius)
-        node.rotation = Quaternion(yaw, Vector3.UP)
-        node.scale = Vector3(edgeLength, glassHeight, GLASS_THICKNESS)
-        local model = node:CreateComponent("StaticModel")
-        model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        model:SetMaterial(material)
-        self:BindGlassDrawable(node)
-    end
-    local lidVoxels = VoxelRenderer.CreateHexagonOfVoxels(
-        self.scene,
-        Vector3(0.0, prismHeight + glassHeight, 0.0),
-        {
-            GLASS_COLOR,
-            GLASS_COLOR,
-            GLASS_COLOR,
-            GLASS_COLOR,
-            GLASS_COLOR,
-            GLASS_COLOR,
-        },
-        {
-            parent = self.glassRoot,
-            edgeLength = edgeLength,
-            height = GLASS_THICKNESS,
-            material = material,
-        }
-    )
-    for _, node in ipairs(lidVoxels) do
-        self:BindGlassDrawable(node)
-    end
-    print(string.format("MenuPrism: glass vitrine flush apothem=%.3f height=%.3f", apothem, glassHeight))
+    local glassHeight = self:GetExhibitHeight()
+    local bottomY = prismHeight - GLASS_THICKNESS * 0.5
+    local topY = bottomY + glassHeight
+    self:CreateGlassShellGeometry(edgeLength, bottomY, topY)
+    print(string.format("MenuPrism: continuous vitrine shell height=%.3f", glassHeight))
+end
+
+function MenuPrism:CreatePlaqueMaterial()
+    local material = Material:new()
+    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml"))
+    material:SetShaderParameter("MatDiffColor", Variant(FACE_PLAQUE_COLOR))
+    return material
+end
+
+function MenuPrism:CreateDiamond(parent, name, x, y)
+    local node = parent:CreateChild(name)
+    node.position = Vector3(x, y, -0.02)
+    node.scale = Vector3(FACE_ORNAMENT_SCALE, FACE_ORNAMENT_SCALE, 0.006)
+    node.rotation = Quaternion(45.0, Vector3.FORWARD)
+    local model = node:CreateComponent("StaticModel")
+    model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+    local material = Material:new()
+    material:SetTechnique(0, cache:GetResource("Technique", "Techniques/NoTextureUnlit.xml"))
+    material:SetShaderParameter("MatDiffColor", Variant(FACE_ORNAMENT_COLOR))
+    model:SetMaterial(material)
+    model.viewMask = WORLD_BIT
+    model.castShadows = false
+    return node
 end
 
 function MenuPrism:BuildFaceLabels(edgeLength)
@@ -866,26 +954,34 @@ function MenuPrism:BuildFaceLabels(edgeLength)
         print("MenuPrism: missing face label font")
         return
     end
-    -- Text3D 必须保留默认字体材质；自定义 shader 会冲掉字形图集，变成方块。
-    -- 三角体外侧面在局部 +X = edge / (2√3)。
+    -- 实体三棱柱外侧面的边心距是 edge/(2√3)，铭牌只贴在面中央。
     local outward = edgeLength / (2.0 * math.sqrt(3.0)) + FACE_LABEL_LIFT
     for i, voxelNode in ipairs(self.voxelNodes) do
-        local labelNode = voxelNode:CreateChild("FaceInscription_" .. tostring(i))
-        labelNode.position = Vector3(outward, 0.0, 0.0)
-        labelNode.rotation = Quaternion(-90.0, Vector3.UP)
+        local plaque = voxelNode:CreateChild("FacePlaque_" .. tostring(i))
+        plaque.position = Vector3(outward, 0.0, 0.0)
+        plaque.rotation = Quaternion(-90.0, Vector3.UP)
+        plaque.scale = Vector3(1.0, 1.0, 1.0)
+        local plate = plaque:CreateComponent("StaticModel")
+        plate:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+        plate:SetMaterial(self:CreatePlaqueMaterial())
+        plate.viewMask = WORLD_BIT
+        plate.castShadows = false
+        plate.node.scale = FACE_PLAQUE_SIZE
+        self:CreateDiamond(plaque, "DiamondLeft", -FACE_ORNAMENT_OFFSET_X, FACE_ORNAMENT_Y)
+        self:CreateDiamond(plaque, "DiamondRight", FACE_ORNAMENT_OFFSET_X, FACE_ORNAMENT_Y)
         local chapter = self:CreateFaceText(
-            labelNode,
+            plaque,
             "Chapter",
-            font,
+            FACE_LABEL_FONT,
             FACE_CHAPTER_SIZE,
             FACE_CHAPTER_COLOR,
             FACE_CHAPTER_Y,
             FACE_CHAPTER_SCALE
         )
         local title = self:CreateFaceText(
-            labelNode,
+            plaque,
             "Title",
-            font,
+            FACE_TITLE_FONT,
             FACE_TITLE_SIZE,
             FACE_TITLE_COLOR,
             FACE_TITLE_Y,
@@ -896,7 +992,7 @@ function MenuPrism:BuildFaceLabels(edgeLength)
         self.faceLabels[#self.faceLabels + 1] = title
         self.labelLocalYaws[#self.labelLocalYaws + 1] = (i - 1) * STEP_DEGREES + 90.0
     end
-    print("MenuPrism: six inscribed plinth labels ready")
+    print("MenuPrism: six plinth plaques ready")
 end
 
 local function ColorFromLook(look, fallback)
