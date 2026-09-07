@@ -58,7 +58,7 @@
       "stencilId": 4,
       "stages": [
         { "name": "真正的路", "sourcePath": "Levels/level-5-1.json", "fogColor": "#000000" },
-        { "name": "花园" },
+        { "name": "花园", "sourcePath": "Levels/level-5-2.json", "fogColor": "#000000" },
         { "name": "余光" }
       ]
     }
