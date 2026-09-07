@@ -33,10 +33,10 @@
       "title": "空城",
       "stencilId": 2,
       "stages": [
-        { "name": "城市入口", "sourcePath": "Levels/level-3-1.json", "fogColor": "#348AA3" },
-        { "name": "空置街区", "sourcePath": "Levels/level-3-2.json", "fogColor": "#348AA3" },
-        { "name": "空城深处", "sourcePath": "Levels/level-3-3.json", "fogColor": "#348AA3" },
-        { "name": "最后的报告", "sourcePath": "Levels/level-3-4.json", "fogColor": "#348AA3" }
+        { "name": "高雾寂城", "sourcePath": "Levels/level-3-1.json", "fogColor": "#348AA3" },
+        { "name": "无声立交", "sourcePath": "Levels/level-3-2.json", "fogColor": "#348AA3" },
+        { "name": "几何荒原", "sourcePath": "Levels/level-3-3.json", "fogColor": "#348AA3" },
+        { "name": "碎路寻真", "sourcePath": "Levels/level-3-4.json", "fogColor": "#348AA3" }
       ]
     },
     {
@@ -45,10 +45,10 @@
       "title": "道路正在消失",
       "stencilId": 3,
       "stages": [
-        { "name": "失效的迷宫", "sourcePath": "Levels/level-4-1.json", "fogColor": "#102121" },
-        { "name": "反向的塔", "sourcePath": "Levels/level-4-2.json", "fogColor": "#102121" },
-        { "name": "回到低处", "sourcePath": "Levels/level-4-3.json", "fogColor": "#102121" },
-        { "name": "空房间", "sourcePath": "Levels/level-4-4.json", "fogColor": "#102121" }
+        { "name": "空室残响", "sourcePath": "Levels/level-4-1.json", "fogColor": "#102121" },
+        { "name": "迟滞之途", "sourcePath": "Levels/level-4-2.json", "fogColor": "#102121" },
+        { "name": "无形之壁", "sourcePath": "Levels/level-4-3.json", "fogColor": "#102121" },
+        { "name": "原点守护", "sourcePath": "Levels/level-4-4.json", "fogColor": "#102121" }
       ]
     },
     {
@@ -57,7 +57,7 @@
       "title": "给阿尔吉侬的花",
       "stencilId": 4,
       "stages": [
-        { "name": "真正的路" },
+        { "name": "真正的路", "sourcePath": "Levels/level-5-1.json", "fogColor": "#000000" },
         { "name": "花园" },
         { "name": "余光" }
       ]

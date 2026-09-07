@@ -120,10 +120,13 @@ local MENU_ALGERNON_YAW = 90.0
 local MENU_DOOR_YAW = -60.0
 local MENU_CHAPTER2_STENCIL_ID = 1
 local MENU_CHAPTER3_STENCIL_ID = 2
+local MENU_CHAPTER4_STENCIL_ID = 3
 local MENU_CHARLIE_MODEL = "Meshes/Player.mdl"
 local MENU_CHARLIE_TARGET_HEIGHT = 0.58
 local MENU_CHARLIE_SCALE = 1.25 * 1.25
-local MENU_CHARLIE_YAW = 90.0
+local MENU_CHARLIE_YAW = 90.0 + 4.0 * 60.0 + 180.0
+local MENU_CHAPTER3_BUILDING_MODEL_ID = "small_building_Rq572hdKEz"
+local MENU_CHAPTER3_BUILDING_SCALE = 0.16 * 3.0 * 1.8
 local MENU_CHARLIE_FACE_YAW = 180.0
 local MENU_CHARLIE_SLOT_COLORS = {
     Color(0.234497, 0.672245, 0.684455, 1.0),
@@ -1247,10 +1250,51 @@ function MenuPrism:AddCharlieExhibit(parent, stencilId)
     end
     local world = node:GetWorldPosition()
     print(string.format(
-        "MenuPrism: chapter 3 Charlie geos=%d fit=%.3f scale=%.3f world=(%.3f, %.3f, %.3f)",
+        "MenuPrism: chapter 4 Charlie geos=%d fit=%.3f scale=%.3f yaw=%.1f world=(%.3f, %.3f, %.3f)",
         geoCount,
         fitScale,
         MENU_CHARLIE_SCALE,
+        MENU_CHARLIE_YAW,
+        world.x,
+        world.y,
+        world.z
+    ))
+    self.exhibitNodes[#self.exhibitNodes + 1] = node
+    return node
+end
+
+function MenuPrism:AddSmallBuildingExhibit(parent, stencilId)
+    local asset = StillModelCatalog.Get(MENU_CHAPTER3_BUILDING_MODEL_ID)
+    local resource = cache:GetResource("Model", "Meshes/SmallBuilding_Rq572hdKEz.mdl")
+    if not asset or not resource then
+        print("MenuPrism: missing chapter 3 building exhibit")
+        return nil
+    end
+    local node = parent:CreateChild("ExhibitSmallBuilding")
+    local drawable = node:CreateComponent("StaticModel")
+    drawable:SetModel(resource)
+    drawable.viewMask = WORLD_BIT
+    drawable.castShadows = false
+    local geoCount = drawable:GetNumGeometries()
+    for _, slot in ipairs(asset.slots) do
+        if slot.index >= 0 and slot.index < geoCount then
+            local look = StillModelCatalog.SlotLook(asset, slot)
+            local meshColor = look.meshColor or look.color or "#8C8C8C"
+            drawable:SetMaterial(slot.index, self:CreateClipMaterial(stencilId, { color = meshColor }))
+        end
+    end
+    local scale = MENU_CHAPTER3_BUILDING_SCALE
+    node.scale = Vector3(scale, scale, scale)
+    local unscaled = resource.boundingBox:Transformed(Matrix3x4(Vector3.ZERO, node.rotation, 1.0))
+    local lift = -unscaled.min.y * scale
+    node.position = Vector3(0.0, lift, 0.0)
+    node.rotation = Quaternion(30.0, Vector3.UP)
+    local world = node:GetWorldPosition()
+    print(string.format(
+        "MenuPrism: chapter 3 SmallBuilding geos=%d scale=%.3f lift=%.3f world=(%.3f, %.3f, %.3f)",
+        geoCount,
+        scale,
+        lift,
         world.x,
         world.y,
         world.z
@@ -1271,16 +1315,8 @@ function MenuPrism:BuildExhibits(prismHeight)
 
     self:AddAlgernonExhibit(self.exhibitRoot, 0)
     self:AddDoorExhibit(self.exhibitRoot, MENU_CHAPTER2_STENCIL_ID)
-    self:AddCharlieExhibit(self.exhibitRoot, MENU_CHAPTER3_STENCIL_ID)
-
-    local prism = self:AddExhibitModel(
-        self.exhibitRoot,
-        "ExhibitTriPrism",
-        CylinderGeometry(0.24, 0.24, 0.42, 3, 1, false):ToModel(),
-        3,
-        { color = "#8064A4" }
-    )
-    prism.position = Vector3(0.0, 0.21, 0.0)
+    self:AddSmallBuildingExhibit(self.exhibitRoot, MENU_CHAPTER3_STENCIL_ID)
+    self:AddCharlieExhibit(self.exhibitRoot, MENU_CHAPTER4_STENCIL_ID)
 
     local sphere = self:AddExhibitModel(
         self.exhibitRoot,
