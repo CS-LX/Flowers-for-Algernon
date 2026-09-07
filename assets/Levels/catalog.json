@@ -46,9 +46,9 @@
       "stencilId": 3,
       "stages": [
         { "name": "失效的迷宫", "sourcePath": "Levels/level-4-1.json", "fogColor": "#102121" },
-        { "name": "反向的塔" },
-        { "name": "回到低处" },
-        { "name": "空房间" }
+        { "name": "反向的塔", "sourcePath": "Levels/level-4-2.json", "fogColor": "#102121" },
+        { "name": "回到低处", "sourcePath": "Levels/level-4-3.json", "fogColor": "#102121" },
+        { "name": "空房间", "sourcePath": "Levels/level-4-4.json", "fogColor": "#102121" }
       ]
     },
     {

@@ -72,8 +72,8 @@ end
 
 function Director2_3:StartAlgernonExplorationCommand(nodeKey)
     return self:StartAlgernonExploration(nodeKey, {
-        minPause = 1.0,
-        maxPause = 4.0,
+        minPause = 0.0,
+        maxPause = 0.5,
         candidateProbability = 0.4,
     })
 end
