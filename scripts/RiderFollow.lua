@@ -87,11 +87,21 @@ function RiderFollow:SyncOnPart(part)
         return false
     end
     local followed = false
-    if self:IsOnPart(self.player, part) and self:FollowWalker(self.player) then
-        followed = true
+    if self:IsOnPart(self.player, part) then
+        if self.player.ClearTopmostHold then
+            self.player:ClearTopmostHold()
+        end
+        if self:FollowWalker(self.player) then
+            followed = true
+        end
     end
-    if self:IsOnPart(self.algernon, part) and self:FollowWalker(self.algernon) then
-        followed = true
+    if self:IsOnPart(self.algernon, part) then
+        if self.algernon.ClearTopmostHold then
+            self.algernon:ClearTopmostHold()
+        end
+        if self:FollowWalker(self.algernon) then
+            followed = true
+        end
     end
     return followed
 end

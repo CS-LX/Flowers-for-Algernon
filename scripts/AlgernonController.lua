@@ -102,6 +102,12 @@ function AlgernonController:GetViewState()
     return self.walker:GetViewState()
 end
 
+function AlgernonController:ClearTopmostHold()
+    if self.walker.ClearTopmostHold then
+        self.walker:ClearTopmostHold()
+    end
+end
+
 function AlgernonController:GetCurrentPartId()
     return self.walker:GetCurrentPartId()
 end

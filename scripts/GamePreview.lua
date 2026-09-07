@@ -408,12 +408,39 @@ function GamePreview:SetCameraLiftOffset(offsetY)
     return true
 end
 
+function GamePreview:NotifyPartMotion(part)
+    if not self.riderFollow or not part then
+        return
+    end
+    if self.riderFollow:IsOnPart(self.player, part) and self.player and self.player.ClearTopmostHold then
+        self.player:ClearTopmostHold()
+    end
+    if self.riderFollow:IsOnPart(self.algernon, part) and self.algernon and self.algernon.ClearTopmostHold then
+        self.algernon:ClearTopmostHold()
+    end
+end
+
+function GamePreview:SetPartVisualYaw(partId, yawDegrees)
+    if not self.partRenderer then
+        return false
+    end
+    local applied = self.partRenderer:SetVisualYaw(partId, yawDegrees)
+    if applied then
+        local part = self.levelDocument:GetPart(partId)
+        self:NotifyPartMotion(part)
+        self:SyncRiders()
+    end
+    return applied
+end
+
 function GamePreview:SetPartVisualPosition(partId, position)
     if not self.partRenderer then
         return false
     end
     local applied = self.partRenderer:SetVisualPosition(partId, position)
     if applied then
+        local part = self.levelDocument:GetPart(partId)
+        self:NotifyPartMotion(part)
         self:SyncRiders()
     end
     return applied
@@ -453,6 +480,7 @@ function GamePreview:ApplyPart(part, refreshPath)
     if not self.partRenderer:ApplyPart(part) then
         return false
     end
+    self:NotifyPartMotion(part)
     if refreshPath ~= false and self.pathRuntime then
         local refreshed, errorMessage = self.pathRuntime:RefreshAfterMechanismSnap()
         if not refreshed then

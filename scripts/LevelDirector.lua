@@ -392,7 +392,13 @@ end
 
 function LevelDirector:SetPartVisualYaw(partId, yawDegrees)
     local preview = self:GetPreview()
-    if not preview or not preview.partRenderer then
+    if not preview then
+        return false
+    end
+    if preview.SetPartVisualYaw then
+        return preview:SetPartVisualYaw(partId, yawDegrees)
+    end
+    if not preview.partRenderer then
         return false
     end
     return preview.partRenderer:SetVisualYaw(partId, yawDegrees)

@@ -45,7 +45,7 @@
       "title": "道路正在消失",
       "stencilId": 3,
       "stages": [
-        { "name": "失效的迷宫" },
+        { "name": "失效的迷宫", "sourcePath": "Levels/level-4-1.json", "fogColor": "#102121" },
         { "name": "反向的塔" },
         { "name": "回到低处" },
         { "name": "空房间" }
