@@ -81,13 +81,32 @@ function Director4_3:StartAlgernonExplorationCommand(nodeKey)
     })
 end
 
-function Director4_3:OnPlayerArrived(nodeKey)
+function Director4_3:BeginObservation()
     if self.stage ~= "playable" or self.observationPlayed then
-        return
+        return false
+    end
+    self.observationPlayed = true
+    self.stage = "observation"
+    self:SetPlayerLocked(true)
+    self:SetInputLocked(true)
+    self:PlayStory(Story.ch4_3_observation, {
+        onComplete = function()
+            self.stage = "playable"
+            self:SetPlayerLocked(false)
+            self:SetInputLocked(false)
+        end,
+    })
+    print("Director4_3: Charlie entered the contact test")
+    return true
+end
+
+function Director4_3:ObserveRotateableEntry()
+    if self.stage ~= "playable" or self.observationPlayed then
+        return false
     end
     local player = self:GetPlayer()
     if not player then
-        return
+        return false
     end
     local currentNodeKey = player:GetCurrentNodeKey()
     local edgeTargetKey = player.GetCurrentEdgeTargetKey
@@ -97,19 +116,13 @@ function Director4_3:OnPlayerArrived(nodeKey)
         or edgeTargetKey == ROTATEABLE_START_KEY
         or player:GetCurrentPartId() == ROTATEABLE_PART_ID
     if enteringRotateable then
-        self.observationPlayed = true
-        self.stage = "observation"
-        self:SetPlayerLocked(true)
-        self:SetInputLocked(true)
-        self:PlayStory(Story.ch4_3_observation, {
-            onComplete = function()
-                self.stage = "playable"
-                self:SetPlayerLocked(false)
-                self:SetInputLocked(false)
-            end,
-        })
-        print("Director4_3: Charlie reached the contact test")
+        return self:BeginObservation()
     end
+    return false
+end
+
+function Director4_3:OnPlayerArrived(nodeKey)
+    self:ObserveRotateableEntry()
 end
 
 function Director4_3:ObservePlayerProgress()
@@ -168,6 +181,7 @@ end
 
 function Director4_3:OnUpdate(timeStep)
     if self.stage == "playable" then
+        self:ObserveRotateableEntry()
         if self.algernonArrivalPending and not self:IsStoryPlaying() then
             self.algernonArrivalPending = false
             self:PlayStory(Story.ch4_3_algernon_finish)
