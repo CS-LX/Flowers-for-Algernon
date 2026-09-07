@@ -1279,8 +1279,23 @@ function MenuPrism:AddSmallBuildingExhibit(parent, stencilId)
     for _, slot in ipairs(asset.slots) do
         if slot.index >= 0 and slot.index < geoCount then
             local look = StillModelCatalog.SlotLook(asset, slot)
-            local meshColor = look.meshColor or look.color or "#8C8C8C"
-            drawable:SetMaterial(slot.index, self:CreateClipMaterial(stencilId, { color = meshColor }))
+            look.fogHeightA = 0.0
+            look.fogHeightB = 0.0
+            look.colorPos = "#FFF7EE"
+            look.colorMid = "#6AADE6"
+            look.colorNeg = "#1A6FBF"
+            look.gradeSaturation = 0.85
+            look.gradeContrast = 0.92
+            look.gradeHaze = 0.0
+            look.gradeValue = 1.04
+            drawable:SetMaterial(
+                slot.index,
+                LookApplier.CreateStillObjectMeshTintClipMaterial(
+                    look,
+                    StencilIdColor.ToColor(stencilId),
+                    self.rtTexture
+                )
+            )
         end
     end
     local scale = MENU_CHAPTER3_BUILDING_SCALE

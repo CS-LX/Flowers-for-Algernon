@@ -18,6 +18,7 @@ LookApplier.SHADER_TRI_PRISM_LOOK = "tri_prism_look"
 LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG = "tri_prism_look_height_fog"
 LookApplier.SHADER_STILL_OBJECT_BASE = "still_object_base"
 LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG = "still_object_mesh_tint_fog"
+LookApplier.SHADER_STILL_OBJECT_MESH_TINT_CLIP = "still_object_mesh_tint_clip"
 LookApplier.SHADER_STILL_OBJECT_UNLIT = "still_object_unlit"
 LookApplier.SHADER_STILL_OBJECT_UNLIT_SOLID = "still_object_unlit_solid"
 LookApplier.SHADER_STENCIL_ID_RT_MASK = "stencil_id_rt_mask"
@@ -29,6 +30,7 @@ LookApplier.SHADER_PATHS = {
     [LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG] = "Shaders/BLGL/TriPrismLookHeightFog.shader",
     [LookApplier.SHADER_STILL_OBJECT_BASE] = "Shaders/BLGL/still_object_base.shader",
     [LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG] = "Shaders/BLGL/still_object_mesh_tint_fog.shader",
+    [LookApplier.SHADER_STILL_OBJECT_MESH_TINT_CLIP] = "Shaders/BLGL/still_object_mesh_tint_clip.shader",
     [LookApplier.SHADER_STILL_OBJECT_UNLIT] = "Shaders/BLGL/still_object_unlit.shader",
     [LookApplier.SHADER_STILL_OBJECT_UNLIT_SOLID] = "Shaders/BLGL/still_object_unlit_solid.shader",
     [LookApplier.SHADER_STENCIL_ID_RT_MASK] = "Shaders/BLGL/StencilIdRtMask.shader",
@@ -385,6 +387,38 @@ function LookApplier.CreateStillObjectMeshTintFogMaterial(look)
         tonumber(look.fogHeightA) or 8.0,
         tonumber(look.fogHeightB) or 0.0
     ))
+    return material
+end
+
+function LookApplier.CreateStillObjectMeshTintClipMaterial(look, stencilColor, maskTexture)
+    look = look or {}
+    local shaderPath = LookApplier.SHADER_PATHS[LookApplier.SHADER_STILL_OBJECT_MESH_TINT_CLIP]
+    local material = Material:new()
+    if not material:SetSurfaceShader(shaderPath) then
+        print("LookApplier: failed to load " .. shaderPath)
+        return LookApplier.CreateStillObjectMeshTintFogMaterial(look)
+    end
+    local axis = look.lightAxis or { x = 0.35, y = 1.0, z = 0.25 }
+    material:SetShaderParameter("color_neg", Variant(HexToColor(look.colorNeg, Color(1.0, 1.0, 1.0, 1))))
+    material:SetShaderParameter("color_mid", Variant(HexToColor(look.colorMid, Color(1.0, 1.0, 1.0, 1))))
+    material:SetShaderParameter("color_pos", Variant(HexToColor(look.colorPos, Color(1.0, 1.0, 1.0, 1))))
+    material:SetShaderParameter("light_axis", Variant(Vector3(axis.x, axis.y, axis.z)))
+    material:SetShaderParameter("mesh_color", Variant(HexToColor(look.meshColor, Color(1.0, 1.0, 1.0, 1))))
+    material:SetShaderParameter("fog_color", Variant(HexToColor(look.fogColor, Color(0.204, 0.541, 0.639, 1))))
+    material:SetShaderParameter("grade_saturation", Variant((tonumber(look.gradeSaturation) or 0.55) * 1.0))
+    material:SetShaderParameter("grade_value", Variant((tonumber(look.gradeValue) or 1.08) * 1.0))
+    material:SetShaderParameter("grade_contrast", Variant((tonumber(look.gradeContrast) or 0.72) * 1.0))
+    material:SetShaderParameter("grade_haze", Variant((tonumber(look.gradeHaze) or 0.22) * 1.0))
+    material:SetShaderParameter("stencil_color", Variant(stencilColor or Color(1.0, 1.0, 1.0, 1.0)))
+    if maskTexture then
+        material:SetSurfaceTexture("mask_rt", maskTexture)
+    end
+    local technique = material:GetTechnique(0)
+    if technique and technique:HasPass("base") then
+        local pass = technique:GetPass("base")
+        pass:SetBlendMode(BLEND_REPLACE)
+        pass:SetDepthWrite(true)
+    end
     return material
 end
 
