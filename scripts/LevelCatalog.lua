@@ -78,6 +78,7 @@ LevelCatalog.LEVEL_4_3_PATH = "Levels/level-4-3.json"
 LevelCatalog.LEVEL_4_4_PATH = "Levels/level-4-4.json"
 LevelCatalog.LEVEL_5_1_PATH = "Levels/level-5-1.json"
 LevelCatalog.LEVEL_5_2_PATH = "Levels/level-5-2.json"
+LevelCatalog.LEVEL_5_3_PATH = "Levels/level-5-3.json"
 
 local function Repeat(t, length)
     if length <= 0 then

@@ -13,6 +13,8 @@ local KNOWN_SIDECARS = {
     "StillModels/Door.json",
     "StillModels/StaticDoor.json",
     "StillModels/Algernon.json",
+    "StillModels/Grave.json",
+    "StillModels/Daisy.json",
     "StillModels/StillCube.json",
     "StillModels/StillCapsule.json",
     "StillModels/StillCylinder.json",
@@ -472,16 +474,25 @@ function StillModelCatalog.SlotLook(asset, slot, overrides)
                 look[field] = value
             end
         end
-        -- 楼宇面色 / 高度雾由墙面槽统一控制，各槽只保留自己的原面色。
-        if slot.shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG and slot.id ~= "wall" then
-            local shared = {
-                "colorNeg", "colorMid", "colorPos", "fogColor", "fogHeightA", "fogHeightB",
-                "gradeSaturation", "gradeValue", "gradeContrast", "gradeHaze",
-            }
-            for _, field in ipairs(shared) do
-                local value = StillModelCatalog.ResolveParam(asset, overrides, "slots.wall." .. field)
-                if value ~= nil then
-                    look[field] = value
+        -- 面色 / 高度雾由第一个 tint 槽统一控制，各槽只保留自己的原面色。
+        if slot.shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG then
+            local sharedSlot = nil
+            for _, candidate in ipairs(asset.slots or {}) do
+                if candidate.shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG then
+                    sharedSlot = candidate
+                    break
+                end
+            end
+            if sharedSlot and sharedSlot.id ~= slot.id then
+                local shared = {
+                    "colorNeg", "colorMid", "colorPos", "fogColor", "fogHeightA", "fogHeightB",
+                    "gradeSaturation", "gradeValue", "gradeContrast", "gradeHaze",
+                }
+                for _, field in ipairs(shared) do
+                    local value = StillModelCatalog.ResolveParam(asset, overrides, "slots." .. sharedSlot.id .. "." .. field)
+                    if value ~= nil then
+                        look[field] = value
+                    end
                 end
             end
         end

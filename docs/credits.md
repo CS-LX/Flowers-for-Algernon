@@ -12,3 +12,9 @@ Grave by Zsky [CC-BY](https://creativecommons.org/licenses/by/3.0/) via [Poly Pi
 
 Toy Mouse by sirkitree [CC-BY](https://creativecommons.org/licenses/by/3.0/) via [Poly Pizza](https://poly.pizza/m/49PYgABKfFo)
 
+## Daisy
+
+Daisy by Zsky [CC-BY](https://creativecommons.org/licenses/by/3.0/) via [Poly Pizza](https://poly.pizza/m/4r0WBz3RZz)
+
+本地源文件：`assets/model/Daisy by Zsky - 4r0WBz3RZz.glb`
+

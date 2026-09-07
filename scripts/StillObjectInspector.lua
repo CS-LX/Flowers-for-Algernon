@@ -104,53 +104,57 @@ function StillObjectInspector:Build()
         onChange = function(_, value) editor:SetSelectedStillModelId(value) end,
     }
     Shared.BindSlowDropdownWheel(self.modelDropdown)
+    self.tintSlotId = "wall"
+    local function TintPath(fieldName)
+        return "slots." .. (self.tintSlotId or "wall") .. "." .. fieldName
+    end
     self.fogHeightAField = UI.TextField {
         value = "8.00",
         placeholder = "起始",
         height = 26,
         fontSize = 10,
-        onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.fogHeightA", value) end,
-        onBlur = function(field) editor:SetSelectedStillParam("slots.wall.fogHeightA", field:GetValue()) end,
+        onSubmit = function(_, value) editor:SetSelectedStillParam(TintPath("fogHeightA"), value) end,
+        onBlur = function(field) editor:SetSelectedStillParam(TintPath("fogHeightA"), field:GetValue()) end,
     }
     self.fogHeightBField = UI.TextField {
         value = "0.00",
         placeholder = "终止",
         height = 26,
         fontSize = 10,
-        onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.fogHeightB", value) end,
-        onBlur = function(field) editor:SetSelectedStillParam("slots.wall.fogHeightB", field:GetValue()) end,
+        onSubmit = function(_, value) editor:SetSelectedStillParam(TintPath("fogHeightB"), value) end,
+        onBlur = function(field) editor:SetSelectedStillParam(TintPath("fogHeightB"), field:GetValue()) end,
     }
     self.gradeSaturationField = UI.TextField {
         value = "0.55",
         placeholder = "饱和",
         height = 26,
         fontSize = 10,
-        onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.gradeSaturation", value) end,
-        onBlur = function(field) editor:SetSelectedStillParam("slots.wall.gradeSaturation", field:GetValue()) end,
+        onSubmit = function(_, value) editor:SetSelectedStillParam(TintPath("gradeSaturation"), value) end,
+        onBlur = function(field) editor:SetSelectedStillParam(TintPath("gradeSaturation"), field:GetValue()) end,
     }
     self.gradeValueField = UI.TextField {
         value = "1.08",
         placeholder = "明度",
         height = 26,
         fontSize = 10,
-        onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.gradeValue", value) end,
-        onBlur = function(field) editor:SetSelectedStillParam("slots.wall.gradeValue", field:GetValue()) end,
+        onSubmit = function(_, value) editor:SetSelectedStillParam(TintPath("gradeValue"), value) end,
+        onBlur = function(field) editor:SetSelectedStillParam(TintPath("gradeValue"), field:GetValue()) end,
     }
     self.gradeContrastField = UI.TextField {
         value = "0.72",
         placeholder = "对比",
         height = 26,
         fontSize = 10,
-        onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.gradeContrast", value) end,
-        onBlur = function(field) editor:SetSelectedStillParam("slots.wall.gradeContrast", field:GetValue()) end,
+        onSubmit = function(_, value) editor:SetSelectedStillParam(TintPath("gradeContrast"), value) end,
+        onBlur = function(field) editor:SetSelectedStillParam(TintPath("gradeContrast"), field:GetValue()) end,
     }
     self.gradeHazeField = UI.TextField {
         value = "0.22",
         placeholder = "霾",
         height = 26,
         fontSize = 10,
-        onSubmit = function(_, value) editor:SetSelectedStillParam("slots.wall.gradeHaze", value) end,
-        onBlur = function(field) editor:SetSelectedStillParam("slots.wall.gradeHaze", field:GetValue()) end,
+        onSubmit = function(_, value) editor:SetSelectedStillParam(TintPath("gradeHaze"), value) end,
+        onBlur = function(field) editor:SetSelectedStillParam(TintPath("gradeHaze"), field:GetValue()) end,
     }
     self.lookPanel = UI.Panel {
         width = "100%",
@@ -370,11 +374,18 @@ function StillObjectInspector:RefreshLooks(object, asset)
         picker:SetHex(current or "#FFFFFF")
         self.lookPanel:AddChild(Shared.FieldRow(field.label, picker))
     end
-    local wall = StillModelCatalog.GetSlot(asset, "wall")
-    if wall and wall.shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG
-        and self.fogHeightAField and self.fogHeightBField then
-        local heightA = tonumber(StillModelCatalog.ResolveParam(asset, overrides, "slots.wall.fogHeightA")) or 8.0
-        local heightB = tonumber(StillModelCatalog.ResolveParam(asset, overrides, "slots.wall.fogHeightB")) or 0.0
+    local tintSlot = nil
+    for _, slot in ipairs(asset.slots or {}) do
+        if slot.shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG then
+            tintSlot = slot
+            break
+        end
+    end
+    self.tintSlotId = tintSlot and tintSlot.id or "wall"
+    if tintSlot and self.fogHeightAField and self.fogHeightBField then
+        local prefix = "slots." .. tintSlot.id .. "."
+        local heightA = tonumber(StillModelCatalog.ResolveParam(asset, overrides, prefix .. "fogHeightA")) or 8.0
+        local heightB = tonumber(StillModelCatalog.ResolveParam(asset, overrides, prefix .. "fogHeightB")) or 0.0
         self.fogHeightAField:SetValue(string.format("%.2f", heightA))
         self.fogHeightBField:SetValue(string.format("%.2f", heightB))
         self.lookPanel:AddChild(Shared.FieldRow("雾起始", self.fogHeightAField))
@@ -383,19 +394,19 @@ function StillObjectInspector:RefreshLooks(object, asset)
             return tonumber(StillModelCatalog.ResolveParam(asset, overrides, path)) or fallback
         end
         if self.gradeSaturationField then
-            self.gradeSaturationField:SetValue(string.format("%.2f", GradeValue("slots.wall.gradeSaturation", 0.55)))
+            self.gradeSaturationField:SetValue(string.format("%.2f", GradeValue(prefix .. "gradeSaturation", 0.55)))
             self.lookPanel:AddChild(Shared.FieldRow("饱和", self.gradeSaturationField))
         end
         if self.gradeValueField then
-            self.gradeValueField:SetValue(string.format("%.2f", GradeValue("slots.wall.gradeValue", 1.08)))
+            self.gradeValueField:SetValue(string.format("%.2f", GradeValue(prefix .. "gradeValue", 1.08)))
             self.lookPanel:AddChild(Shared.FieldRow("明度", self.gradeValueField))
         end
         if self.gradeContrastField then
-            self.gradeContrastField:SetValue(string.format("%.2f", GradeValue("slots.wall.gradeContrast", 0.72)))
+            self.gradeContrastField:SetValue(string.format("%.2f", GradeValue(prefix .. "gradeContrast", 0.72)))
             self.lookPanel:AddChild(Shared.FieldRow("对比", self.gradeContrastField))
         end
         if self.gradeHazeField then
-            self.gradeHazeField:SetValue(string.format("%.2f", GradeValue("slots.wall.gradeHaze", 0.22)))
+            self.gradeHazeField:SetValue(string.format("%.2f", GradeValue(prefix .. "gradeHaze", 0.22)))
             self.lookPanel:AddChild(Shared.FieldRow("霾", self.gradeHazeField))
         end
     end
