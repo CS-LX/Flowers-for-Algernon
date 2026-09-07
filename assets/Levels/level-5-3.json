@@ -1,2213 +1,1902 @@
 {
-  "atmosphere": {
-    "fog": {
-      "heightFog": false,
-      "density": 0,
-      "start": 1000,
-      "color": "#000000",
-      "finish": 2000
-    },
-    "bloom": {
-      "enabled": false,
-      "intensity": 0.15,
-      "threshold": 1.1
-    },
-    "tonemap": "none",
-    "vignette": {
-      "intensity": 0.08,
-      "enabled": false
-    },
-    "lightGroup": "LightGroup/Daytime.xml"
-  },
   "spawnNodeKey": "part_part_20:node_part_part_20_17",
-  "format": "tri-prism-monument-level",
   "stillObjects": [
     {
-      "parentId": "part_staticpath_8_1",
-      "modelPath": "Meshes/Grave.mdl",
-      "name": "Grave",
-      "kind": "stillObject",
-      "params": {
-        "slots.stone.gradeHaze": "0.00",
-        "slots.stone.colorNeg": "#342D19",
-        "slots.stone.gradeSaturation": "1",
-        "slots.stone.gradeValue": "1",
-        "slots.stone.colorMid": "#A28B58",
-        "slots.stone.fogColor": "#000000",
-        "slots.stone.fogHeightA": "0.00",
-        "slots.stone.fogHeightB": "0.00",
-        "slots.stone.gradeContrast": "1"
-      },
-      "modelId": "grave",
-      "id": "still_part",
       "transform": {
-        "scale": {
-          "y": 0.4,
-          "z": 0.4,
-          "x": 0.4
-        },
         "rotation": {
-          "y": 30,
           "z": 0,
-          "x": 0
+          "x": 0,
+          "y": 30
+        },
+        "scale": {
+          "z": 0.4,
+          "x": 0.4,
+          "y": 0.4
         },
         "position": {
-          "y": 0.8,
           "z": 0,
-          "x": 0
+          "x": 0,
+          "y": 0.8
         }
       },
+      "id": "still_part",
+      "parentId": "part_staticpath_8_1",
       "paramStore": {
         "grave": {
-          "slots.stone.gradeHaze": "0.00",
-          "slots.stone.colorNeg": "#342D19",
           "slots.stone.gradeSaturation": "1",
-          "slots.stone.gradeValue": "1",
+          "slots.stone.fogHeightB": "0.00",
+          "slots.stone.colorNeg": "#342D19",
           "slots.stone.colorMid": "#A28B58",
-          "slots.stone.fogColor": "#000000",
           "slots.stone.gradeContrast": "1",
+          "slots.stone.gradeHaze": "0.00",
           "slots.stone.fogHeightA": "0.00",
-          "slots.stone.fogHeightB": "0.00"
+          "slots.stone.gradeValue": "1",
+          "slots.stone.fogColor": "#000000"
         }
-      }
-    },
-    {
-      "parentId": null,
-      "modelPath": "Meshes/Daisy.mdl",
-      "name": "Daisy",
+      },
+      "modelId": "grave",
       "kind": "stillObject",
       "params": {
-        "slots.stem.colorNeg": "#FFFFFF",
-        "slots.stem.colorMid": "#FFFFFF",
-        "slots.stem.colorPos": "#FFFFFF",
-        "slots.stem.fogColor": "#000000",
-        "slots.stem.fogHeightA": "0.40",
-        "slots.stem.fogHeightB": "0.10",
-        "slots.stem.gradeSaturation": "1.00",
-        "slots.stem.gradeValue": "0.60",
-        "slots.stem.gradeContrast": "1.00",
-        "slots.stem.gradeHaze": "0.00"
+        "slots.stone.gradeSaturation": "1",
+        "slots.stone.fogHeightB": "0.00",
+        "slots.stone.colorNeg": "#342D19",
+        "slots.stone.colorMid": "#A28B58",
+        "slots.stone.fogColor": "#000000",
+        "slots.stone.gradeHaze": "0.00",
+        "slots.stone.fogHeightA": "0.00",
+        "slots.stone.gradeValue": "1",
+        "slots.stone.gradeContrast": "1"
+      },
+      "name": "Grave",
+      "modelPath": "Meshes/Grave.mdl"
+    },
+    {
+      "paramStore": {
+        "daisy": {
+          "slots.stem.gradeContrast": "1.00",
+          "slots.stem.gradeHaze": "0.00",
+          "slots.stem.colorMid": "#FFFFFF",
+          "slots.stem.fogColor": "#000000",
+          "slots.stem.fogHeightB": "0.10",
+          "slots.stem.colorNeg": "#FFFFFF",
+          "slots.stem.gradeSaturation": "1.00",
+          "slots.stem.gradeValue": "0.60",
+          "slots.stem.colorPos": "#FFFFFF",
+          "slots.stem.fogHeightA": "0.40"
+        }
       },
       "modelId": "daisy",
       "id": "still_daisy",
-      "transform": {
-        "position": {
-          "x": 3.8,
-          "y": 0,
-          "z": 0.1
-        },
-        "rotation": {
-          "x": 0,
-          "y": 67,
-          "z": 0
-        },
-        "scale": {
-          "x": 0.6,
-          "y": 0.6,
-          "z": 0.6
-        }
-      },
-      "paramStore": {
-        "daisy": {
-          "slots.stem.colorNeg": "#FFFFFF",
-          "slots.stem.colorMid": "#FFFFFF",
-          "slots.stem.colorPos": "#FFFFFF",
-          "slots.stem.fogColor": "#000000",
-          "slots.stem.fogHeightA": "0.40",
-          "slots.stem.fogHeightB": "0.10",
-          "slots.stem.gradeSaturation": "1.00",
-          "slots.stem.gradeValue": "0.60",
-          "slots.stem.gradeContrast": "1.00",
-          "slots.stem.gradeHaze": "0.00"
-        }
-      }
-    },
-    {
-      "parentId": null,
-      "modelPath": "Meshes/Daisy.mdl",
-      "name": "Daisy (1)",
-      "kind": "stillObject",
       "params": {
-        "slots.stem.colorNeg": "#FFFFFF",
+        "slots.stem.gradeContrast": "1.00",
+        "slots.stem.gradeHaze": "0.00",
         "slots.stem.colorMid": "#FFFFFF",
-        "slots.stem.colorPos": "#FFFFFF",
         "slots.stem.fogColor": "#000000",
-        "slots.stem.fogHeightA": "0.40",
         "slots.stem.fogHeightB": "0.10",
+        "slots.stem.colorNeg": "#FFFFFF",
         "slots.stem.gradeSaturation": "1.00",
         "slots.stem.gradeValue": "0.60",
-        "slots.stem.gradeContrast": "1.00",
-        "slots.stem.gradeHaze": "0.00"
+        "slots.stem.colorPos": "#FFFFFF",
+        "slots.stem.fogHeightA": "0.40"
+      },
+      "kind": "stillObject",
+      "transform": {
+        "rotation": {
+          "z": 0,
+          "x": 0,
+          "y": 38
+        },
+        "scale": {
+          "z": 0.6,
+          "x": 0.6,
+          "y": 0.6
+        },
+        "position": {
+          "z": -3.9,
+          "x": -3.9,
+          "y": 0
+        }
+      },
+      "modelPath": "Meshes/Daisy.mdl",
+      "name": "Daisy"
+    },
+    {
+      "paramStore": {
+        "daisy": {
+          "slots.stem.gradeContrast": "1.00",
+          "slots.stem.gradeHaze": "0.00",
+          "slots.stem.colorMid": "#FFFFFF",
+          "slots.stem.fogColor": "#000000",
+          "slots.stem.fogHeightB": "0.10",
+          "slots.stem.colorNeg": "#FFFFFF",
+          "slots.stem.gradeSaturation": "1.00",
+          "slots.stem.gradeValue": "0.60",
+          "slots.stem.colorPos": "#FFFFFF",
+          "slots.stem.fogHeightA": "0.40"
+        }
       },
       "modelId": "daisy",
       "id": "still_daisy_2",
-      "transform": {
-        "position": {
-          "x": 3.1,
-          "y": 0,
-          "z": -2.4
-        },
-        "rotation": {
-          "x": 0,
-          "y": 124,
-          "z": 0
-        },
-        "scale": {
-          "x": 0.6,
-          "y": 0.6,
-          "z": 0.6
-        }
-      },
-      "paramStore": {
-        "daisy": {
-          "slots.stem.colorNeg": "#FFFFFF",
-          "slots.stem.colorMid": "#FFFFFF",
-          "slots.stem.colorPos": "#FFFFFF",
-          "slots.stem.fogColor": "#000000",
-          "slots.stem.fogHeightA": "0.40",
-          "slots.stem.fogHeightB": "0.10",
-          "slots.stem.gradeSaturation": "1.00",
-          "slots.stem.gradeValue": "0.60",
-          "slots.stem.gradeContrast": "1.00",
-          "slots.stem.gradeHaze": "0.00"
-        }
-      }
-    },
-    {
-      "parentId": null,
-      "modelPath": "Meshes/Daisy.mdl",
-      "name": "Daisy (2)",
-      "kind": "stillObject",
       "params": {
-        "slots.stem.colorNeg": "#FFFFFF",
+        "slots.stem.gradeContrast": "1.00",
+        "slots.stem.gradeHaze": "0.00",
         "slots.stem.colorMid": "#FFFFFF",
-        "slots.stem.colorPos": "#FFFFFF",
         "slots.stem.fogColor": "#000000",
-        "slots.stem.fogHeightA": "0.40",
         "slots.stem.fogHeightB": "0.10",
+        "slots.stem.colorNeg": "#FFFFFF",
         "slots.stem.gradeSaturation": "1.00",
         "slots.stem.gradeValue": "0.60",
-        "slots.stem.gradeContrast": "1.00",
-        "slots.stem.gradeHaze": "0.00"
+        "slots.stem.colorPos": "#FFFFFF",
+        "slots.stem.fogHeightA": "0.40"
+      },
+      "kind": "stillObject",
+      "transform": {
+        "rotation": {
+          "z": 0,
+          "x": 0,
+          "y": 112
+        },
+        "scale": {
+          "z": 0.6,
+          "x": 0.6,
+          "y": 0.6
+        },
+        "position": {
+          "z": -5.6,
+          "x": -3.1,
+          "y": 0
+        }
+      },
+      "modelPath": "Meshes/Daisy.mdl",
+      "name": "Daisy (1)"
+    },
+    {
+      "paramStore": {
+        "daisy": {
+          "slots.stem.gradeContrast": "1.00",
+          "slots.stem.gradeHaze": "0.00",
+          "slots.stem.colorMid": "#FFFFFF",
+          "slots.stem.fogColor": "#000000",
+          "slots.stem.fogHeightB": "0.10",
+          "slots.stem.colorNeg": "#FFFFFF",
+          "slots.stem.gradeSaturation": "1.00",
+          "slots.stem.gradeValue": "0.60",
+          "slots.stem.colorPos": "#FFFFFF",
+          "slots.stem.fogHeightA": "0.40"
+        }
       },
       "modelId": "daisy",
       "id": "still_daisy_3",
-      "transform": {
-        "position": {
-          "x": 2.4,
-          "y": 0,
-          "z": -4.6
-        },
-        "rotation": {
-          "x": 0,
-          "y": 201,
-          "z": 0
-        },
-        "scale": {
-          "x": 0.6,
-          "y": 0.6,
-          "z": 0.6
-        }
-      },
-      "paramStore": {
-        "daisy": {
-          "slots.stem.colorNeg": "#FFFFFF",
-          "slots.stem.colorMid": "#FFFFFF",
-          "slots.stem.colorPos": "#FFFFFF",
-          "slots.stem.fogColor": "#000000",
-          "slots.stem.fogHeightA": "0.40",
-          "slots.stem.fogHeightB": "0.10",
-          "slots.stem.gradeSaturation": "1.00",
-          "slots.stem.gradeValue": "0.60",
-          "slots.stem.gradeContrast": "1.00",
-          "slots.stem.gradeHaze": "0.00"
-        }
-      }
-    },
-    {
-      "parentId": null,
-      "modelPath": "Meshes/Daisy.mdl",
-      "name": "Daisy (3)",
-      "kind": "stillObject",
       "params": {
-        "slots.stem.colorNeg": "#FFFFFF",
+        "slots.stem.gradeContrast": "1.00",
+        "slots.stem.gradeHaze": "0.00",
         "slots.stem.colorMid": "#FFFFFF",
-        "slots.stem.colorPos": "#FFFFFF",
         "slots.stem.fogColor": "#000000",
-        "slots.stem.fogHeightA": "0.40",
         "slots.stem.fogHeightB": "0.10",
+        "slots.stem.colorNeg": "#FFFFFF",
         "slots.stem.gradeSaturation": "1.00",
         "slots.stem.gradeValue": "0.60",
-        "slots.stem.gradeContrast": "1.00",
-        "slots.stem.gradeHaze": "0.00"
+        "slots.stem.colorPos": "#FFFFFF",
+        "slots.stem.fogHeightA": "0.40"
+      },
+      "kind": "stillObject",
+      "transform": {
+        "rotation": {
+          "z": 0,
+          "x": 0,
+          "y": 201
+        },
+        "scale": {
+          "z": 0.6,
+          "x": 0.6,
+          "y": 0.6
+        },
+        "position": {
+          "z": -5.8,
+          "x": -1.2,
+          "y": 0
+        }
+      },
+      "modelPath": "Meshes/Daisy.mdl",
+      "name": "Daisy (2)"
+    },
+    {
+      "paramStore": {
+        "daisy": {
+          "slots.stem.gradeContrast": "1.00",
+          "slots.stem.gradeHaze": "0.00",
+          "slots.stem.colorMid": "#FFFFFF",
+          "slots.stem.fogColor": "#000000",
+          "slots.stem.fogHeightB": "0.10",
+          "slots.stem.colorNeg": "#FFFFFF",
+          "slots.stem.gradeSaturation": "1.00",
+          "slots.stem.gradeValue": "0.60",
+          "slots.stem.colorPos": "#FFFFFF",
+          "slots.stem.fogHeightA": "0.40"
+        }
       },
       "modelId": "daisy",
       "id": "still_daisy_4",
-      "transform": {
-        "position": {
-          "x": 0.6,
-          "y": 0,
-          "z": -4.8
-        },
-        "rotation": {
-          "x": 0,
-          "y": 255,
-          "z": 0
-        },
-        "scale": {
-          "x": 0.6,
-          "y": 0.6,
-          "z": 0.6
-        }
-      },
-      "paramStore": {
-        "daisy": {
-          "slots.stem.colorNeg": "#FFFFFF",
-          "slots.stem.colorMid": "#FFFFFF",
-          "slots.stem.colorPos": "#FFFFFF",
-          "slots.stem.fogColor": "#000000",
-          "slots.stem.fogHeightA": "0.40",
-          "slots.stem.fogHeightB": "0.10",
-          "slots.stem.gradeSaturation": "1.00",
-          "slots.stem.gradeValue": "0.60",
-          "slots.stem.gradeContrast": "1.00",
-          "slots.stem.gradeHaze": "0.00"
-        }
-      }
-    },
-    {
-      "parentId": null,
-      "modelPath": "Meshes/Daisy.mdl",
-      "name": "Daisy (4)",
-      "kind": "stillObject",
       "params": {
-        "slots.stem.colorNeg": "#FFFFFF",
+        "slots.stem.gradeContrast": "1.00",
+        "slots.stem.gradeHaze": "0.00",
         "slots.stem.colorMid": "#FFFFFF",
-        "slots.stem.colorPos": "#FFFFFF",
         "slots.stem.fogColor": "#000000",
-        "slots.stem.fogHeightA": "0.40",
         "slots.stem.fogHeightB": "0.10",
+        "slots.stem.colorNeg": "#FFFFFF",
         "slots.stem.gradeSaturation": "1.00",
         "slots.stem.gradeValue": "0.60",
-        "slots.stem.gradeContrast": "1.00",
-        "slots.stem.gradeHaze": "0.00"
+        "slots.stem.colorPos": "#FFFFFF",
+        "slots.stem.fogHeightA": "0.40"
       },
-      "modelId": "daisy",
-      "id": "still_daisy_5",
+      "kind": "stillObject",
       "transform": {
-        "position": {
-          "x": -3.6,
-          "y": 0,
-          "z": -4.9
-        },
         "rotation": {
+          "z": 0,
           "x": 0,
-          "y": 41,
-          "z": 0
+          "y": 287
         },
         "scale": {
+          "z": 0.6,
           "x": 0.6,
-          "y": 0.6,
-          "z": 0.6
+          "y": 0.6
+        },
+        "position": {
+          "z": -5.1,
+          "x": 0.7,
+          "y": 0
         }
       },
-      "paramStore": {
-        "daisy": {
-          "slots.stem.colorNeg": "#FFFFFF",
-          "slots.stem.colorMid": "#FFFFFF",
-          "slots.stem.colorPos": "#FFFFFF",
-          "slots.stem.fogColor": "#000000",
-          "slots.stem.fogHeightA": "0.40",
-          "slots.stem.fogHeightB": "0.10",
-          "slots.stem.gradeSaturation": "1.00",
-          "slots.stem.gradeValue": "0.60",
-          "slots.stem.gradeContrast": "1.00",
-          "slots.stem.gradeHaze": "0.00"
-        }
-      }
+      "modelPath": "Meshes/Daisy.mdl",
+      "name": "Daisy (3)"
     },
     {
-      "parentId": null,
-      "modelPath": "Meshes/Daisy.mdl",
-      "name": "Daisy (5)",
-      "kind": "stillObject",
-      "params": {
-        "slots.stem.colorNeg": "#FFFFFF",
-        "slots.stem.colorMid": "#FFFFFF",
-        "slots.stem.colorPos": "#FFFFFF",
-        "slots.stem.fogColor": "#000000",
-        "slots.stem.fogHeightA": "0.40",
-        "slots.stem.fogHeightB": "0.10",
-        "slots.stem.gradeSaturation": "1.00",
-        "slots.stem.gradeValue": "0.60",
-        "slots.stem.gradeContrast": "1.00",
-        "slots.stem.gradeHaze": "0.00"
+      "paramStore": {
+        "daisy": {
+          "slots.stem.gradeContrast": "1.00",
+          "slots.stem.gradeHaze": "0.00",
+          "slots.stem.colorMid": "#FFFFFF",
+          "slots.stem.fogColor": "#000000",
+          "slots.stem.fogHeightB": "0.10",
+          "slots.stem.colorNeg": "#FFFFFF",
+          "slots.stem.gradeSaturation": "1.00",
+          "slots.stem.gradeValue": "0.60",
+          "slots.stem.colorPos": "#FFFFFF",
+          "slots.stem.fogHeightA": "0.40"
+        }
       },
       "modelId": "daisy",
-      "id": "still_daisy_6",
+      "id": "still_daisy_4_2",
+      "params": {
+        "slots.stem.gradeContrast": "1.00",
+        "slots.stem.gradeHaze": "0.00",
+        "slots.stem.colorMid": "#FFFFFF",
+        "slots.stem.fogColor": "#000000",
+        "slots.stem.fogHeightB": "0.10",
+        "slots.stem.colorNeg": "#FFFFFF",
+        "slots.stem.gradeSaturation": "1.00",
+        "slots.stem.gradeValue": "0.60",
+        "slots.stem.colorPos": "#FFFFFF",
+        "slots.stem.fogHeightA": "0.40"
+      },
+      "kind": "stillObject",
       "transform": {
-        "position": {
-          "x": -3.9,
-          "y": 0,
-          "z": -1.6
-        },
         "rotation": {
+          "z": 0,
           "x": 0,
-          "y": 98,
-          "z": 0
+          "y": 287
         },
         "scale": {
+          "z": 0.6,
           "x": 0.6,
-          "y": 0.6,
-          "z": 0.6
-        }
-      },
-      "paramStore": {
-        "daisy": {
-          "slots.stem.colorNeg": "#FFFFFF",
-          "slots.stem.colorMid": "#FFFFFF",
-          "slots.stem.colorPos": "#FFFFFF",
-          "slots.stem.fogColor": "#000000",
-          "slots.stem.fogHeightA": "0.40",
-          "slots.stem.fogHeightB": "0.10",
-          "slots.stem.gradeSaturation": "1.00",
-          "slots.stem.gradeValue": "0.60",
-          "slots.stem.gradeContrast": "1.00",
-          "slots.stem.gradeHaze": "0.00"
-        }
-      }
-    },
-    {
-      "parentId": null,
-      "modelPath": "Meshes/Daisy.mdl",
-      "name": "Daisy (6)",
-      "kind": "stillObject",
-      "params": {
-        "slots.stem.colorNeg": "#FFFFFF",
-        "slots.stem.colorMid": "#FFFFFF",
-        "slots.stem.colorPos": "#FFFFFF",
-        "slots.stem.fogColor": "#000000",
-        "slots.stem.fogHeightA": "0.40",
-        "slots.stem.fogHeightB": "0.10",
-        "slots.stem.gradeSaturation": "1.00",
-        "slots.stem.gradeValue": "0.60",
-        "slots.stem.gradeContrast": "1.00",
-        "slots.stem.gradeHaze": "0.00"
-      },
-      "modelId": "daisy",
-      "id": "still_daisy_7",
-      "transform": {
+          "y": 0.6
+        },
         "position": {
+          "z": -2.020725965499878,
           "x": -3.5,
-          "y": 0,
-          "z": 1.1
-        },
-        "rotation": {
-          "x": 0,
-          "y": 156,
-          "z": 0
-        },
-        "scale": {
-          "x": 0.6,
-          "y": 0.6,
-          "z": 0.6
+          "y": 0
         }
       },
-      "paramStore": {
-        "daisy": {
-          "slots.stem.colorNeg": "#FFFFFF",
-          "slots.stem.colorMid": "#FFFFFF",
-          "slots.stem.colorPos": "#FFFFFF",
-          "slots.stem.fogColor": "#000000",
-          "slots.stem.fogHeightA": "0.40",
-          "slots.stem.fogHeightB": "0.10",
-          "slots.stem.gradeSaturation": "1.00",
-          "slots.stem.gradeValue": "0.60",
-          "slots.stem.gradeContrast": "1.00",
-          "slots.stem.gradeHaze": "0.00"
-        }
-      }
-    },
-    {
-      "parentId": null,
       "modelPath": "Meshes/Daisy.mdl",
-      "name": "Daisy (7)",
-      "kind": "stillObject",
-      "params": {
-        "slots.stem.colorNeg": "#FFFFFF",
-        "slots.stem.colorMid": "#FFFFFF",
-        "slots.stem.colorPos": "#FFFFFF",
-        "slots.stem.fogColor": "#000000",
-        "slots.stem.fogHeightA": "0.40",
-        "slots.stem.fogHeightB": "0.10",
-        "slots.stem.gradeSaturation": "1.00",
-        "slots.stem.gradeValue": "0.60",
-        "slots.stem.gradeContrast": "1.00",
-        "slots.stem.gradeHaze": "0.00"
-      },
-      "modelId": "daisy",
-      "id": "still_daisy_8",
-      "transform": {
-        "position": {
-          "x": -2.6,
-          "y": 0,
-          "z": 3.3
-        },
-        "rotation": {
-          "x": 0,
-          "y": 212,
-          "z": 0
-        },
-        "scale": {
-          "x": 0.6,
-          "y": 0.6,
-          "z": 0.6
-        }
-      },
-      "paramStore": {
-        "daisy": {
-          "slots.stem.colorNeg": "#FFFFFF",
-          "slots.stem.colorMid": "#FFFFFF",
-          "slots.stem.colorPos": "#FFFFFF",
-          "slots.stem.fogColor": "#000000",
-          "slots.stem.fogHeightA": "0.40",
-          "slots.stem.fogHeightB": "0.10",
-          "slots.stem.gradeSaturation": "1.00",
-          "slots.stem.gradeValue": "0.60",
-          "slots.stem.gradeContrast": "1.00",
-          "slots.stem.gradeHaze": "0.00"
-        }
-      }
-    },
-    {
-      "parentId": null,
-      "modelPath": "Meshes/Daisy.mdl",
-      "name": "Daisy (8)",
-      "kind": "stillObject",
-      "params": {
-        "slots.stem.colorNeg": "#FFFFFF",
-        "slots.stem.colorMid": "#FFFFFF",
-        "slots.stem.colorPos": "#FFFFFF",
-        "slots.stem.fogColor": "#000000",
-        "slots.stem.fogHeightA": "0.40",
-        "slots.stem.fogHeightB": "0.10",
-        "slots.stem.gradeSaturation": "1.00",
-        "slots.stem.gradeValue": "0.60",
-        "slots.stem.gradeContrast": "1.00",
-        "slots.stem.gradeHaze": "0.00"
-      },
-      "modelId": "daisy",
-      "id": "still_daisy_9",
-      "transform": {
-        "position": {
-          "x": -4.4,
-          "y": 0,
-          "z": 3.6
-        },
-        "rotation": {
-          "x": 0,
-          "y": 72,
-          "z": 0
-        },
-        "scale": {
-          "x": 0.6,
-          "y": 0.6,
-          "z": 0.6
-        }
-      },
-      "paramStore": {
-        "daisy": {
-          "slots.stem.colorNeg": "#FFFFFF",
-          "slots.stem.colorMid": "#FFFFFF",
-          "slots.stem.colorPos": "#FFFFFF",
-          "slots.stem.fogColor": "#000000",
-          "slots.stem.fogHeightA": "0.40",
-          "slots.stem.fogHeightB": "0.10",
-          "slots.stem.gradeSaturation": "1.00",
-          "slots.stem.gradeValue": "0.60",
-          "slots.stem.gradeContrast": "1.00",
-          "slots.stem.gradeHaze": "0.00"
-        }
-      }
-    },
-    {
-      "parentId": null,
-      "modelPath": "Meshes/Daisy.mdl",
-      "name": "Daisy (9)",
-      "kind": "stillObject",
-      "params": {
-        "slots.stem.colorNeg": "#FFFFFF",
-        "slots.stem.colorMid": "#FFFFFF",
-        "slots.stem.colorPos": "#FFFFFF",
-        "slots.stem.fogColor": "#000000",
-        "slots.stem.fogHeightA": "0.40",
-        "slots.stem.fogHeightB": "0.10",
-        "slots.stem.gradeSaturation": "1.00",
-        "slots.stem.gradeValue": "0.60",
-        "slots.stem.gradeContrast": "1.00",
-        "slots.stem.gradeHaze": "0.00"
-      },
-      "modelId": "daisy",
-      "id": "still_daisy_10",
-      "transform": {
-        "position": {
-          "x": 4.6,
-          "y": 0,
-          "z": 3.8
-        },
-        "rotation": {
-          "x": 0,
-          "y": 28,
-          "z": 0
-        },
-        "scale": {
-          "x": 0.6,
-          "y": 0.6,
-          "z": 0.6
-        }
-      },
-      "paramStore": {
-        "daisy": {
-          "slots.stem.colorNeg": "#FFFFFF",
-          "slots.stem.colorMid": "#FFFFFF",
-          "slots.stem.colorPos": "#FFFFFF",
-          "slots.stem.fogColor": "#000000",
-          "slots.stem.fogHeightA": "0.40",
-          "slots.stem.fogHeightB": "0.10",
-          "slots.stem.gradeSaturation": "1.00",
-          "slots.stem.gradeValue": "0.60",
-          "slots.stem.gradeContrast": "1.00",
-          "slots.stem.gradeHaze": "0.00"
-        }
-      }
-    },
-    {
-      "parentId": null,
-      "modelPath": "Meshes/Daisy.mdl",
-      "name": "Daisy (10)",
-      "kind": "stillObject",
-      "params": {
-        "slots.stem.colorNeg": "#FFFFFF",
-        "slots.stem.colorMid": "#FFFFFF",
-        "slots.stem.colorPos": "#FFFFFF",
-        "slots.stem.fogColor": "#000000",
-        "slots.stem.fogHeightA": "0.40",
-        "slots.stem.fogHeightB": "0.10",
-        "slots.stem.gradeSaturation": "1.00",
-        "slots.stem.gradeValue": "0.60",
-        "slots.stem.gradeContrast": "1.00",
-        "slots.stem.gradeHaze": "0.00"
-      },
-      "modelId": "daisy",
-      "id": "still_daisy_11",
-      "transform": {
-        "position": {
-          "x": 5.2,
-          "y": 0,
-          "z": 1.8
-        },
-        "rotation": {
-          "x": 0,
-          "y": 310,
-          "z": 0
-        },
-        "scale": {
-          "x": 0.6,
-          "y": 0.6,
-          "z": 0.6
-        }
-      },
-      "paramStore": {
-        "daisy": {
-          "slots.stem.colorNeg": "#FFFFFF",
-          "slots.stem.colorMid": "#FFFFFF",
-          "slots.stem.colorPos": "#FFFFFF",
-          "slots.stem.fogColor": "#000000",
-          "slots.stem.fogHeightA": "0.40",
-          "slots.stem.fogHeightB": "0.10",
-          "slots.stem.gradeSaturation": "1.00",
-          "slots.stem.gradeValue": "0.60",
-          "slots.stem.gradeContrast": "1.00",
-          "slots.stem.gradeHaze": "0.00"
-        }
-      }
+      "name": "Daisy (4)"
     }
   ],
+  "version": 1,
+  "inlineParts": true,
+  "fixedCamera": {
+    "nearClip": 0.1,
+    "farClip": 100,
+    "orthoSize": 12,
+    "pitch": 30,
+    "target": {
+      "z": -1.85,
+      "x": -0.75,
+      "y": 1.2
+    }
+  },
   "pathCandidates": [
     {
-      "to": {
-        "partId": "part_staticpath_1_1",
-        "nodeId": "node_part_staticpath_1_1_1"
-      },
-      "kind": "visual_candidate",
-      "direction": "bidirectional",
       "id": "candidate_1",
-      "from": {
-        "partId": "part_part_20",
-        "nodeId": "node_part_part_20_6"
+      "direction": "bidirectional",
+      "kind": "visual_candidate",
+      "enabled": true,
+      "to": {
+        "nodeId": "node_part_staticpath_1_1_1",
+        "partId": "part_staticpath_1_1"
       },
-      "enabled": true
+      "from": {
+        "nodeId": "node_part_part_20_6",
+        "partId": "part_part_20"
+      }
     },
     {
-      "to": {
-        "partId": "part_staticpath_2_1",
-        "nodeId": "node_part_staticpath_2_1_1"
-      },
-      "kind": "visual_candidate",
-      "direction": "bidirectional",
       "id": "candidate_2",
-      "from": {
-        "partId": "part_staticpath_1_1",
-        "nodeId": "node_part_staticpath_1_1_1"
+      "direction": "bidirectional",
+      "kind": "visual_candidate",
+      "enabled": true,
+      "to": {
+        "nodeId": "node_part_staticpath_2_1_1",
+        "partId": "part_staticpath_2_1"
       },
-      "enabled": true
+      "from": {
+        "nodeId": "node_part_staticpath_1_1_1",
+        "partId": "part_staticpath_1_1"
+      }
     },
     {
-      "to": {
-        "partId": "part_staticpath_3_1",
-        "nodeId": "node_part_staticpath_3_1_1"
-      },
-      "kind": "visual_candidate",
-      "direction": "bidirectional",
       "id": "candidate_3",
-      "from": {
-        "partId": "part_staticpath_2_1",
-        "nodeId": "node_part_staticpath_2_1_1"
+      "direction": "bidirectional",
+      "kind": "visual_candidate",
+      "enabled": true,
+      "to": {
+        "nodeId": "node_part_staticpath_3_1_1",
+        "partId": "part_staticpath_3_1"
       },
-      "enabled": true
+      "from": {
+        "nodeId": "node_part_staticpath_2_1_1",
+        "partId": "part_staticpath_2_1"
+      }
     },
     {
-      "to": {
-        "partId": "part_staticpath_4_1",
-        "nodeId": "node_part_staticpath_4_1_1"
-      },
-      "kind": "visual_candidate",
-      "direction": "bidirectional",
       "id": "candidate_4",
-      "from": {
-        "partId": "part_staticpath_3_1",
-        "nodeId": "node_part_staticpath_3_1_1"
+      "direction": "bidirectional",
+      "kind": "visual_candidate",
+      "enabled": true,
+      "to": {
+        "nodeId": "node_part_staticpath_4_1_1",
+        "partId": "part_staticpath_4_1"
       },
-      "enabled": true
+      "from": {
+        "nodeId": "node_part_staticpath_3_1_1",
+        "partId": "part_staticpath_3_1"
+      }
     },
     {
-      "to": {
-        "partId": "part_staticpath_5_1",
-        "nodeId": "node_part_staticpath_5_1_1"
-      },
-      "kind": "visual_candidate",
-      "direction": "bidirectional",
       "id": "candidate_5",
-      "from": {
-        "partId": "part_staticpath_4_1",
-        "nodeId": "node_part_staticpath_4_1_1"
+      "direction": "bidirectional",
+      "kind": "visual_candidate",
+      "enabled": true,
+      "to": {
+        "nodeId": "node_part_staticpath_5_1_1",
+        "partId": "part_staticpath_5_1"
       },
-      "enabled": true
+      "from": {
+        "nodeId": "node_part_staticpath_4_1_1",
+        "partId": "part_staticpath_4_1"
+      }
     },
     {
-      "to": {
-        "partId": "part_staticpath_6_1",
-        "nodeId": "node_part_staticpath_6_1_1"
-      },
-      "kind": "visual_candidate",
-      "direction": "bidirectional",
       "id": "candidate_6",
-      "from": {
-        "partId": "part_staticpath_5_1",
-        "nodeId": "node_part_staticpath_5_1_1"
+      "direction": "bidirectional",
+      "kind": "visual_candidate",
+      "enabled": true,
+      "to": {
+        "nodeId": "node_part_staticpath_6_1_1",
+        "partId": "part_staticpath_6_1"
       },
-      "enabled": true
+      "from": {
+        "nodeId": "node_part_staticpath_5_1_1",
+        "partId": "part_staticpath_5_1"
+      }
     },
     {
-      "to": {
-        "partId": "part_staticpath_6_1",
-        "nodeId": "node_part_staticpath_6_1_1"
-      },
-      "kind": "visual_candidate",
-      "direction": "bidirectional",
       "id": "candidate_7",
-      "from": {
-        "partId": "part_staticpath_7_1",
-        "nodeId": "node_part_staticpath_7_1_1"
+      "direction": "bidirectional",
+      "kind": "visual_candidate",
+      "enabled": true,
+      "to": {
+        "nodeId": "node_part_staticpath_6_1_1",
+        "partId": "part_staticpath_6_1"
       },
-      "enabled": true
+      "from": {
+        "nodeId": "node_part_staticpath_7_1_1",
+        "partId": "part_staticpath_7_1"
+      }
     }
   ],
-  "inlineParts": true,
-  "version": 1,
+  "format": "tri-prism-monument-level",
+  "atmosphere": {
+    "lightGroup": "LightGroup/Daytime.xml",
+    "tonemap": "none",
+    "fog": {
+      "finish": 2000,
+      "start": 1000,
+      "heightFog": false,
+      "color": "#000000",
+      "density": 0
+    },
+    "bloom": {
+      "intensity": 0.15,
+      "threshold": 1.1,
+      "enabled": false
+    },
+    "vignette": {
+      "intensity": 0.08,
+      "enabled": false
+    }
+  },
   "parts": [
     {
-      "transformCapabilities": {
-        "move": true,
-        "rotate": true,
-        "scale": false
-      },
       "localVoxelPath": "parts/part_part_20.json",
-      "pivot": {
-        "cell": {
-          "layer": 0,
-          "sector": 0,
-          "hexQ": 0,
-          "hexR": 0
-        },
-        "mode": "origin"
-      },
-      "name": "StaticPath_1",
-      "look": {
-        "colorPos": "#FFF7E7",
-        "aoColor": "#2A1F1A",
-        "colorMid": "#50412F",
-        "fogHeightA": -4,
-        "fogHeightB": 4,
-        "emissionColor": "#FFF4D2",
-        "aoBlend": 1,
-        "aoSmooth": 0.18,
-        "emissionStrength": 0.25,
-        "fogUp": {
-          "y": 0,
-          "z": 1,
-          "x": 1
-        },
-        "colorNeg": "#000000",
-        "aoEnabled": true,
-        "shader": "tri_prism_look_height_fog",
-        "fogColor": "#000000",
-        "lightAxis": {
-          "y": 1,
-          "z": 0.25,
-          "x": 0.35
-        }
-      },
       "transform": {
-        "scale": {
-          "y": 1,
-          "z": 1,
-          "x": 1
-        },
         "rotation": {
-          "pitchSteps": 0,
           "yawSteps": 0,
-          "rollSteps": 0
+          "rollSteps": 0,
+          "pitchSteps": 0
+        },
+        "scale": {
+          "z": 1,
+          "x": 1,
+          "y": 1
         },
         "position": {
-          "y": 0,
           "z": -1.7320507764816284,
-          "x": 0
+          "x": 0,
+          "y": 0
         }
-      },
-      "localVoxelDocument": {
-        "format": "tri-prism-voxel-document",
-        "materials": [
-          {
-            "a": 255,
-            "b": 85,
-            "g": 75,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 52,
-            "g": 148,
-            "r": 250
-          },
-          {
-            "a": 255,
-            "b": 55,
-            "g": 222,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 97,
-            "g": 199,
-            "r": 90
-          },
-          {
-            "a": 255,
-            "b": 235,
-            "g": 166,
-            "r": 61
-          },
-          {
-            "a": 255,
-            "b": 224,
-            "g": 97,
-            "r": 158
-          }
-        ],
-        "grid": {
-          "packing": "hexagonal_tiling_six_triangular_sectors",
-          "voxelHeight": 0.5773502691896258,
-          "coordinate": "axial_hex_qr_sector_layer",
-          "edgeLength": 1
-        },
-        "camera": {
-          "orthoSize": 10,
-          "projection": "orthographic",
-          "focusY": 0,
-          "fov": 45,
-          "distance": 15,
-          "pitch": 30,
-          "focusZ": 0,
-          "yaw": 0,
-          "focusX": 0
-        },
-        "version": 2,
-        "cells": [
-          {
-            "material": 1,
-            "hexR": -3,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": 1,
-            "sector": 0
-          },
-          {
-            "material": 1,
-            "hexR": -3,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": 1,
-            "sector": 1
-          },
-          {
-            "material": 1,
-            "hexR": -3,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": 1,
-            "sector": 5
-          },
-          {
-            "material": 1,
-            "hexR": -2,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": 1,
-            "sector": 2
-          },
-          {
-            "material": 1,
-            "hexR": -2,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": 1,
-            "sector": 3
-          },
-          {
-            "material": 1,
-            "hexR": -2,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": 1,
-            "sector": 4
-          },
-          {
-            "material": 1,
-            "hexR": -1,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": 0,
-            "sector": 5
-          }
-        ],
-        "pathNodes": [
-          {
-            "face": "top",
-            "kind": "floor",
-            "voxelCell": {
-              "layer": 0,
-              "sector": 5,
-              "hexQ": 1,
-              "hexR": -3
-            },
-            "id": "node_part_part_20_17",
-            "walkable": true
-          },
-          {
-            "face": "top",
-            "kind": "floor",
-            "voxelCell": {
-              "layer": 0,
-              "sector": 0,
-              "hexQ": 1,
-              "hexR": -3
-            },
-            "id": "node_part_part_20_1",
-            "walkable": true
-          },
-          {
-            "face": "top",
-            "kind": "floor",
-            "voxelCell": {
-              "layer": 0,
-              "sector": 1,
-              "hexQ": 1,
-              "hexR": -3
-            },
-            "id": "node_part_part_20_2",
-            "walkable": true
-          },
-          {
-            "face": "top",
-            "kind": "floor",
-            "voxelCell": {
-              "layer": 0,
-              "sector": 4,
-              "hexQ": 1,
-              "hexR": -2
-            },
-            "id": "node_part_part_20_3",
-            "walkable": true
-          },
-          {
-            "face": "top",
-            "kind": "floor",
-            "voxelCell": {
-              "layer": 0,
-              "sector": 3,
-              "hexQ": 1,
-              "hexR": -2
-            },
-            "id": "node_part_part_20_4",
-            "walkable": true
-          },
-          {
-            "face": "top",
-            "kind": "floor",
-            "voxelCell": {
-              "layer": 0,
-              "sector": 2,
-              "hexQ": 1,
-              "hexR": -2
-            },
-            "id": "node_part_part_20_5",
-            "walkable": true
-          },
-          {
-            "face": "top",
-            "kind": "floor",
-            "voxelCell": {
-              "layer": 0,
-              "sector": 5,
-              "hexQ": 0,
-              "hexR": -1
-            },
-            "id": "node_part_part_20_6",
-            "walkable": true
-          }
-        ]
       },
       "id": "part_part_20",
-      "behaviors": {},
-      "behaviorModes": []
-    },
-    {
-      "transformCapabilities": {
-        "move": true,
-        "rotate": true,
-        "scale": false
-      },
-      "localVoxelPath": "parts/part_staticpath_1_1.json",
-      "pivot": {
-        "cell": {
-          "layer": 0,
-          "sector": 0,
-          "hexQ": 0,
-          "hexR": 0
-        },
-        "mode": "origin"
-      },
-      "name": "StaticPath_2",
       "look": {
-        "colorPos": "#FFF7E7",
-        "aoColor": "#2A1F1A",
         "colorMid": "#50412F",
         "fogHeightA": -4,
-        "fogHeightB": 4,
         "emissionColor": "#FFF4D2",
         "aoBlend": 1,
         "aoSmooth": 0.18,
-        "emissionStrength": 0.25,
+        "shader": "tri_prism_look_height_fog",
+        "colorPos": "#FFF7E7",
         "fogUp": {
-          "y": 0,
           "z": 1,
-          "x": 1
+          "x": 1,
+          "y": 0
         },
         "colorNeg": "#000000",
-        "aoEnabled": true,
-        "shader": "tri_prism_look_height_fog",
-        "fogColor": "#000000",
+        "fogHeightB": 4,
+        "aoColor": "#2A1F1A",
         "lightAxis": {
-          "y": 1,
           "z": 0.25,
-          "x": 0.35
-        }
+          "x": 0.35,
+          "y": 1
+        },
+        "fogColor": "#000000",
+        "aoEnabled": true,
+        "emissionStrength": 0.25
       },
-      "transform": {
-        "scale": {
-          "y": 1,
-          "z": 1,
-          "x": 1
+      "pivot": {
+        "cell": {
+          "hexR": 0,
+          "layer": 0,
+          "sector": 0,
+          "hexQ": 0
         },
-        "rotation": {
-          "pitchSteps": 0,
-          "yawSteps": 0,
-          "rollSteps": 0
-        },
-        "position": {
-          "y": 0,
-          "z": -1.7320507764816284,
-          "x": 0
-        }
+        "mode": "origin"
       },
       "localVoxelDocument": {
-        "format": "tri-prism-voxel-document",
-        "materials": [
-          {
-            "a": 255,
-            "b": 85,
-            "g": 75,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 52,
-            "g": 148,
-            "r": 250
-          },
-          {
-            "a": 255,
-            "b": 55,
-            "g": 222,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 97,
-            "g": 199,
-            "r": 90
-          },
-          {
-            "a": 255,
-            "b": 235,
-            "g": 166,
-            "r": 61
-          },
-          {
-            "a": 255,
-            "b": 224,
-            "g": 97,
-            "r": 158
-          }
-        ],
-        "grid": {
-          "packing": "hexagonal_tiling_six_triangular_sectors",
-          "voxelHeight": 0.5773502691896258,
-          "coordinate": "axial_hex_qr_sector_layer",
-          "edgeLength": 1
-        },
+        "version": 2,
         "camera": {
-          "orthoSize": 10,
-          "projection": "orthographic",
           "focusY": 0,
-          "fov": 45,
-          "distance": 15,
           "pitch": 30,
-          "focusZ": 0,
+          "projection": "orthographic",
           "focusX": 0,
-          "yaw": 0
-        },
-        "version": 2,
-        "cells": [
-          {
-            "material": 1,
-            "hexR": -1,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": 0,
-            "sector": 0
-          }
-        ],
-        "pathNodes": [
-          {
-            "face": "top",
-            "kind": "floor",
-            "voxelCell": {
-              "layer": 0,
-              "sector": 0,
-              "hexQ": 0,
-              "hexR": -1
-            },
-            "id": "node_part_staticpath_1_1_1",
-            "walkable": true
-          }
-        ]
-      },
-      "id": "part_staticpath_1_1",
-      "behaviors": {},
-      "behaviorModes": []
-    },
-    {
-      "transformCapabilities": {
-        "move": true,
-        "rotate": true,
-        "scale": false
-      },
-      "localVoxelPath": "parts/part_staticpath_2_1.json",
-      "pivot": {
-        "cell": {
-          "layer": 0,
-          "sector": 0,
-          "hexQ": 0,
-          "hexR": 0
-        },
-        "mode": "origin"
-      },
-      "name": "StaticPath_3",
-      "look": {
-        "colorPos": "#FFF7E7",
-        "aoColor": "#2A1F1A",
-        "colorMid": "#50412F",
-        "fogHeightA": -4,
-        "fogHeightB": 4,
-        "emissionColor": "#FFF4D2",
-        "aoBlend": 1,
-        "aoSmooth": 0.18,
-        "emissionStrength": 0.25,
-        "fogUp": {
-          "y": 0,
-          "z": 1,
-          "x": 1
-        },
-        "colorNeg": "#000000",
-        "aoEnabled": true,
-        "shader": "tri_prism_look_height_fog",
-        "fogColor": "#000000",
-        "lightAxis": {
-          "y": 1,
-          "z": 0.25,
-          "x": 0.35
-        }
-      },
-      "transform": {
-        "scale": {
-          "y": 1,
-          "z": 1,
-          "x": 1
-        },
-        "rotation": {
-          "pitchSteps": 0,
-          "yawSteps": 0,
-          "rollSteps": 0
-        },
-        "position": {
-          "y": 0,
-          "z": -1.7320507764816284,
-          "x": 0
-        }
-      },
-      "localVoxelDocument": {
-        "format": "tri-prism-voxel-document",
-        "materials": [
-          {
-            "a": 255,
-            "b": 85,
-            "g": 75,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 52,
-            "g": 148,
-            "r": 250
-          },
-          {
-            "a": 255,
-            "b": 55,
-            "g": 222,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 97,
-            "g": 199,
-            "r": 90
-          },
-          {
-            "a": 255,
-            "b": 235,
-            "g": 166,
-            "r": 61
-          },
-          {
-            "a": 255,
-            "b": 224,
-            "g": 97,
-            "r": 158
-          }
-        ],
-        "grid": {
-          "packing": "hexagonal_tiling_six_triangular_sectors",
-          "voxelHeight": 0.5773502691896258,
-          "coordinate": "axial_hex_qr_sector_layer",
-          "edgeLength": 1
-        },
-        "camera": {
           "orthoSize": 10,
-          "projection": "orthographic",
-          "focusY": 0,
-          "fov": 45,
-          "distance": 15,
-          "pitch": 30,
-          "focusZ": 0,
           "yaw": 0,
-          "focusX": 0
-        },
-        "version": 2,
-        "cells": [
-          {
-            "material": 1,
-            "hexR": -1,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": 0,
-            "sector": 1
-          }
-        ],
-        "pathNodes": [
-          {
-            "face": "top",
-            "kind": "floor",
-            "voxelCell": {
-              "layer": 0,
-              "sector": 1,
-              "hexQ": 0,
-              "hexR": -1
-            },
-            "id": "node_part_staticpath_2_1_1",
-            "walkable": true
-          }
-        ]
-      },
-      "id": "part_staticpath_2_1",
-      "behaviors": {},
-      "behaviorModes": []
-    },
-    {
-      "transformCapabilities": {
-        "move": true,
-        "rotate": true,
-        "scale": false
-      },
-      "localVoxelPath": "parts/part_staticpath_3_1.json",
-      "pivot": {
-        "cell": {
-          "layer": 0,
-          "sector": 0,
-          "hexQ": 0,
-          "hexR": 0
-        },
-        "mode": "origin"
-      },
-      "name": "StaticPath_4",
-      "look": {
-        "colorPos": "#FFF7E7",
-        "aoColor": "#2A1F1A",
-        "colorMid": "#50412F",
-        "fogHeightA": -4,
-        "fogHeightB": 4,
-        "emissionColor": "#FFF4D2",
-        "aoBlend": 1,
-        "aoSmooth": 0.18,
-        "emissionStrength": 0.25,
-        "fogUp": {
-          "y": 0,
-          "z": 1,
-          "x": 1
-        },
-        "colorNeg": "#000000",
-        "aoEnabled": true,
-        "shader": "tri_prism_look_height_fog",
-        "fogColor": "#000000",
-        "lightAxis": {
-          "y": 1,
-          "z": 0.25,
-          "x": 0.35
-        }
-      },
-      "transform": {
-        "scale": {
-          "y": 1,
-          "z": 1,
-          "x": 1
-        },
-        "rotation": {
-          "pitchSteps": 0,
-          "yawSteps": 0,
-          "rollSteps": 0
-        },
-        "position": {
-          "y": 0,
-          "z": -1.7320507764816284,
-          "x": 0
-        }
-      },
-      "localVoxelDocument": {
-        "format": "tri-prism-voxel-document",
-        "materials": [
-          {
-            "a": 255,
-            "b": 85,
-            "g": 75,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 52,
-            "g": 148,
-            "r": 250
-          },
-          {
-            "a": 255,
-            "b": 55,
-            "g": 222,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 97,
-            "g": 199,
-            "r": 90
-          },
-          {
-            "a": 255,
-            "b": 235,
-            "g": 166,
-            "r": 61
-          },
-          {
-            "a": 255,
-            "b": 224,
-            "g": 97,
-            "r": 158
-          }
-        ],
-        "grid": {
-          "packing": "hexagonal_tiling_six_triangular_sectors",
-          "voxelHeight": 0.5773502691896258,
-          "coordinate": "axial_hex_qr_sector_layer",
-          "edgeLength": 1
-        },
-        "camera": {
-          "orthoSize": 10,
-          "projection": "orthographic",
-          "focusY": 0,
-          "fov": 45,
           "distance": 15,
-          "pitch": 30,
-          "focusZ": 0,
-          "focusX": 0,
-          "yaw": 0
-        },
-        "version": 2,
-        "cells": [
-          {
-            "material": 1,
-            "hexR": 0,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": 0,
-            "sector": 4
-          }
-        ],
-        "pathNodes": [
-          {
-            "face": "top",
-            "kind": "floor",
-            "voxelCell": {
-              "layer": 0,
-              "sector": 4,
-              "hexQ": 0,
-              "hexR": 0
-            },
-            "id": "node_part_staticpath_3_1_1",
-            "walkable": true
-          }
-        ]
-      },
-      "id": "part_staticpath_3_1",
-      "behaviors": {},
-      "behaviorModes": []
-    },
-    {
-      "transformCapabilities": {
-        "move": true,
-        "rotate": true,
-        "scale": false
-      },
-      "localVoxelPath": "parts/part_staticpath_4_1.json",
-      "pivot": {
-        "cell": {
-          "layer": 0,
-          "sector": 0,
-          "hexQ": 0,
-          "hexR": 0
-        },
-        "mode": "origin"
-      },
-      "name": "StaticPath_5",
-      "look": {
-        "colorPos": "#FFF7E7",
-        "aoColor": "#2A1F1A",
-        "colorMid": "#50412F",
-        "fogHeightA": -4,
-        "fogHeightB": 4,
-        "emissionColor": "#FFF4D2",
-        "aoBlend": 1,
-        "aoSmooth": 0.18,
-        "emissionStrength": 0.25,
-        "fogUp": {
-          "y": 0,
-          "z": 1,
-          "x": 1
-        },
-        "colorNeg": "#000000",
-        "aoEnabled": true,
-        "shader": "tri_prism_look_height_fog",
-        "fogColor": "#000000",
-        "lightAxis": {
-          "y": 1,
-          "z": 0.25,
-          "x": 0.35
-        }
-      },
-      "transform": {
-        "scale": {
-          "y": 1,
-          "z": 1,
-          "x": 1
-        },
-        "rotation": {
-          "pitchSteps": 0,
-          "yawSteps": 0,
-          "rollSteps": 0
-        },
-        "position": {
-          "y": 0,
-          "z": -1.7320507764816284,
-          "x": 0
-        }
-      },
-      "localVoxelDocument": {
-        "format": "tri-prism-voxel-document",
-        "materials": [
-          {
-            "a": 255,
-            "b": 85,
-            "g": 75,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 52,
-            "g": 148,
-            "r": 250
-          },
-          {
-            "a": 255,
-            "b": 55,
-            "g": 222,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 97,
-            "g": 199,
-            "r": 90
-          },
-          {
-            "a": 255,
-            "b": 235,
-            "g": 166,
-            "r": 61
-          },
-          {
-            "a": 255,
-            "b": 224,
-            "g": 97,
-            "r": 158
-          }
-        ],
-        "grid": {
-          "packing": "hexagonal_tiling_six_triangular_sectors",
-          "voxelHeight": 0.5773502691896258,
-          "coordinate": "axial_hex_qr_sector_layer",
-          "edgeLength": 1
-        },
-        "camera": {
-          "orthoSize": 10,
-          "projection": "orthographic",
-          "focusY": 0,
           "fov": 45,
-          "distance": 15,
-          "pitch": 30,
-          "focusZ": 0,
-          "yaw": 0,
-          "focusX": 0
+          "focusZ": 0
         },
-        "version": 2,
-        "cells": [
-          {
-            "material": 1,
-            "hexR": 0,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": 0,
-            "sector": 3
-          }
-        ],
         "pathNodes": [
           {
-            "face": "top",
-            "kind": "floor",
             "voxelCell": {
-              "layer": 0,
-              "sector": 3,
-              "hexQ": 0,
-              "hexR": 0
-            },
-            "id": "node_part_staticpath_4_1_1",
-            "walkable": true
-          }
-        ]
-      },
-      "id": "part_staticpath_4_1",
-      "behaviors": {},
-      "behaviorModes": []
-    },
-    {
-      "transformCapabilities": {
-        "move": true,
-        "rotate": true,
-        "scale": false
-      },
-      "localVoxelPath": "parts/part_staticpath_5_1.json",
-      "pivot": {
-        "cell": {
-          "layer": 0,
-          "sector": 0,
-          "hexQ": 0,
-          "hexR": 0
-        },
-        "mode": "origin"
-      },
-      "name": "StaticPath_6",
-      "look": {
-        "colorPos": "#FFF7E7",
-        "aoColor": "#2A1F1A",
-        "colorMid": "#50412F",
-        "fogHeightA": -4,
-        "fogHeightB": 4,
-        "emissionColor": "#FFF4D2",
-        "aoBlend": 1,
-        "aoSmooth": 0.18,
-        "emissionStrength": 0.25,
-        "fogUp": {
-          "y": 0,
-          "z": 1,
-          "x": 1
-        },
-        "colorNeg": "#000000",
-        "aoEnabled": true,
-        "shader": "tri_prism_look_height_fog",
-        "fogColor": "#000000",
-        "lightAxis": {
-          "y": 1,
-          "z": 0.25,
-          "x": 0.35
-        }
-      },
-      "transform": {
-        "scale": {
-          "y": 1,
-          "z": 1,
-          "x": 1
-        },
-        "rotation": {
-          "pitchSteps": 0,
-          "yawSteps": 0,
-          "rollSteps": 0
-        },
-        "position": {
-          "y": 0,
-          "z": -1.7320507764816284,
-          "x": 0
-        }
-      },
-      "localVoxelDocument": {
-        "format": "tri-prism-voxel-document",
-        "materials": [
-          {
-            "a": 255,
-            "b": 85,
-            "g": 75,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 52,
-            "g": 148,
-            "r": 250
-          },
-          {
-            "a": 255,
-            "b": 55,
-            "g": 222,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 97,
-            "g": 199,
-            "r": 90
-          },
-          {
-            "a": 255,
-            "b": 235,
-            "g": 166,
-            "r": 61
-          },
-          {
-            "a": 255,
-            "b": 224,
-            "g": 97,
-            "r": 158
-          }
-        ],
-        "grid": {
-          "packing": "hexagonal_tiling_six_triangular_sectors",
-          "voxelHeight": 0.5773502691896258,
-          "coordinate": "axial_hex_qr_sector_layer",
-          "edgeLength": 1
-        },
-        "camera": {
-          "orthoSize": 10,
-          "projection": "orthographic",
-          "focusY": 0,
-          "fov": 45,
-          "distance": 15,
-          "pitch": 30,
-          "focusZ": 0,
-          "focusX": 0,
-          "yaw": 0
-        },
-        "version": 2,
-        "cells": [
-          {
-            "material": 1,
-            "hexR": 0,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": 0,
-            "sector": 2
-          }
-        ],
-        "pathNodes": [
-          {
-            "face": "top",
-            "kind": "floor",
-            "voxelCell": {
-              "layer": 0,
-              "sector": 2,
-              "hexQ": 0,
-              "hexR": 0
-            },
-            "id": "node_part_staticpath_5_1_1",
-            "walkable": true
-          }
-        ]
-      },
-      "id": "part_staticpath_5_1",
-      "behaviors": {},
-      "behaviorModes": []
-    },
-    {
-      "transformCapabilities": {
-        "move": true,
-        "rotate": true,
-        "scale": false
-      },
-      "localVoxelPath": "parts/part_staticpath_6_1.json",
-      "pivot": {
-        "cell": {
-          "layer": 0,
-          "sector": 0,
-          "hexQ": 0,
-          "hexR": 0
-        },
-        "mode": "origin"
-      },
-      "name": "StaticPath_7",
-      "look": {
-        "colorPos": "#FFF7E7",
-        "aoColor": "#2A1F1A",
-        "colorMid": "#50412F",
-        "fogHeightA": -4,
-        "fogHeightB": 4,
-        "emissionColor": "#FFF4D2",
-        "aoBlend": 1,
-        "aoSmooth": 0.18,
-        "emissionStrength": 0.25,
-        "fogUp": {
-          "y": 0,
-          "z": 1,
-          "x": 1
-        },
-        "colorNeg": "#000000",
-        "aoEnabled": true,
-        "shader": "tri_prism_look_height_fog",
-        "fogColor": "#000000",
-        "lightAxis": {
-          "y": 1,
-          "z": 0.25,
-          "x": 0.35
-        }
-      },
-      "transform": {
-        "scale": {
-          "y": 1,
-          "z": 1,
-          "x": 1
-        },
-        "rotation": {
-          "pitchSteps": 0,
-          "yawSteps": 0,
-          "rollSteps": 0
-        },
-        "position": {
-          "y": 0,
-          "z": -1.7320507764816284,
-          "x": 0
-        }
-      },
-      "localVoxelDocument": {
-        "format": "tri-prism-voxel-document",
-        "materials": [
-          {
-            "a": 255,
-            "b": 85,
-            "g": 75,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 52,
-            "g": 148,
-            "r": 250
-          },
-          {
-            "a": 255,
-            "b": 55,
-            "g": 222,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 97,
-            "g": 199,
-            "r": 90
-          },
-          {
-            "a": 255,
-            "b": 235,
-            "g": 166,
-            "r": 61
-          },
-          {
-            "a": 255,
-            "b": 224,
-            "g": 97,
-            "r": 158
-          }
-        ],
-        "grid": {
-          "packing": "hexagonal_tiling_six_triangular_sectors",
-          "voxelHeight": 0.5773502691896258,
-          "coordinate": "axial_hex_qr_sector_layer",
-          "edgeLength": 1
-        },
-        "camera": {
-          "orthoSize": 10,
-          "projection": "orthographic",
-          "focusY": 0,
-          "fov": 45,
-          "distance": 15,
-          "pitch": 30,
-          "focusZ": 0,
-          "yaw": 0,
-          "focusX": 0
-        },
-        "version": 2,
-        "cells": [
-          {
-            "material": 1,
-            "hexR": 1,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": -1,
-            "sector": 5
-          }
-        ],
-        "pathNodes": [
-          {
-            "face": "top",
-            "kind": "floor",
-            "voxelCell": {
+              "hexR": -3,
               "layer": 0,
               "sector": 5,
-              "hexQ": -1,
-              "hexR": 1
+              "hexQ": 1
             },
-            "id": "node_part_staticpath_6_1_1",
-            "walkable": true
-          }
-        ]
-      },
-      "id": "part_staticpath_6_1",
-      "behaviors": {},
-      "behaviorModes": []
-    },
-    {
-      "transformCapabilities": {
-        "move": true,
-        "rotate": true,
-        "scale": false
-      },
-      "localVoxelPath": "parts/part_staticpath_7_1.json",
-      "pivot": {
-        "cell": {
-          "layer": 0,
-          "sector": 0,
-          "hexQ": 0,
-          "hexR": 0
-        },
-        "mode": "origin"
-      },
-      "name": "StaticPath_8",
-      "look": {
-        "colorPos": "#FFF7E7",
-        "aoColor": "#2A1F1A",
-        "colorMid": "#50412F",
-        "fogHeightA": -4,
-        "fogHeightB": 4,
-        "emissionColor": "#FFF4D2",
-        "aoBlend": 1,
-        "aoSmooth": 0.18,
-        "emissionStrength": 0.25,
-        "fogUp": {
-          "y": 0,
-          "z": 1,
-          "x": 1
-        },
-        "colorNeg": "#000000",
-        "aoEnabled": true,
-        "shader": "tri_prism_look_height_fog",
-        "fogColor": "#000000",
-        "lightAxis": {
-          "y": 1,
-          "z": 0.25,
-          "x": 0.35
-        }
-      },
-      "transform": {
-        "scale": {
-          "y": 1,
-          "z": 1,
-          "x": 1
-        },
-        "rotation": {
-          "pitchSteps": 0,
-          "yawSteps": 0,
-          "rollSteps": 0
-        },
-        "position": {
-          "y": 0,
-          "z": -1.7320507764816284,
-          "x": 0
-        }
-      },
-      "localVoxelDocument": {
-        "format": "tri-prism-voxel-document",
-        "materials": [
-          {
-            "a": 255,
-            "b": 85,
-            "g": 75,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 52,
-            "g": 148,
-            "r": 250
-          },
-          {
-            "a": 255,
-            "b": 55,
-            "g": 222,
-            "r": 242
-          },
-          {
-            "a": 255,
-            "b": 97,
-            "g": 199,
-            "r": 90
-          },
-          {
-            "a": 255,
-            "b": 235,
-            "g": 166,
-            "r": 61
-          },
-          {
-            "a": 255,
-            "b": 224,
-            "g": 97,
-            "r": 158
-          }
-        ],
-        "grid": {
-          "packing": "hexagonal_tiling_six_triangular_sectors",
-          "voxelHeight": 0.5773502691896258,
-          "coordinate": "axial_hex_qr_sector_layer",
-          "edgeLength": 1
-        },
-        "camera": {
-          "orthoSize": 10,
-          "projection": "orthographic",
-          "focusY": 0,
-          "fov": 45,
-          "distance": 15,
-          "pitch": 30,
-          "focusZ": 0,
-          "focusX": 0,
-          "yaw": 0
-        },
-        "version": 2,
-        "cells": [
-          {
-            "material": 1,
-            "hexR": 1,
-            "rotation": 0,
-            "layer": 0,
-            "hexQ": -1,
-            "sector": 0
-          }
-        ],
-        "pathNodes": [
-          {
-            "face": "top",
+            "id": "node_part_part_20_17",
             "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          },
+          {
             "voxelCell": {
+              "hexR": -3,
               "layer": 0,
               "sector": 0,
-              "hexQ": -1,
-              "hexR": 1
+              "hexQ": 1
             },
-            "id": "node_part_staticpath_7_1_1",
-            "walkable": true
+            "id": "node_part_part_20_1",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          },
+          {
+            "voxelCell": {
+              "hexR": -3,
+              "layer": 0,
+              "sector": 1,
+              "hexQ": 1
+            },
+            "id": "node_part_part_20_2",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          },
+          {
+            "voxelCell": {
+              "hexR": -2,
+              "layer": 0,
+              "sector": 4,
+              "hexQ": 1
+            },
+            "id": "node_part_part_20_3",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          },
+          {
+            "voxelCell": {
+              "hexR": -2,
+              "layer": 0,
+              "sector": 3,
+              "hexQ": 1
+            },
+            "id": "node_part_part_20_4",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          },
+          {
+            "voxelCell": {
+              "hexR": -2,
+              "layer": 0,
+              "sector": 2,
+              "hexQ": 1
+            },
+            "id": "node_part_part_20_5",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          },
+          {
+            "voxelCell": {
+              "hexR": -1,
+              "layer": 0,
+              "sector": 5,
+              "hexQ": 0
+            },
+            "id": "node_part_part_20_6",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
           }
-        ]
-      },
-      "id": "part_staticpath_7_1",
-      "behaviors": {},
-      "behaviorModes": []
-    },
-    {
-      "transformCapabilities": {
-        "move": true,
-        "rotate": true,
-        "scale": false
-      },
-      "localVoxelPath": "parts/part_staticpath_8_1.json",
-      "pivot": {
-        "cell": {
-          "layer": 0,
-          "sector": 0,
-          "hexQ": 0,
-          "hexR": 0
-        },
-        "mode": "origin"
-      },
-      "name": "Tomb",
-      "look": {
-        "colorPos": "#FFF7E7",
-        "aoColor": "#2A1F1A",
-        "colorMid": "#50412F",
-        "fogHeightA": -4,
-        "fogHeightB": 4,
-        "emissionColor": "#FFF4D2",
-        "aoBlend": 1,
-        "aoSmooth": 0.18,
-        "emissionStrength": 0.25,
-        "fogUp": {
-          "y": 0,
-          "z": 1,
-          "x": 1
-        },
-        "colorNeg": "#000000",
-        "aoEnabled": true,
-        "shader": "tri_prism_look_height_fog",
-        "fogColor": "#000000",
-        "lightAxis": {
-          "y": 1,
-          "z": 0.25,
-          "x": 0.35
-        }
-      },
-      "transform": {
-        "scale": {
-          "y": 1,
-          "z": 1,
-          "x": 1
-        },
-        "rotation": {
-          "pitchSteps": 0,
-          "yawSteps": 0,
-          "rollSteps": 0
-        },
-        "position": {
-          "y": 0,
-          "z": -3.464101552963257,
-          "x": -1.5
-        }
-      },
-      "localVoxelDocument": {
+        ],
         "format": "tri-prism-voxel-document",
         "materials": [
           {
-            "a": 255,
             "b": 85,
             "g": 75,
-            "r": 242
+            "r": 242,
+            "a": 255
           },
           {
-            "a": 255,
             "b": 52,
             "g": 148,
-            "r": 250
+            "r": 250,
+            "a": 255
           },
           {
-            "a": 255,
             "b": 55,
             "g": 222,
-            "r": 242
+            "r": 242,
+            "a": 255
           },
           {
-            "a": 255,
             "b": 97,
             "g": 199,
-            "r": 90
+            "r": 90,
+            "a": 255
           },
           {
-            "a": 255,
             "b": 235,
             "g": 166,
-            "r": 61
+            "r": 61,
+            "a": 255
           },
           {
-            "a": 255,
             "b": 224,
             "g": 97,
-            "r": 158
+            "r": 158,
+            "a": 255
           }
         ],
         "grid": {
-          "packing": "hexagonal_tiling_six_triangular_sectors",
           "voxelHeight": 0.5773502691896258,
           "coordinate": "axial_hex_qr_sector_layer",
-          "edgeLength": 1
+          "edgeLength": 1,
+          "packing": "hexagonal_tiling_six_triangular_sectors"
         },
-        "camera": {
-          "orthoSize": 10,
-          "projection": "orthographic",
-          "focusY": 0,
-          "fov": 45,
-          "distance": 15,
-          "pitch": 30,
-          "focusZ": 0,
-          "yaw": 0,
-          "focusX": 0
-        },
-        "version": 2,
         "cells": [
           {
-            "material": 1,
-            "hexR": 0,
             "rotation": 0,
+            "hexQ": 1,
+            "hexR": -3,
             "layer": 0,
-            "hexQ": 0,
+            "material": 1,
             "sector": 0
           },
           {
-            "material": 1,
-            "hexR": 0,
             "rotation": 0,
+            "hexQ": 1,
+            "hexR": -3,
             "layer": 0,
-            "hexQ": 0,
+            "material": 1,
             "sector": 1
           },
           {
-            "material": 1,
-            "hexR": 0,
             "rotation": 0,
+            "hexQ": 1,
+            "hexR": -3,
             "layer": 0,
-            "hexQ": 0,
+            "material": 1,
+            "sector": 5
+          },
+          {
+            "rotation": 0,
+            "hexQ": 1,
+            "hexR": -2,
+            "layer": 0,
+            "material": 1,
             "sector": 2
           },
           {
-            "material": 1,
-            "hexR": 0,
             "rotation": 0,
+            "hexQ": 1,
+            "hexR": -2,
             "layer": 0,
-            "hexQ": 0,
+            "material": 1,
             "sector": 3
           },
           {
-            "material": 1,
-            "hexR": 0,
             "rotation": 0,
+            "hexQ": 1,
+            "hexR": -2,
             "layer": 0,
-            "hexQ": 0,
+            "material": 1,
             "sector": 4
           },
           {
-            "material": 1,
-            "hexR": 0,
             "rotation": 0,
-            "layer": 0,
             "hexQ": 0,
+            "hexR": -1,
+            "layer": 0,
+            "material": 1,
             "sector": 5
           }
+        ]
+      },
+      "behaviorModes": [],
+      "behaviors": {},
+      "transformCapabilities": {
+        "move": true,
+        "rotate": true,
+        "scale": false
+      },
+      "name": "StaticPath_1"
+    },
+    {
+      "localVoxelPath": "parts/part_staticpath_1_1.json",
+      "transform": {
+        "rotation": {
+          "yawSteps": 0,
+          "rollSteps": 0,
+          "pitchSteps": 0
+        },
+        "scale": {
+          "z": 1,
+          "x": 1,
+          "y": 1
+        },
+        "position": {
+          "z": -1.7320507764816284,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "id": "part_staticpath_1_1",
+      "look": {
+        "colorMid": "#50412F",
+        "fogHeightA": -4,
+        "emissionColor": "#FFF4D2",
+        "aoBlend": 1,
+        "aoSmooth": 0.18,
+        "shader": "tri_prism_look_height_fog",
+        "colorPos": "#FFF7E7",
+        "fogUp": {
+          "z": 1,
+          "x": 1,
+          "y": 0
+        },
+        "colorNeg": "#000000",
+        "fogHeightB": 4,
+        "aoColor": "#2A1F1A",
+        "lightAxis": {
+          "z": 0.25,
+          "x": 0.35,
+          "y": 1
+        },
+        "fogColor": "#000000",
+        "aoEnabled": true,
+        "emissionStrength": 0.25
+      },
+      "pivot": {
+        "cell": {
+          "hexR": 0,
+          "layer": 0,
+          "sector": 0,
+          "hexQ": 0
+        },
+        "mode": "origin"
+      },
+      "localVoxelDocument": {
+        "version": 2,
+        "camera": {
+          "focusY": 0,
+          "pitch": 30,
+          "projection": "orthographic",
+          "focusX": 0,
+          "orthoSize": 10,
+          "yaw": 0,
+          "distance": 15,
+          "fov": 45,
+          "focusZ": 0
+        },
+        "pathNodes": [
+          {
+            "voxelCell": {
+              "hexR": -1,
+              "layer": 0,
+              "sector": 0,
+              "hexQ": 0
+            },
+            "id": "node_part_staticpath_1_1_1",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          }
         ],
-        "pathNodes": {}
+        "format": "tri-prism-voxel-document",
+        "materials": [
+          {
+            "b": 85,
+            "g": 75,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 52,
+            "g": 148,
+            "r": 250,
+            "a": 255
+          },
+          {
+            "b": 55,
+            "g": 222,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 97,
+            "g": 199,
+            "r": 90,
+            "a": 255
+          },
+          {
+            "b": 235,
+            "g": 166,
+            "r": 61,
+            "a": 255
+          },
+          {
+            "b": 224,
+            "g": 97,
+            "r": 158,
+            "a": 255
+          }
+        ],
+        "grid": {
+          "voxelHeight": 0.5773502691896258,
+          "coordinate": "axial_hex_qr_sector_layer",
+          "edgeLength": 1,
+          "packing": "hexagonal_tiling_six_triangular_sectors"
+        },
+        "cells": [
+          {
+            "rotation": 0,
+            "hexQ": 0,
+            "hexR": -1,
+            "layer": 0,
+            "material": 1,
+            "sector": 0
+          }
+        ]
+      },
+      "behaviorModes": [],
+      "behaviors": {},
+      "transformCapabilities": {
+        "move": true,
+        "rotate": true,
+        "scale": false
+      },
+      "name": "StaticPath_2"
+    },
+    {
+      "localVoxelPath": "parts/part_staticpath_2_1.json",
+      "transform": {
+        "rotation": {
+          "yawSteps": 0,
+          "rollSteps": 0,
+          "pitchSteps": 0
+        },
+        "scale": {
+          "z": 1,
+          "x": 1,
+          "y": 1
+        },
+        "position": {
+          "z": -1.7320507764816284,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "id": "part_staticpath_2_1",
+      "look": {
+        "colorMid": "#50412F",
+        "fogHeightA": -4,
+        "emissionColor": "#FFF4D2",
+        "aoBlend": 1,
+        "aoSmooth": 0.18,
+        "shader": "tri_prism_look_height_fog",
+        "colorPos": "#FFF7E7",
+        "fogUp": {
+          "z": 1,
+          "x": 1,
+          "y": 0
+        },
+        "colorNeg": "#000000",
+        "fogHeightB": 4,
+        "aoColor": "#2A1F1A",
+        "lightAxis": {
+          "z": 0.25,
+          "x": 0.35,
+          "y": 1
+        },
+        "fogColor": "#000000",
+        "aoEnabled": true,
+        "emissionStrength": 0.25
+      },
+      "pivot": {
+        "cell": {
+          "hexR": 0,
+          "layer": 0,
+          "sector": 0,
+          "hexQ": 0
+        },
+        "mode": "origin"
+      },
+      "localVoxelDocument": {
+        "version": 2,
+        "camera": {
+          "focusY": 0,
+          "pitch": 30,
+          "projection": "orthographic",
+          "focusX": 0,
+          "orthoSize": 10,
+          "yaw": 0,
+          "distance": 15,
+          "fov": 45,
+          "focusZ": 0
+        },
+        "pathNodes": [
+          {
+            "voxelCell": {
+              "hexR": -1,
+              "layer": 0,
+              "sector": 1,
+              "hexQ": 0
+            },
+            "id": "node_part_staticpath_2_1_1",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          }
+        ],
+        "format": "tri-prism-voxel-document",
+        "materials": [
+          {
+            "b": 85,
+            "g": 75,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 52,
+            "g": 148,
+            "r": 250,
+            "a": 255
+          },
+          {
+            "b": 55,
+            "g": 222,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 97,
+            "g": 199,
+            "r": 90,
+            "a": 255
+          },
+          {
+            "b": 235,
+            "g": 166,
+            "r": 61,
+            "a": 255
+          },
+          {
+            "b": 224,
+            "g": 97,
+            "r": 158,
+            "a": 255
+          }
+        ],
+        "grid": {
+          "voxelHeight": 0.5773502691896258,
+          "coordinate": "axial_hex_qr_sector_layer",
+          "edgeLength": 1,
+          "packing": "hexagonal_tiling_six_triangular_sectors"
+        },
+        "cells": [
+          {
+            "rotation": 0,
+            "hexQ": 0,
+            "hexR": -1,
+            "layer": 0,
+            "material": 1,
+            "sector": 1
+          }
+        ]
+      },
+      "behaviorModes": [],
+      "behaviors": {},
+      "transformCapabilities": {
+        "move": true,
+        "rotate": true,
+        "scale": false
+      },
+      "name": "StaticPath_3"
+    },
+    {
+      "localVoxelPath": "parts/part_staticpath_3_1.json",
+      "transform": {
+        "rotation": {
+          "yawSteps": 0,
+          "rollSteps": 0,
+          "pitchSteps": 0
+        },
+        "scale": {
+          "z": 1,
+          "x": 1,
+          "y": 1
+        },
+        "position": {
+          "z": -1.7320507764816284,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "id": "part_staticpath_3_1",
+      "look": {
+        "colorMid": "#50412F",
+        "fogHeightA": -4,
+        "emissionColor": "#FFF4D2",
+        "aoBlend": 1,
+        "aoSmooth": 0.18,
+        "shader": "tri_prism_look_height_fog",
+        "colorPos": "#FFF7E7",
+        "fogUp": {
+          "z": 1,
+          "x": 1,
+          "y": 0
+        },
+        "colorNeg": "#000000",
+        "fogHeightB": 4,
+        "aoColor": "#2A1F1A",
+        "lightAxis": {
+          "z": 0.25,
+          "x": 0.35,
+          "y": 1
+        },
+        "fogColor": "#000000",
+        "aoEnabled": true,
+        "emissionStrength": 0.25
+      },
+      "pivot": {
+        "cell": {
+          "hexR": 0,
+          "layer": 0,
+          "sector": 0,
+          "hexQ": 0
+        },
+        "mode": "origin"
+      },
+      "localVoxelDocument": {
+        "version": 2,
+        "camera": {
+          "focusY": 0,
+          "pitch": 30,
+          "projection": "orthographic",
+          "focusX": 0,
+          "orthoSize": 10,
+          "yaw": 0,
+          "distance": 15,
+          "fov": 45,
+          "focusZ": 0
+        },
+        "pathNodes": [
+          {
+            "voxelCell": {
+              "hexR": 0,
+              "layer": 0,
+              "sector": 4,
+              "hexQ": 0
+            },
+            "id": "node_part_staticpath_3_1_1",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          }
+        ],
+        "format": "tri-prism-voxel-document",
+        "materials": [
+          {
+            "b": 85,
+            "g": 75,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 52,
+            "g": 148,
+            "r": 250,
+            "a": 255
+          },
+          {
+            "b": 55,
+            "g": 222,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 97,
+            "g": 199,
+            "r": 90,
+            "a": 255
+          },
+          {
+            "b": 235,
+            "g": 166,
+            "r": 61,
+            "a": 255
+          },
+          {
+            "b": 224,
+            "g": 97,
+            "r": 158,
+            "a": 255
+          }
+        ],
+        "grid": {
+          "voxelHeight": 0.5773502691896258,
+          "coordinate": "axial_hex_qr_sector_layer",
+          "edgeLength": 1,
+          "packing": "hexagonal_tiling_six_triangular_sectors"
+        },
+        "cells": [
+          {
+            "rotation": 0,
+            "hexQ": 0,
+            "hexR": 0,
+            "layer": 0,
+            "material": 1,
+            "sector": 4
+          }
+        ]
+      },
+      "behaviorModes": [],
+      "behaviors": {},
+      "transformCapabilities": {
+        "move": true,
+        "rotate": true,
+        "scale": false
+      },
+      "name": "StaticPath_4"
+    },
+    {
+      "localVoxelPath": "parts/part_staticpath_4_1.json",
+      "transform": {
+        "rotation": {
+          "yawSteps": 0,
+          "rollSteps": 0,
+          "pitchSteps": 0
+        },
+        "scale": {
+          "z": 1,
+          "x": 1,
+          "y": 1
+        },
+        "position": {
+          "z": -1.7320507764816284,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "id": "part_staticpath_4_1",
+      "look": {
+        "colorMid": "#50412F",
+        "fogHeightA": -4,
+        "emissionColor": "#FFF4D2",
+        "aoBlend": 1,
+        "aoSmooth": 0.18,
+        "shader": "tri_prism_look_height_fog",
+        "colorPos": "#FFF7E7",
+        "fogUp": {
+          "z": 1,
+          "x": 1,
+          "y": 0
+        },
+        "colorNeg": "#000000",
+        "fogHeightB": 4,
+        "aoColor": "#2A1F1A",
+        "lightAxis": {
+          "z": 0.25,
+          "x": 0.35,
+          "y": 1
+        },
+        "fogColor": "#000000",
+        "aoEnabled": true,
+        "emissionStrength": 0.25
+      },
+      "pivot": {
+        "cell": {
+          "hexR": 0,
+          "layer": 0,
+          "sector": 0,
+          "hexQ": 0
+        },
+        "mode": "origin"
+      },
+      "localVoxelDocument": {
+        "version": 2,
+        "camera": {
+          "focusY": 0,
+          "pitch": 30,
+          "projection": "orthographic",
+          "focusX": 0,
+          "orthoSize": 10,
+          "yaw": 0,
+          "distance": 15,
+          "fov": 45,
+          "focusZ": 0
+        },
+        "pathNodes": [
+          {
+            "voxelCell": {
+              "hexR": 0,
+              "layer": 0,
+              "sector": 3,
+              "hexQ": 0
+            },
+            "id": "node_part_staticpath_4_1_1",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          }
+        ],
+        "format": "tri-prism-voxel-document",
+        "materials": [
+          {
+            "b": 85,
+            "g": 75,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 52,
+            "g": 148,
+            "r": 250,
+            "a": 255
+          },
+          {
+            "b": 55,
+            "g": 222,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 97,
+            "g": 199,
+            "r": 90,
+            "a": 255
+          },
+          {
+            "b": 235,
+            "g": 166,
+            "r": 61,
+            "a": 255
+          },
+          {
+            "b": 224,
+            "g": 97,
+            "r": 158,
+            "a": 255
+          }
+        ],
+        "grid": {
+          "voxelHeight": 0.5773502691896258,
+          "coordinate": "axial_hex_qr_sector_layer",
+          "edgeLength": 1,
+          "packing": "hexagonal_tiling_six_triangular_sectors"
+        },
+        "cells": [
+          {
+            "rotation": 0,
+            "hexQ": 0,
+            "hexR": 0,
+            "layer": 0,
+            "material": 1,
+            "sector": 3
+          }
+        ]
+      },
+      "behaviorModes": [],
+      "behaviors": {},
+      "transformCapabilities": {
+        "move": true,
+        "rotate": true,
+        "scale": false
+      },
+      "name": "StaticPath_5"
+    },
+    {
+      "localVoxelPath": "parts/part_staticpath_5_1.json",
+      "transform": {
+        "rotation": {
+          "yawSteps": 0,
+          "rollSteps": 0,
+          "pitchSteps": 0
+        },
+        "scale": {
+          "z": 1,
+          "x": 1,
+          "y": 1
+        },
+        "position": {
+          "z": -1.7320507764816284,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "id": "part_staticpath_5_1",
+      "look": {
+        "colorMid": "#50412F",
+        "fogHeightA": -4,
+        "emissionColor": "#FFF4D2",
+        "aoBlend": 1,
+        "aoSmooth": 0.18,
+        "shader": "tri_prism_look_height_fog",
+        "colorPos": "#FFF7E7",
+        "fogUp": {
+          "z": 1,
+          "x": 1,
+          "y": 0
+        },
+        "colorNeg": "#000000",
+        "fogHeightB": 4,
+        "aoColor": "#2A1F1A",
+        "lightAxis": {
+          "z": 0.25,
+          "x": 0.35,
+          "y": 1
+        },
+        "fogColor": "#000000",
+        "aoEnabled": true,
+        "emissionStrength": 0.25
+      },
+      "pivot": {
+        "cell": {
+          "hexR": 0,
+          "layer": 0,
+          "sector": 0,
+          "hexQ": 0
+        },
+        "mode": "origin"
+      },
+      "localVoxelDocument": {
+        "version": 2,
+        "camera": {
+          "focusY": 0,
+          "pitch": 30,
+          "projection": "orthographic",
+          "focusX": 0,
+          "orthoSize": 10,
+          "yaw": 0,
+          "distance": 15,
+          "fov": 45,
+          "focusZ": 0
+        },
+        "pathNodes": [
+          {
+            "voxelCell": {
+              "hexR": 0,
+              "layer": 0,
+              "sector": 2,
+              "hexQ": 0
+            },
+            "id": "node_part_staticpath_5_1_1",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          }
+        ],
+        "format": "tri-prism-voxel-document",
+        "materials": [
+          {
+            "b": 85,
+            "g": 75,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 52,
+            "g": 148,
+            "r": 250,
+            "a": 255
+          },
+          {
+            "b": 55,
+            "g": 222,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 97,
+            "g": 199,
+            "r": 90,
+            "a": 255
+          },
+          {
+            "b": 235,
+            "g": 166,
+            "r": 61,
+            "a": 255
+          },
+          {
+            "b": 224,
+            "g": 97,
+            "r": 158,
+            "a": 255
+          }
+        ],
+        "grid": {
+          "voxelHeight": 0.5773502691896258,
+          "coordinate": "axial_hex_qr_sector_layer",
+          "edgeLength": 1,
+          "packing": "hexagonal_tiling_six_triangular_sectors"
+        },
+        "cells": [
+          {
+            "rotation": 0,
+            "hexQ": 0,
+            "hexR": 0,
+            "layer": 0,
+            "material": 1,
+            "sector": 2
+          }
+        ]
+      },
+      "behaviorModes": [],
+      "behaviors": {},
+      "transformCapabilities": {
+        "move": true,
+        "rotate": true,
+        "scale": false
+      },
+      "name": "StaticPath_6"
+    },
+    {
+      "localVoxelPath": "parts/part_staticpath_6_1.json",
+      "transform": {
+        "rotation": {
+          "yawSteps": 0,
+          "rollSteps": 0,
+          "pitchSteps": 0
+        },
+        "scale": {
+          "z": 1,
+          "x": 1,
+          "y": 1
+        },
+        "position": {
+          "z": -1.7320507764816284,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "id": "part_staticpath_6_1",
+      "look": {
+        "colorMid": "#50412F",
+        "fogHeightA": -4,
+        "emissionColor": "#FFF4D2",
+        "aoBlend": 1,
+        "aoSmooth": 0.18,
+        "shader": "tri_prism_look_height_fog",
+        "colorPos": "#FFF7E7",
+        "fogUp": {
+          "z": 1,
+          "x": 1,
+          "y": 0
+        },
+        "colorNeg": "#000000",
+        "fogHeightB": 4,
+        "aoColor": "#2A1F1A",
+        "lightAxis": {
+          "z": 0.25,
+          "x": 0.35,
+          "y": 1
+        },
+        "fogColor": "#000000",
+        "aoEnabled": true,
+        "emissionStrength": 0.25
+      },
+      "pivot": {
+        "cell": {
+          "hexR": 0,
+          "layer": 0,
+          "sector": 0,
+          "hexQ": 0
+        },
+        "mode": "origin"
+      },
+      "localVoxelDocument": {
+        "version": 2,
+        "camera": {
+          "focusY": 0,
+          "pitch": 30,
+          "projection": "orthographic",
+          "focusX": 0,
+          "orthoSize": 10,
+          "yaw": 0,
+          "distance": 15,
+          "fov": 45,
+          "focusZ": 0
+        },
+        "pathNodes": [
+          {
+            "voxelCell": {
+              "hexR": 1,
+              "layer": 0,
+              "sector": 5,
+              "hexQ": -1
+            },
+            "id": "node_part_staticpath_6_1_1",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          }
+        ],
+        "format": "tri-prism-voxel-document",
+        "materials": [
+          {
+            "b": 85,
+            "g": 75,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 52,
+            "g": 148,
+            "r": 250,
+            "a": 255
+          },
+          {
+            "b": 55,
+            "g": 222,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 97,
+            "g": 199,
+            "r": 90,
+            "a": 255
+          },
+          {
+            "b": 235,
+            "g": 166,
+            "r": 61,
+            "a": 255
+          },
+          {
+            "b": 224,
+            "g": 97,
+            "r": 158,
+            "a": 255
+          }
+        ],
+        "grid": {
+          "voxelHeight": 0.5773502691896258,
+          "coordinate": "axial_hex_qr_sector_layer",
+          "edgeLength": 1,
+          "packing": "hexagonal_tiling_six_triangular_sectors"
+        },
+        "cells": [
+          {
+            "rotation": 0,
+            "hexQ": -1,
+            "hexR": 1,
+            "layer": 0,
+            "material": 1,
+            "sector": 5
+          }
+        ]
+      },
+      "behaviorModes": [],
+      "behaviors": {},
+      "transformCapabilities": {
+        "move": true,
+        "rotate": true,
+        "scale": false
+      },
+      "name": "StaticPath_7"
+    },
+    {
+      "localVoxelPath": "parts/part_staticpath_7_1.json",
+      "transform": {
+        "rotation": {
+          "yawSteps": 0,
+          "rollSteps": 0,
+          "pitchSteps": 0
+        },
+        "scale": {
+          "z": 1,
+          "x": 1,
+          "y": 1
+        },
+        "position": {
+          "z": -1.7320507764816284,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "id": "part_staticpath_7_1",
+      "look": {
+        "colorMid": "#50412F",
+        "fogHeightA": -4,
+        "emissionColor": "#FFF4D2",
+        "aoBlend": 1,
+        "aoSmooth": 0.18,
+        "shader": "tri_prism_look_height_fog",
+        "colorPos": "#FFF7E7",
+        "fogUp": {
+          "z": 1,
+          "x": 1,
+          "y": 0
+        },
+        "colorNeg": "#000000",
+        "fogHeightB": 4,
+        "aoColor": "#2A1F1A",
+        "lightAxis": {
+          "z": 0.25,
+          "x": 0.35,
+          "y": 1
+        },
+        "fogColor": "#000000",
+        "aoEnabled": true,
+        "emissionStrength": 0.25
+      },
+      "pivot": {
+        "cell": {
+          "hexR": 0,
+          "layer": 0,
+          "sector": 0,
+          "hexQ": 0
+        },
+        "mode": "origin"
+      },
+      "localVoxelDocument": {
+        "version": 2,
+        "camera": {
+          "focusY": 0,
+          "pitch": 30,
+          "projection": "orthographic",
+          "focusX": 0,
+          "orthoSize": 10,
+          "yaw": 0,
+          "distance": 15,
+          "fov": 45,
+          "focusZ": 0
+        },
+        "pathNodes": [
+          {
+            "voxelCell": {
+              "hexR": 1,
+              "layer": 0,
+              "sector": 0,
+              "hexQ": -1
+            },
+            "id": "node_part_staticpath_7_1_1",
+            "kind": "floor",
+            "walkable": true,
+            "face": "top"
+          }
+        ],
+        "format": "tri-prism-voxel-document",
+        "materials": [
+          {
+            "b": 85,
+            "g": 75,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 52,
+            "g": 148,
+            "r": 250,
+            "a": 255
+          },
+          {
+            "b": 55,
+            "g": 222,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 97,
+            "g": 199,
+            "r": 90,
+            "a": 255
+          },
+          {
+            "b": 235,
+            "g": 166,
+            "r": 61,
+            "a": 255
+          },
+          {
+            "b": 224,
+            "g": 97,
+            "r": 158,
+            "a": 255
+          }
+        ],
+        "grid": {
+          "voxelHeight": 0.5773502691896258,
+          "coordinate": "axial_hex_qr_sector_layer",
+          "edgeLength": 1,
+          "packing": "hexagonal_tiling_six_triangular_sectors"
+        },
+        "cells": [
+          {
+            "rotation": 0,
+            "hexQ": -1,
+            "hexR": 1,
+            "layer": 0,
+            "material": 1,
+            "sector": 0
+          }
+        ]
+      },
+      "behaviorModes": [],
+      "behaviors": {},
+      "transformCapabilities": {
+        "move": true,
+        "rotate": true,
+        "scale": false
+      },
+      "name": "StaticPath_8"
+    },
+    {
+      "localVoxelPath": "parts/part_staticpath_8_1.json",
+      "transform": {
+        "rotation": {
+          "yawSteps": 0,
+          "rollSteps": 0,
+          "pitchSteps": 0
+        },
+        "scale": {
+          "z": 1,
+          "x": 1,
+          "y": 1
+        },
+        "position": {
+          "z": -3.464101552963257,
+          "x": -1.5,
+          "y": 0
+        }
       },
       "id": "part_staticpath_8_1",
+      "look": {
+        "colorMid": "#50412F",
+        "fogHeightA": -4,
+        "emissionColor": "#FFF4D2",
+        "aoBlend": 1,
+        "aoSmooth": 0.18,
+        "shader": "tri_prism_look_height_fog",
+        "colorPos": "#FFF7E7",
+        "fogUp": {
+          "z": 1,
+          "x": 1,
+          "y": 0
+        },
+        "colorNeg": "#000000",
+        "fogHeightB": 4,
+        "aoColor": "#2A1F1A",
+        "lightAxis": {
+          "z": 0.25,
+          "x": 0.35,
+          "y": 1
+        },
+        "fogColor": "#000000",
+        "aoEnabled": true,
+        "emissionStrength": 0.25
+      },
+      "pivot": {
+        "cell": {
+          "hexR": 0,
+          "layer": 0,
+          "sector": 0,
+          "hexQ": 0
+        },
+        "mode": "origin"
+      },
+      "localVoxelDocument": {
+        "version": 2,
+        "camera": {
+          "focusY": 0,
+          "pitch": 30,
+          "projection": "orthographic",
+          "focusX": 0,
+          "orthoSize": 10,
+          "yaw": 0,
+          "distance": 15,
+          "fov": 45,
+          "focusZ": 0
+        },
+        "pathNodes": {},
+        "format": "tri-prism-voxel-document",
+        "materials": [
+          {
+            "b": 85,
+            "g": 75,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 52,
+            "g": 148,
+            "r": 250,
+            "a": 255
+          },
+          {
+            "b": 55,
+            "g": 222,
+            "r": 242,
+            "a": 255
+          },
+          {
+            "b": 97,
+            "g": 199,
+            "r": 90,
+            "a": 255
+          },
+          {
+            "b": 235,
+            "g": 166,
+            "r": 61,
+            "a": 255
+          },
+          {
+            "b": 224,
+            "g": 97,
+            "r": 158,
+            "a": 255
+          }
+        ],
+        "grid": {
+          "voxelHeight": 0.5773502691896258,
+          "coordinate": "axial_hex_qr_sector_layer",
+          "edgeLength": 1,
+          "packing": "hexagonal_tiling_six_triangular_sectors"
+        },
+        "cells": [
+          {
+            "rotation": 0,
+            "hexQ": 0,
+            "hexR": 0,
+            "layer": 0,
+            "material": 1,
+            "sector": 0
+          },
+          {
+            "rotation": 0,
+            "hexQ": 0,
+            "hexR": 0,
+            "layer": 0,
+            "material": 1,
+            "sector": 1
+          },
+          {
+            "rotation": 0,
+            "hexQ": 0,
+            "hexR": 0,
+            "layer": 0,
+            "material": 1,
+            "sector": 2
+          },
+          {
+            "rotation": 0,
+            "hexQ": 0,
+            "hexR": 0,
+            "layer": 0,
+            "material": 1,
+            "sector": 3
+          },
+          {
+            "rotation": 0,
+            "hexQ": 0,
+            "hexR": 0,
+            "layer": 0,
+            "material": 1,
+            "sector": 4
+          },
+          {
+            "rotation": 0,
+            "hexQ": 0,
+            "hexR": 0,
+            "layer": 0,
+            "material": 1,
+            "sector": 5
+          }
+        ]
+      },
+      "behaviorModes": [],
       "behaviors": {},
-      "behaviorModes": []
+      "transformCapabilities": {
+        "move": true,
+        "rotate": true,
+        "scale": false
+      },
+      "name": "Tomb"
     }
   ],
-  "fixedCamera": {
-    "pitch": 30,
-    "orthoSize": 12,
-    "target": {
-      "y": 1.2,
-      "z": 0,
-      "x": 0
-    },
-    "farClip": 100,
-    "nearClip": 0.1
-  },
   "name": "错位之契"
 }
