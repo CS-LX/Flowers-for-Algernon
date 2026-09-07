@@ -13,6 +13,7 @@ local DRAG_FOLLOW = 14.0
 local SNAP_FOLLOW = 16.0
 local SNAP_EPSILON = 0.6
 local DRAG_DEADZONE_PIXELS = 8.0
+local SLIP_MIN_ANGLE_DEGREES = 8.0
 local MIN_HANDLE_RADIUS = 0.35
 local HANDLE_PLANE_NORMAL = Vector3.UP
 
@@ -20,6 +21,11 @@ local PHASE_IDLE = "idle"
 local PHASE_PENDING = "pending"
 local PHASE_DRAG = "drag"
 local PHASE_SNAP = "snap"
+local PHASE_SLIP = "slip"
+
+local function Clamp01(value)
+    return math.max(0.0, math.min(1.0, value))
+end
 
 local function WrapDegrees(degrees)
     local wrapped = degrees % 360.0
@@ -111,6 +117,16 @@ function PreviewRotatorController.New(levelDocument, partRenderer, pathRuntime, 
     self.autoPick = true
     self.targetYawDegrees = 0.0
     self.visualYawDegrees = 0.0
+    self.rotatorFaults = {}
+    self.attemptElapsed = 0.0
+    self.attemptFaultPrepared = false
+    self.stallAttempt = false
+    self.slipScheduled = false
+    self.slipActive = false
+    self.slipElapsed = 0.0
+    self.slipStartYawDegrees = 0.0
+    self.slowSnapAttempt = false
+    self.failedSnapAttempt = false
     self.authoredStates = {}
     for _, part in ipairs(self.levelDocument:GetParts()) do
         if part:HasBehavior(PartDefinition.MODE_ROTATOR) then
@@ -129,8 +145,72 @@ function PreviewRotatorController:RestoreAuthoredStates()
     end
 end
 
+function PreviewRotatorController:SetFault(partId, config)
+    if type(partId) ~= "string" or partId == "" then
+        return false
+    end
+    if type(config) ~= "table" then
+        self.rotatorFaults[partId] = nil
+        return true
+    end
+    local function Chance(value)
+        return Clamp01(tonumber(value) or 0.0)
+    end
+    self.rotatorFaults[partId] = {
+        slipChance = Chance(config.slipChance),
+        stallChance = Chance(config.stallChance),
+        slowSnapChance = Chance(config.slowSnapChance),
+        slipDelay = math.max(0.05, tonumber(config.slipDelay) or 0.45),
+    }
+    return true
+end
+
+function PreviewRotatorController:PrepareFaultAttempt(part)
+    if self.attemptFaultPrepared then
+        return
+    end
+    self.attemptFaultPrepared = true
+    self.attemptElapsed = 0.0
+    self.stallAttempt = false
+    self.slipScheduled = false
+    self.slipActive = false
+    self.slowSnapAttempt = false
+    self.failedSnapAttempt = false
+    local config = self.rotatorFaults[part.id]
+    if not config then
+        return
+    end
+    self.stallAttempt = math.random() < config.stallChance
+    self.slipScheduled = not self.stallAttempt and math.random() < config.slipChance
+    self.slowSnapAttempt = not self.stallAttempt and not self.slipScheduled
+        and math.random() < config.slowSnapChance
+    if self.stallAttempt or self.slipScheduled or self.slowSnapAttempt then
+        print(string.format(
+            "Preview Rotator: fault prepared part=%s stall=%s slip=%s slowSnap=%s",
+            part.id,
+            tostring(self.stallAttempt),
+            tostring(self.slipScheduled),
+            tostring(self.slowSnapAttempt)
+        ))
+    end
+end
+
+function PreviewRotatorController:IsFaultAttemptActive()
+    return self.stallAttempt or self.slipScheduled or self.slipActive or self.slowSnapAttempt
+end
+
+function PreviewRotatorController:FinishAttempt()
+    self.attemptFaultPrepared = false
+    self.stallAttempt = false
+    self.slipScheduled = false
+    self.slipActive = false
+    self.slipElapsed = 0.0
+    self.slowSnapAttempt = false
+    self.failedSnapAttempt = false
+end
+
 function PreviewRotatorController:IsBusy()
-    return self.phase == PHASE_DRAG or self.phase == PHASE_SNAP
+    return self.phase == PHASE_DRAG or self.phase == PHASE_SNAP or self.phase == PHASE_SLIP
 end
 
 function PreviewRotatorController:ConsumePendingClick()
@@ -294,6 +374,7 @@ function PreviewRotatorController:BeginPending(part, ray, mouse)
     self.dragStartMouse = Vector2(mouse.x, mouse.y)
     self.dragCommitted = false
     self.pendingClickConsumed = false
+    self:FinishAttempt()
     return true
 end
 
@@ -304,6 +385,7 @@ function PreviewRotatorController:PromotePendingToDrag()
     end
     self.phase = PHASE_DRAG
     self.dragCommitted = true
+    self:PrepareFaultAttempt(part)
     self:SetPlayerLocked(true)
     self:FollowRider()
     print("Preview Rotator: drag start " .. part.id)
@@ -315,6 +397,7 @@ function PreviewRotatorController:CancelPendingAsClick()
     self.phase = PHASE_IDLE
     self.activePart = nil
     self.dragCommitted = false
+    self:FinishAttempt()
     return true
 end
 
@@ -323,6 +406,7 @@ function PreviewRotatorController:CancelPendingQuietly()
     self.phase = PHASE_IDLE
     self.activePart = nil
     self.dragCommitted = false
+    self:FinishAttempt()
     return true
 end
 
@@ -364,6 +448,7 @@ function PreviewRotatorController:InterruptSnap(ray, mouse)
     if not self:CaptureDrag(part, ray, mouse, self.currentYawDegrees) then
         return false
     end
+    self:PrepareFaultAttempt(part)
     print("Preview Rotator: snap interrupted, resume drag " .. part.id)
     return true
 end
@@ -399,8 +484,26 @@ function PreviewRotatorController:ApplyVisualYaw(yawDegrees)
 end
 
 function PreviewRotatorController:UpdateDrag(timeStep)
+    local part = self.activePart
+    if not part then
+        return
+    end
+    self.attemptElapsed = self.attemptElapsed + timeStep
+    local config = self.rotatorFaults[part.id]
+    if self.slipScheduled
+        and config
+        and self.attemptElapsed >= config.slipDelay
+        and math.abs(ShortestDelta(self.baseYawDegrees, self.visualYawDegrees)) >= SLIP_MIN_ANGLE_DEGREES then
+        self.slipScheduled = false
+        self.slipActive = true
+        self.slipElapsed = 0.0
+        self.slipStartYawDegrees = self.visualYawDegrees
+        self.phase = PHASE_SLIP
+        print("Preview Rotator: slipped back during drag " .. part.id)
+        return
+    end
     local target = self:SampleTargetYaw()
-    if target then
+    if target and not self.stallAttempt then
         self.targetYawDegrees = target
     end
     self:ApplyVisualYaw(ApproachAngle(
@@ -411,11 +514,42 @@ function PreviewRotatorController:UpdateDrag(timeStep)
     ))
 end
 
+function PreviewRotatorController:UpdateSlip(timeStep)
+    local part = self.activePart
+    if not part then
+        return
+    end
+    self.slipElapsed = self.slipElapsed + timeStep
+    local progress = Clamp01(self.slipElapsed / 0.32)
+    local eased = 1.0 - (1.0 - progress) * (1.0 - progress)
+    local yaw = self.slipStartYawDegrees
+        + ShortestDelta(self.slipStartYawDegrees, self.baseYawDegrees) * eased
+    self:ApplyVisualYaw(yaw)
+    if progress >= 1.0 then
+        self:ApplyVisualYaw(self.baseYawDegrees)
+        self:SetPlayerLocked(false)
+        self.phase = PHASE_IDLE
+        self.activePart = nil
+        self.dragCommitted = false
+        self:FinishAttempt()
+        print("Preview Rotator: slip recovery finished")
+    end
+end
+
 function PreviewRotatorController:BeginSnap()
     local part = self.activePart
     if not self.dragCommitted then
         self:CancelPendingAsClick()
         return false
+    end
+    if self.stallAttempt then
+        self.snapYawDegrees = self.baseYawDegrees
+        self.targetYawDegrees = self.snapYawDegrees
+        self.slowSnapAttempt = false
+        self.failedSnapAttempt = true
+        self.phase = PHASE_SNAP
+        print("Preview Rotator: stalled drag snaps back " .. part.id)
+        return true
     end
     local _, snappedDegrees = self:NearestAllowedYaw(part, self.targetYawDegrees)
     self.snapYawDegrees = self.visualYawDegrees + ShortestDelta(self.visualYawDegrees, snappedDegrees)
@@ -429,15 +563,32 @@ function PreviewRotatorController:UpdateSnap(timeStep)
     local remaining = ShortestDelta(self.visualYawDegrees, self.snapYawDegrees)
     if math.abs(remaining) <= SNAP_EPSILON then
         self:ApplyVisualYaw(self.snapYawDegrees)
-        self:CommitSnap(part)
+        if self.failedSnapAttempt then
+            self:SetPlayerLocked(false)
+            self.phase = PHASE_IDLE
+            self.activePart = nil
+            self.dragCommitted = false
+            self:FinishAttempt()
+            print("Preview Rotator: failed snap returned to authored yaw")
+            return
+        end
+        local committed = self:CommitSnap(part)
+        if not committed then
+            self:ApplyVisualYaw(self.baseYawDegrees)
+            self:SetPlayerLocked(false)
+            print("Preview Rotator: snap cleanup after rejected commit")
+        end
         self.phase = PHASE_IDLE
         self.activePart = nil
+        self.dragCommitted = false
+        self:FinishAttempt()
         return
     end
+    local follow = self.slowSnapAttempt and SNAP_FOLLOW * 0.5 or SNAP_FOLLOW
     self:ApplyVisualYaw(ApproachAngle(
         self.visualYawDegrees,
         self.snapYawDegrees,
-        SNAP_FOLLOW,
+        follow,
         timeStep
     ))
 end
@@ -466,6 +617,10 @@ function PreviewRotatorController:Update(timeStep)
         else
             self:BeginSnap()
         end
+        return true
+    end
+    if self.phase == PHASE_SLIP then
+        self:UpdateSlip(timeStep)
         return true
     end
     if self.phase == PHASE_SNAP then

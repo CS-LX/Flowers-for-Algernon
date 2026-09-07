@@ -397,6 +397,14 @@ function LevelDirector:SetStillScale(objectId, scale)
     return preview and preview:ApplyStillObject(object) or false
 end
 
+function LevelDirector:SetRotatorFault(partId, config)
+    local preview = self:GetPreview()
+    if not preview or not preview.SetRotatorFault then
+        return false
+    end
+    return preview:SetRotatorFault(partId, config)
+end
+
 function LevelDirector:SetPartVisualYaw(partId, yawDegrees)
     local preview = self:GetPreview()
     if not preview then

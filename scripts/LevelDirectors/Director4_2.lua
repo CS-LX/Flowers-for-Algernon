@@ -7,10 +7,17 @@ local Story = require "Story.Chapter4"
 local Director4_2 = LevelDirector.Extend()
 
 local MOUSE_NODE_KEY = "part_staticpart_1_1:mouse_node"
+local ROTATOR_PART_ID = "part_mainpart_1_3"
 local FINISH_NODE_KEY = "part_rotateablepart_1_2:finish_node"
 local ALGERNON_SPEED = 0.82
 local ALGERNON_PAUSE_MIN = 1.4
 local ALGERNON_PAUSE_MAX = 2.0
+local ROTATOR_FAULT = {
+    stallChance = 0.10,
+    slipChance = 0.16,
+    slowSnapChance = 0.22,
+    slipDelay = 0.50,
+}
 
 function Director4_2:OnStart()
     self.stage = "intro"
@@ -24,6 +31,7 @@ function Director4_2:OnStart()
 
     self:SetInputLocked(true)
     self:SetPlayerLocked(true)
+    self:SetRotatorFault(ROTATOR_PART_ID, ROTATOR_FAULT)
 
     local enabled, enableError = self:SetAlgernonEnabled(true, MOUSE_NODE_KEY)
     if not enabled then

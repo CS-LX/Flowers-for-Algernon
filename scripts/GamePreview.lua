@@ -420,6 +420,13 @@ function GamePreview:NotifyPartMotion(part)
     end
 end
 
+function GamePreview:SetRotatorFault(partId, config)
+    if not self.rotatorController then
+        return false
+    end
+    return self.rotatorController:SetFault(partId, config)
+end
+
 function GamePreview:SetPartVisualYaw(partId, yawDegrees)
     if not self.partRenderer then
         return false

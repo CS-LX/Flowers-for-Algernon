@@ -11,6 +11,12 @@ local ROTATEABLE_PART_ID = "part_mainpart_1_2"
 local ROTATEABLE_START_KEY = "part_mainpart_1_2:rotateable_node_start"
 local ROTATEABLE_END_KEY = "part_mainpart_1_2:rotateable_node_end"
 local FINISH_NODE_KEY = "part_part:finish_node"
+local ROTATOR_FAULT = {
+    stallChance = 0.18,
+    slipChance = 0.24,
+    slowSnapChance = 0.30,
+    slipDelay = 0.38,
+}
 
 function Director4_3:OnStart()
     self.stage = "intro"
@@ -24,6 +30,7 @@ function Director4_3:OnStart()
 
     self:SetInputLocked(true)
     self:SetPlayerLocked(true)
+    self:SetRotatorFault(ROTATEABLE_PART_ID, ROTATOR_FAULT)
 
     local enabled, enableError = self:SetAlgernonEnabled(true, MOUSE_NODE_KEY)
     if not enabled then

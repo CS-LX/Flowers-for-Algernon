@@ -6,8 +6,15 @@ local Story = require "Story.Chapter4"
 local Director4_1 = LevelDirector.Extend()
 
 local LIFT_PART_ID = "part_mainpart_1_2"
+local ROTATOR_PART_ID = "part_mainpart_1_3"
 local LIFT_OFFSET = 4.0
 local LIFT_DURATION = 4.0
+local ROTATOR_FAULT = {
+    stallChance = 0.04,
+    slipChance = 0.08,
+    slowSnapChance = 0.12,
+    slipDelay = 0.65,
+}
 
 local function Clamp01(value)
     return math.max(0.0, math.min(1.0, value))
@@ -42,6 +49,7 @@ function Director4_1:OnStart()
 
     self:SetInputLocked(true)
     self:SetPlayerLocked(true)
+    self:SetRotatorFault(ROTATOR_PART_ID, ROTATOR_FAULT)
 
     local player = self:GetPlayer()
     if player and player.SetOnStarted then
