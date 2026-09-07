@@ -1,6 +1,3 @@
-# Secrets
-secret/
-
 # Build artifacts & runtime state
 .build/
 dist/

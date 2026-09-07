@@ -172,6 +172,10 @@ function AlgernonController:IsExploring()
     return self.exploration ~= nil
 end
 
+function AlgernonController:IsExplorationPaused()
+    return self.exploration ~= nil and self.exploration.paused == true
+end
+
 function AlgernonController:ContinueExploration()
     local exploration = self.exploration
     if not exploration then

@@ -293,6 +293,13 @@ function LevelDirector:SetAlgernonSpeed(speed)
     return preview:SetAlgernonSpeed(speed)
 end
 
+function LevelDirector:IsAlgernonExplorationPaused()
+    local algernon = self:GetAlgernon()
+    return algernon ~= nil
+        and algernon.IsExplorationPaused ~= nil
+        and algernon:IsExplorationPaused()
+end
+
 ---@param transform table
 ---@return boolean
 function LevelDirector:SetAlgernonLocalTransform(transform)
