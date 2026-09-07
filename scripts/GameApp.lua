@@ -305,6 +305,10 @@ function GameApp:PresentSession(session, definition, coverColor)
     if session.preview then
         session.preview.onLevelSettled = function()
             session:StartDirector()
+            local director = session.director
+            if director and director:ShouldRunDuringFogReveal() then
+                director:BeginRun()
+            end
         end
         session.preview.onFogRevealFinished = function()
             if not session:RunDirector() then

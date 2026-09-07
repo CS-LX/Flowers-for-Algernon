@@ -570,6 +570,11 @@ function LevelDirector:OnFinish(payload)
     end
 end
 
+--- 子类覆盖：是否在关卡雾揭开期间就开始运行本关演出。
+function LevelDirector:ShouldRunDuringFogReveal()
+    return false
+end
+
 --- 子类覆盖：是否在关卡雾过渡期间继续运行本关演出。
 function LevelDirector:ShouldContinueDuringFogConceal()
     return false
