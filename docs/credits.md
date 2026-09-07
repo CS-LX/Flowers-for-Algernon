@@ -7,3 +7,8 @@
 Grave by Zsky [CC-BY](https://creativecommons.org/licenses/by/3.0/) via [Poly Pizza](https://poly.pizza/m/KmXnfJxFHG)
 
 本地源文件：`assets/model/Grave by Zsky - KmXnfJxFHG.glb`
+
+## Algernon（Mouse）
+
+Toy Mouse by sirkitree [CC-BY](https://creativecommons.org/licenses/by/3.0/) via [Poly Pizza](https://poly.pizza/m/49PYgABKfFo)
+
