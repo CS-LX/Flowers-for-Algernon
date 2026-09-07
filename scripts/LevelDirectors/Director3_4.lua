@@ -16,18 +16,15 @@ local LIFT_FINISH_KEYS = {
 }
 local LIFT_DROP_HEIGHT = 4.0
 local LIFT_DURATION = 4.0
+local LIFT_EXIT_TIME = 3.0
 
 local function Clamp01(value)
     return math.max(0.0, math.min(1.0, value))
 end
 
-local function CubicInOut(t)
+local function EaseInQuad(t)
     t = Clamp01(t)
-    if t < 0.5 then
-        return 4.0 * t * t * t
-    end
-    local p = -2.0 * t + 2.0
-    return 1.0 - p * p * p * 0.5
+    return t * t
 end
 
 function Director3_4:OnStart()
@@ -41,6 +38,8 @@ function Director3_4:OnStart()
     self.liftStoryPlayed = false
     self.liftStoryPending = false
     self.liftElapsed = 0.0
+    self.transitionStarted = false
+    self.continueDuringFogConceal = false
     self.liftStartPosition = { x = 0.0, y = 0.0, z = 0.0 }
 
     local liftPart = self:GetPart(LIFT_PART_ID)
@@ -146,33 +145,18 @@ function Director3_4:BeginLift(payload)
     ))
 end
 
-function Director3_4:FinishLift()
-    local endPosition = {
-        x = self.liftStartPosition.x,
-        y = self.liftStartPosition.y - LIFT_DROP_HEIGHT,
-        z = self.liftStartPosition.z,
-    }
-    self:SetPartVisualPosition(LIFT_PART_ID, endPosition)
-    self:SetPartPosition(LIFT_PART_ID, endPosition, false)
-    local player = self:GetPlayer()
-    if player and player.ClearTopmostHold then
-        player:ClearTopmostHold()
-    end
-    self.stage = "complete"
-    self.stageElapsed = 0.0
-    self:FinishNarrative()
-    print("Director3_4: Lift reached the research institute")
-end
-
 function Director3_4:FinishNarrative()
     if self.narrativeFinished then
         return
     end
     self.narrativeFinished = true
+    self.transitionStarted = true
+    self.continueDuringFogConceal = true
     local session = self.session
     if session and session.onFinish then
         session.onFinish(session, self.finishPayload)
     end
+    print("Director3_4: start fog transition while Lift keeps descending")
 end
 
 function Director3_4:OnFinish(payload)
@@ -191,7 +175,7 @@ function Director3_4:OnUpdate(timeStep)
 
     self.liftElapsed = self.liftElapsed + timeStep
     local progress = Clamp01(self.liftElapsed / LIFT_DURATION)
-    local movementMix = CubicInOut(progress)
+    local movementMix = EaseInQuad(progress)
     local dropOffset = LIFT_DROP_HEIGHT * movementMix
     self:SetPartVisualPosition(LIFT_PART_ID, {
         x = self.liftStartPosition.x,
@@ -199,9 +183,13 @@ function Director3_4:OnUpdate(timeStep)
         z = self.liftStartPosition.z,
     })
 
-    if progress >= 1.0 then
-        self:FinishLift()
+    if self.liftElapsed >= LIFT_EXIT_TIME and not self.transitionStarted then
+        self:FinishNarrative()
     end
+end
+
+function Director3_4:ShouldContinueDuringFogConceal()
+    return self.continueDuringFogConceal == true
 end
 
 function Director3_4:OnDispose()

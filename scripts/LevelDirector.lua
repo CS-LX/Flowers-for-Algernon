@@ -564,6 +564,11 @@ function LevelDirector:OnFinish(payload)
     end
 end
 
+--- 子类覆盖：是否在关卡雾过渡期间继续运行本关演出。
+function LevelDirector:ShouldContinueDuringFogConceal()
+    return false
+end
+
 --- 子类覆盖：关卡场景已启动，可订阅信号并做开场准备。
 function LevelDirector:OnStart()
 end

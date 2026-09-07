@@ -347,7 +347,7 @@ function GameApp:BeginLevelTransition(nextDefinition)
             return true
         end
         local director = self.session and self.session.director
-        if director then
+        if director and not director:ShouldContinueDuringFogConceal() then
             director:Halt()
         end
         if self.playHud then
