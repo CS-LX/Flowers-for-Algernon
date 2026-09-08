@@ -7,13 +7,17 @@ local StillObjectRuntime = require "StillObjectRuntime"
 local StillModelCatalog = require "StillModelCatalog"
 local LookApplier = require "LookApplier"
 local MenuClusterCatalog = require "MenuClusterCatalog"
+local VoxelRenderer = require "VoxelRenderer"
+local TriPrismGrid = require "TriPrismGrid"
 
 ---@class MenuClusterLayer
 ---@field id string
 ---@field node Node
 ---@field restY number
 ---@field look table
+---@field fog table
 ---@field entries table[]
+---@field voxelMaterials Material[]
 ---@field tween {duration: number, clock: number, fromY: number, toY: number, remove: boolean}|nil
 
 ---@class MenuClusterBackdrop
@@ -21,9 +25,8 @@ local MenuClusterCatalog = require "MenuClusterCatalog"
 ---@field root Node|nil
 ---@field layers table<string, MenuClusterLayer>
 ---@field currentChapter number|nil
----@field fogClear number
----@field fogSolid number
 ---@field fogColor Color|nil
+---@field fogColorTween {duration: number, clock: number, from: Color, to: Color}|nil
 local MenuClusterBackdrop = {}
 MenuClusterBackdrop.__index = MenuClusterBackdrop
 
@@ -32,10 +35,10 @@ local REST_Y = -1.45
 local TRAVEL = 3.6
 local SWITCH_DURATION = 0.85
 local EXIT_DURATION = 0.85
--- 对齐后的包围盒底。高度雾用验收过的世界高度。
+local FOG_TWEEN_DURATION = 0.45
+-- 对齐后的包围盒底。高度雾按簇自己的 fog 表写，不再用全局高度。
 local ALIGNED_FOOT_Y = -1.70
-local FOG_HEIGHT_A = 0.80
-local FOG_HEIGHT_B = 0.00
+local DEFAULT_FOG = { heightA = 0.80, heightB = 0.00, color = "#348AA3" }
 
 local function Clamp01(value)
     if value < 0.0 then
@@ -57,6 +60,16 @@ local function EaseOutCubic(t)
     return 1.0 - inv * inv * inv
 end
 
+local function MixColor(fromColor, toColor, t)
+    t = Clamp01(t)
+    return Color(
+        fromColor.r + (toColor.r - fromColor.r) * t,
+        fromColor.g + (toColor.g - fromColor.g) * t,
+        fromColor.b + (toColor.b - fromColor.b) * t,
+        1.0
+    )
+end
+
 local function ChapterKey(chapter)
     return "chapter_" .. tostring(chapter)
 end
@@ -70,11 +83,25 @@ function MenuClusterBackdrop.New(scene)
     self.layers = {}
     ---@type number|nil
     self.currentChapter = nil
-    self.fogClear = FOG_HEIGHT_A
-    self.fogSolid = FOG_HEIGHT_B
     ---@type Color|nil
     self.fogColor = nil
+    ---@type {duration: number, clock: number, from: Color, to: Color}|nil
+    self.fogColorTween = nil
     return self
+end
+
+function MenuClusterBackdrop:FogOf(definition)
+    local fog = (definition and definition.fog) or DEFAULT_FOG
+    local look = definition and definition.look
+    local color = fog.color
+        or (look and look.fogColor)
+        or (look and look["slots.wall.fogColor"])
+        or DEFAULT_FOG.color
+    return {
+        heightA = tonumber(fog.heightA) or DEFAULT_FOG.heightA,
+        heightB = tonumber(fog.heightB) or DEFAULT_FOG.heightB,
+        color = color,
+    }
 end
 
 function MenuClusterBackdrop:EnsureRoot()
@@ -100,18 +127,21 @@ function MenuClusterBackdrop:ModelFootY(asset)
     return offsetY + minY * scaleY
 end
 
-function MenuClusterBackdrop:ResolveFogColor(look)
+function MenuClusterBackdrop:ResolveFogColor(fog)
     if self.fogColor then
         return self.fogColor
     end
-    return LookApplier.HexToColor(look and look["slots.wall.fogColor"], Color(0.204, 0.541, 0.639, 1))
+    return LookApplier.HexToColor(fog and fog.color, Color(0.204, 0.541, 0.639, 1))
 end
 
-function MenuClusterBackdrop:ApplyFogToEntry(entry, look, fogClear, fogSolid)
+function MenuClusterBackdrop:ApplyFogToEntry(entry, look, fog)
     if not entry or not entry.model or not entry.asset then
         return
     end
-    local fogColor = self:ResolveFogColor(look)
+    fog = fog or DEFAULT_FOG
+    local fogColor = self:ResolveFogColor(fog)
+    local fogClear = fog.heightA
+    local fogSolid = fog.heightB
     for _, slot in ipairs(entry.asset.slots) do
         local material = entry.slotMaterials and entry.slotMaterials[slot.id]
         if material then
@@ -129,7 +159,7 @@ function MenuClusterBackdrop:ApplyFogToEntry(entry, look, fogClear, fogSolid)
     end
 end
 
-function MenuClusterBackdrop:SetFogColor(color)
+function MenuClusterBackdrop:WriteFogColor(color)
     if not color then
         return
     end
@@ -142,8 +172,99 @@ function MenuClusterBackdrop:SetFogColor(color)
                     material:SetShaderParameter("fog_color", Variant(color))
                 end
             end
+            local voxelMaterial = bound.material
+            if voxelMaterial then
+                voxelMaterial:SetShaderParameter("fog_color", Variant(color))
+            end
+        end
+        for _, material in ipairs(layer.voxelMaterials or {}) do
+            material:SetShaderParameter("fog_color", Variant(color))
         end
     end
+end
+
+function MenuClusterBackdrop:SetFogColorNow(color)
+    self.fogColorTween = nil
+    self:WriteFogColor(color)
+end
+
+function MenuClusterBackdrop:TweenFogColorTo(color, instant)
+    if not color then
+        return
+    end
+    if instant or not self.fogColor then
+        self:SetFogColorNow(color)
+        return
+    end
+    self.fogColorTween = {
+        duration = FOG_TWEEN_DURATION,
+        clock = 0.0,
+        from = Color(self.fogColor.r, self.fogColor.g, self.fogColor.b, 1.0),
+        to = color,
+    }
+end
+
+function MenuClusterBackdrop:FogColorOf(definition)
+    local fog = self:FogOf(definition)
+    return LookApplier.HexToColor(fog.color, Color(0.204, 0.541, 0.639, 1))
+end
+
+---@param material Material
+---@param look table|nil
+---@param fog table|nil
+function MenuClusterBackdrop:ApplyVoxelFog(material, look, fog)
+    if not material then
+        return
+    end
+    if not look or look.shader ~= LookApplier.SHADER_TRI_PRISM_LOOK_HEIGHT_FOG then
+        return
+    end
+    fog = fog or DEFAULT_FOG
+    material:SetShaderParameter("fog_height_a", Variant(fog.heightA or DEFAULT_FOG.heightA))
+    material:SetShaderParameter("fog_height_b", Variant(fog.heightB or DEFAULT_FOG.heightB))
+    material:SetShaderParameter("fog_color", Variant(self:ResolveFogColor(fog)))
+end
+
+---@param parent Node
+---@param stack table
+---@param look table|nil
+---@param fog table|nil
+function MenuClusterBackdrop:BindVoxelStack(parent, stack, look, fog)
+    local holder = parent:CreateChild("ClusterVoxel_" .. tostring(stack.id))
+    holder.position = Vector3(stack.x, ALIGNED_FOOT_Y - REST_Y, stack.z)
+    holder.rotation = Quaternion(stack.yaw or 0.0, Vector3.UP)
+    holder.scale = Vector3(0.42, 0.42, 0.42)
+    local material = LookApplier.CreatePartMaterial(look)
+    self:ApplyVoxelFog(material, look, fog)
+    local grid = TriPrismGrid.New(VoxelRenderer.DEFAULT_EDGE, VoxelRenderer.DEFAULT_HEIGHT)
+    local spawned = 0
+    for _, cell in ipairs(stack.cells or {}) do
+        local source = {
+            hexQ = cell.q,
+            hexR = cell.r,
+            sector = cell.s,
+            layer = cell.l,
+            rotation = 0,
+            material = 1,
+        }
+        local center, rotation = grid:GetVoxelTransform(source)
+        local node = VoxelRenderer.CreateVoxel(self.scene, center, Color(1, 1, 1, 1), {
+            parent = holder,
+            edgeLength = grid.edgeLength,
+            height = grid.voxelHeight,
+            rotation = rotation,
+            name = string.format("Voxel_%s_%s_%s_%s", tostring(cell.q), tostring(cell.r), tostring(cell.s), tostring(cell.l)),
+            material = material,
+        })
+        local drawable = node:GetComponent("CustomGeometry")
+        if drawable then
+            drawable.viewMask = WORLD_BIT
+            drawable.castShadows = false
+        end
+        spawned = spawned + 1
+    end
+    print(string.format("MenuClusterBackdrop: voxel stack %s cells=%d", tostring(stack.id), spawned))
+    return { holder = holder, material = material, item = stack }
 end
 
 function MenuClusterBackdrop:BindItem(parent, item, look)
@@ -197,25 +318,41 @@ function MenuClusterBackdrop:SpawnLayer(chapter, definition, y)
     -- 高度雾按世界 Y。先放在静止高度绑定，再按真实 world AABB 写雾。
     node.position = Vector3(0.0, REST_Y, 0.0)
     local spawned = {}
-    for _, item in ipairs(definition.items) do
-        local bound = self:BindItem(node, item, definition.look)
-        if bound then
-            spawned[#spawned + 1] = bound
+    local voxelMaterials = {}
+    local fog = self:FogOf(definition)
+    if definition.kind == "voxels" then
+        for _, stack in ipairs(definition.stacks or {}) do
+            local bound = self:BindVoxelStack(node, stack, definition.look, fog)
+            if bound then
+                spawned[#spawned + 1] = bound
+                voxelMaterials[#voxelMaterials + 1] = bound.material
+            end
         end
-    end
-    self.fogClear = FOG_HEIGHT_A
-    self.fogSolid = FOG_HEIGHT_B
-    for _, bound in ipairs(spawned) do
-        local box = bound.entry.model.worldBoundingBox
-        self:ApplyFogToEntry(bound.entry, definition.look, self.fogClear, self.fogSolid)
         print(string.format(
-            "MenuClusterBackdrop: %s worldFoot=%.3f worldTop=%.3f fogA=%.3f fogB=%.3f",
-            bound.item.modelId,
-            box.min.y,
-            box.max.y,
-            self.fogClear,
-            self.fogSolid
+            "MenuClusterBackdrop: voxel fog A=%.3f B=%.3f color=%s",
+            fog.heightA,
+            fog.heightB,
+            tostring(fog.color)
         ))
+    else
+        for _, item in ipairs(definition.items or {}) do
+            local bound = self:BindItem(node, item, definition.look)
+            if bound then
+                spawned[#spawned + 1] = bound
+            end
+        end
+        for _, bound in ipairs(spawned) do
+            local box = bound.entry.model.worldBoundingBox
+            self:ApplyFogToEntry(bound.entry, definition.look, fog)
+            print(string.format(
+                "MenuClusterBackdrop: %s worldFoot=%.3f worldTop=%.3f fogA=%.3f fogB=%.3f",
+                bound.item.modelId,
+                box.min.y,
+                box.max.y,
+                fog.heightA,
+                fog.heightB
+            ))
+        end
     end
     node.position = Vector3(0.0, y, 0.0)
     local layer = {
@@ -223,7 +360,9 @@ function MenuClusterBackdrop:SpawnLayer(chapter, definition, y)
         node = node,
         restY = REST_Y,
         look = definition.look,
+        fog = fog,
         entries = spawned,
+        voxelMaterials = voxelMaterials,
         tween = nil,
     }
     self.layers[key] = layer
@@ -294,6 +433,7 @@ function MenuClusterBackdrop:SetChapter(chapter, instant)
         print("MenuClusterBackdrop: no cluster for chapter " .. tostring(number))
         return
     end
+    self:TweenFogColorTo(self:FogColorOf(definition), instant)
     local layer = self.layers[ChapterKey(number)] or self:SpawnLayer(number, definition, REST_Y - TRAVEL)
     if not layer then
         return
@@ -344,6 +484,7 @@ function MenuClusterBackdrop:BeginEnterRise(chapter)
         print("MenuClusterBackdrop: enter rise has no cluster chapter=" .. tostring(number))
         return
     end
+    self:TweenFogColorTo(self:FogColorOf(definition), false)
     local layer = self.layers[ChapterKey(number)] or self:SpawnLayer(number, definition, REST_Y - TRAVEL)
     if not layer then
         return
@@ -352,7 +493,21 @@ function MenuClusterBackdrop:BeginEnterRise(chapter)
     print("MenuClusterBackdrop: enter rise chapter=" .. tostring(chapter))
 end
 
+function MenuClusterBackdrop:UpdateFogColorTween(timeStep)
+    local tween = self.fogColorTween
+    if not tween then
+        return
+    end
+    tween.clock = tween.clock + timeStep
+    local t = Clamp01(tween.clock / tween.duration)
+    self:WriteFogColor(MixColor(tween.from, tween.to, t))
+    if t >= 1.0 then
+        self.fogColorTween = nil
+    end
+end
+
 function MenuClusterBackdrop:Update(timeStep)
+    self:UpdateFogColorTween(timeStep)
     local finished = {}
     for key, layer in pairs(self.layers) do
         local tween = layer.tween
@@ -388,9 +543,8 @@ function MenuClusterBackdrop:Destroy()
     end
     self.layers = {}
     self.currentChapter = nil
-    self.fogClear = FOG_HEIGHT_A
-    self.fogSolid = FOG_HEIGHT_B
     self.fogColor = nil
+    self.fogColorTween = nil
 end
 
 return MenuClusterBackdrop

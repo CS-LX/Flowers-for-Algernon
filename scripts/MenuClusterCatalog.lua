@@ -5,7 +5,7 @@ local MenuClusterCatalog = {}
 
 local WORLD_BIT = 2
 
--- 面色/grade 按簇写；高度雾色由 Backdrop 跟随选关背景雾。
+-- 面色/grade 按簇写；高度雾色烘焙在 fog.color，切章时由 Backdrop tween。
 local CITY_LOOK = {
     ["slots.wall.colorNeg"] = "#2B6FA8",
     ["slots.wall.colorMid"] = "#7EB7E6",
@@ -17,16 +17,122 @@ local CITY_LOOK = {
     ["slots.wall.gradeHaze"] = "0.22",
 }
 
+local CITY_FOG = { heightA = 0.80, heightB = 0.00, color = "#348AA3" }
+
+-- 颜色/高度雾对齐 1-1 Path look，但不读 level-1-1.json。
+local CHAPTER1_VOXEL_LOOK = {
+    shader = "tri_prism_look_height_fog",
+    colorNeg = "#554C3E",
+    colorMid = "#685D4F",
+    colorPos = "#FFF7E7",
+    fogColor = "#C0B499",
+    fogHeightA = -1.25,
+    fogHeightB = -1.55,
+    aoEnabled = true,
+    aoColor = "#2A1F1A",
+    aoSmooth = 0.18,
+    aoBlend = 1.0,
+    emissionColor = "#FFF4D2",
+    emissionStrength = 0.25,
+    lightAxis = { x = 0.35, y = 1.0, z = 0.25 },
+    fogUp = { x = 0.0, y = 1.0, z = 0.0 },
+}
+
+-- 菜单尺度的独立体素堆，像 1-1 的折线路但更矮、围在滚筒脚下。
+local CHAPTER_1_STACKS = {
+    {
+        id = "menu_voxel_1",
+        x = -2.35, z = 1.55, yaw = 30,
+        cells = {
+            { q = 0, r = 0, s = 0, l = 0 }, { q = 0, r = 0, s = 1, l = 0 }, { q = 0, r = 0, s = 2, l = 0 },
+            { q = 0, r = 0, s = 3, l = 0 }, { q = 0, r = 0, s = 4, l = 0 }, { q = 0, r = 0, s = 5, l = 0 },
+            { q = 0, r = 0, s = 0, l = 1 }, { q = 0, r = 0, s = 1, l = 1 }, { q = 0, r = 0, s = 5, l = 1 },
+            { q = 1, r = -1, s = 3, l = 0 }, { q = 1, r = -1, s = 4, l = 0 }, { q = 1, r = -1, s = 2, l = 0 },
+        },
+    },
+    {
+        id = "menu_voxel_2",
+        x = -0.90, z = 2.10, yaw = 90,
+        cells = {
+            { q = 0, r = 0, s = 0, l = 0 }, { q = 0, r = 0, s = 1, l = 0 }, { q = 0, r = 0, s = 2, l = 0 },
+            { q = 0, r = 0, s = 3, l = 0 }, { q = 0, r = 0, s = 4, l = 0 }, { q = 0, r = 0, s = 5, l = 0 },
+            { q = 0, r = 0, s = 2, l = 1 }, { q = 0, r = 0, s = 3, l = 1 },
+            { q = -1, r = 1, s = 0, l = 0 }, { q = -1, r = 1, s = 1, l = 0 }, { q = -1, r = 1, s = 5, l = 0 },
+        },
+    },
+    {
+        id = "menu_voxel_3",
+        x = 0.35, z = 2.25, yaw = 150,
+        cells = {
+            { q = 0, r = 0, s = 1, l = 0 }, { q = 0, r = 0, s = 2, l = 0 }, { q = 0, r = 0, s = 3, l = 0 },
+            { q = 0, r = 0, s = 4, l = 0 },
+            { q = 0, r = 0, s = 2, l = 1 }, { q = 0, r = 0, s = 3, l = 1 }, { q = 0, r = 0, s = 2, l = 2 },
+            { q = 1, r = 0, s = 4, l = 0 }, { q = 1, r = 0, s = 5, l = 0 }, { q = 1, r = 0, s = 3, l = 0 },
+        },
+    },
+    {
+        id = "menu_voxel_4",
+        x = 1.55, z = 1.95, yaw = 210,
+        cells = {
+            { q = 0, r = 0, s = 0, l = 0 }, { q = 0, r = 0, s = 1, l = 0 }, { q = 0, r = 0, s = 2, l = 0 },
+            { q = 0, r = 0, s = 3, l = 0 }, { q = 0, r = 0, s = 4, l = 0 }, { q = 0, r = 0, s = 5, l = 0 },
+            { q = 0, r = 0, s = 4, l = 1 }, { q = 0, r = 0, s = 5, l = 1 }, { q = 0, r = 0, s = 0, l = 1 },
+            { q = 0, r = 1, s = 1, l = 0 }, { q = 0, r = 1, s = 2, l = 0 },
+        },
+    },
+    {
+        id = "menu_voxel_5",
+        x = 2.55, z = 1.35, yaw = 270,
+        cells = {
+            { q = 0, r = 0, s = 0, l = 0 }, { q = 0, r = 0, s = 1, l = 0 }, { q = 0, r = 0, s = 5, l = 0 },
+            { q = 0, r = 0, s = 0, l = 1 }, { q = 0, r = 0, s = 1, l = 1 },
+            { q = 1, r = -1, s = 3, l = 0 }, { q = 1, r = -1, s = 2, l = 0 }, { q = 1, r = -1, s = 4, l = 0 },
+            { q = 1, r = -1, s = 3, l = 1 },
+        },
+    },
+    {
+        id = "menu_voxel_6",
+        x = -2.70, z = 0.15, yaw = 0,
+        cells = {
+            { q = 0, r = 0, s = 2, l = 0 }, { q = 0, r = 0, s = 3, l = 0 }, { q = 0, r = 0, s = 4, l = 0 },
+            { q = 0, r = 0, s = 3, l = 1 },
+            { q = -1, r = 0, s = 0, l = 0 }, { q = -1, r = 0, s = 1, l = 0 }, { q = -1, r = 0, s = 5, l = 0 },
+            { q = -1, r = 0, s = 0, l = 1 }, { q = -1, r = 0, s = 5, l = 1 },
+        },
+    },
+    {
+        id = "menu_voxel_7",
+        x = 2.70, z = 0.05, yaw = 330,
+        cells = {
+            { q = 0, r = 0, s = 0, l = 0 }, { q = 0, r = 0, s = 1, l = 0 }, { q = 0, r = 0, s = 2, l = 0 },
+            { q = 0, r = 0, s = 3, l = 0 }, { q = 0, r = 0, s = 4, l = 0 }, { q = 0, r = 0, s = 5, l = 0 },
+            { q = 0, r = 0, s = 1, l = 1 }, { q = 0, r = 0, s = 2, l = 1 }, { q = 0, r = 0, s = 1, l = 2 },
+        },
+    },
+    {
+        id = "menu_voxel_8",
+        x = -2.15, z = -0.80, yaw = 60,
+        cells = {
+            { q = 0, r = 0, s = 4, l = 0 }, { q = 0, r = 0, s = 5, l = 0 }, { q = 0, r = 0, s = 0, l = 0 },
+            { q = 0, r = 0, s = 5, l = 1 },
+            { q = 1, r = 0, s = 2, l = 0 }, { q = 1, r = 0, s = 3, l = 0 }, { q = 1, r = 0, s = 1, l = 0 },
+        },
+    },
+}
+
 local DAISY_LOOK = {
     ["slots.wall.colorNeg"] = "#FFFFFF",
     ["slots.wall.colorMid"] = "#FFFFFF",
     ["slots.wall.colorPos"] = "#FFFFFF",
-    ["slots.wall.fogColor"] = "#348AA3",
+    ["slots.wall.fogColor"] = "#000000",
     ["slots.wall.gradeSaturation"] = "1.00",
     ["slots.wall.gradeValue"] = "0.60",
     ["slots.wall.gradeContrast"] = "1.00",
     ["slots.wall.gradeHaze"] = "0.00",
 }
+
+local DAISY_FOG = { heightA = 0.80, heightB = 0.00, color = "#000000" }
+local CHAPTER1_FOG = { heightA = -1.25, heightB = -1.55, color = "#C0B499" }
 
 -- 菜单正交视野约 3.2。建筑铺在棱柱脚下偏后/两侧，不挡滚筒。
 -- 各楼包围盒底由 Backdrop 对齐到同一世界高度，不再单独写 y。
@@ -55,22 +161,35 @@ local CHAPTER_3_ITEMS = {
 
 ---@class MenuClusterDefinition
 ---@field id string
----@field items table[]
----@field look table<string, string>
+---@field kind string|nil
+---@field items table[]|nil
+---@field stacks table[]|nil
+---@field look table
+---@field fog table
 ---@field viewMask number
 
 ---@type table<number, MenuClusterDefinition>
 local CHAPTERS = {
+    [1] = {
+        id = "chapter1_voxels",
+        kind = "voxels",
+        stacks = CHAPTER_1_STACKS,
+        look = CHAPTER1_VOXEL_LOOK,
+        fog = CHAPTER1_FOG,
+        viewMask = WORLD_BIT,
+    },
     [3] = {
         id = "chapter3_city",
         items = CHAPTER_3_ITEMS,
         look = CITY_LOOK,
+        fog = CITY_FOG,
         viewMask = WORLD_BIT,
     },
     [5] = {
         id = "chapter5_daisy",
         items = CHAPTER_5_ITEMS,
         look = DAISY_LOOK,
+        fog = DAISY_FOG,
         viewMask = WORLD_BIT,
     },
 }

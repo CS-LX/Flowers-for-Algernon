@@ -169,11 +169,6 @@ function GameApp:EnsureMenuClusters()
                 self.menuClusters:BeginEnterRise(chapter)
             end
         end
-        self.menuPrism.onFogColorChanged = function(color)
-            if self.menuClusters then
-                self.menuClusters:SetFogColor(color)
-            end
-        end
     end
 end
 
