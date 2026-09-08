@@ -251,6 +251,42 @@ function PlayerTelemetry.FinishGame()
     return true
 end
 
+---@param levelIds string[]
+function PlayerTelemetry.UnlockLevels(levelIds)
+    if type(levelIds) ~= "table" then
+        return false
+    end
+    local changed = false
+    for i = 1, #levelIds do
+        local levelId = levelIds[i]
+        if type(levelId) == "string" and levelId ~= "" and not data.cleared[levelId] then
+            data.cleared[levelId] = true
+            changed = true
+        end
+    end
+    if not changed then
+        print("PlayerTelemetry: unlock skipped, already cleared")
+        return false
+    end
+    MarkDirty()
+    print("PlayerTelemetry: unlocked " .. tostring(#levelIds) .. " ids")
+    PlayerTelemetry.Save("unlock")
+    return true
+end
+
+function PlayerTelemetry.ResetProgress()
+    CommitCurrentPath()
+    currentLevelId = nil
+    currentPath = nil
+    data.cleared = {}
+    data.finishedGame = false
+    data.paths = {}
+    MarkDirty()
+    print("PlayerTelemetry: reset progress")
+    PlayerTelemetry.Save("reset")
+    return true
+end
+
 function PlayerTelemetry.AbandonLevel()
     CommitCurrentPath()
     currentLevelId = nil

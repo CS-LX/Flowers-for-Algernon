@@ -3,6 +3,7 @@
 
 local Widget = require("urhox-libs/UI/Core/Widget")
 local HexMarkDraw = require "HexMarkDraw"
+local Sfx = require "Sfx"
 
 ---@class LevelExitButton : Widget
 ---@overload fun(props?: table): LevelExitButton
@@ -97,6 +98,7 @@ function LevelExitButton:HandleExitClick()
         return
     end
     self:PlayWave()
+    Sfx.PlayModalClick()
     if self.props.onExit then
         self.props.onExit(self)
     end

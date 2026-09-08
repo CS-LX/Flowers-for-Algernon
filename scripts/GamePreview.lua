@@ -117,6 +117,7 @@ function GamePreview:CreateScene()
         self:ApplyCoverFog(COVER_FOG_DENSITY)
         self:SetInputLocked(true)
     end
+    Sfx.BindUiScene(self.scene)
 end
 
 function GamePreview:CreateFeedback(record, reachable)

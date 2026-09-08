@@ -66,6 +66,7 @@ local BgmTracks = require "BgmTracks"
 ---@field bgmTo number
 ---@field bgmFadeElapsed number
 ---@field bgmFadeDuration number
+---@field inputLocked boolean
 local MenuPrism = {}
 MenuPrism.__index = MenuPrism
 
@@ -287,6 +288,7 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     ---@type LevelDefinition|nil
     self.pendingDrop = nil
     self.skipFogTween = false
+    self.inputLocked = false
     return self
 end
 
@@ -1664,6 +1666,20 @@ function MenuPrism:CancelPending()
     self.dragStartMouse = nil
 end
 
+function MenuPrism:SetInputLocked(locked)
+    self.inputLocked = locked == true
+    if not self.inputLocked then
+        return
+    end
+    if self.phase == PHASE_DRAG then
+        self:BeginSnap()
+        return
+    end
+    if self.phase == PHASE_PENDING then
+        self:CancelPending()
+    end
+end
+
 function MenuPrism:Update(timeStep)
     self:UpdateBgm(timeStep)
     if self.pendingExit then
@@ -1701,6 +1717,19 @@ function MenuPrism:Update(timeStep)
     end
     PointerInput.BeginFrame()
     local pointer = PointerInput.Get()
+    if self.inputLocked or PointerInput.IsOverUI() then
+        if self.phase == PHASE_IDLE then
+            return
+        end
+        if self.phase == PHASE_PENDING then
+            self:CancelPending()
+            return
+        end
+        if self.phase == PHASE_DRAG then
+            self:BeginSnap()
+            return
+        end
+    end
     if self.phase == PHASE_IDLE then
         if pointer.pressed then
             self:BeginPending(pointer.position)

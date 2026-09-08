@@ -14,7 +14,10 @@ local StarterLevel = require "StarterLevel"
 local TriPrismGrid = require "TriPrismGrid"
 local MenuPrism = require "MenuPrism"
 local MenuClusterBackdrop = require "MenuClusterBackdrop"
+local MenuHud = require "MenuHud"
 local PlayerTelemetry = require "PlayerTelemetry"
+local AudioSettings = require "AudioSettings"
+local Sfx = require "Sfx"
 local UI = require("urhox-libs/UI")
 
 local function DiscardBgmSnapshot(snapshot)
@@ -39,6 +42,7 @@ end
 ---@field menuViewport Viewport|nil
 ---@field menuPrism table|nil
 ---@field menuClusters table|nil
+---@field menuHud MenuHud|nil
 ---@field playHud PlayHud|nil
 ---@field session table|nil
 ---@field levelEditor LevelEditor|nil
@@ -76,6 +80,8 @@ function GameApp.New()
     self.menuPrism = nil
     ---@type table|nil
     self.menuClusters = nil
+    ---@type MenuHud|nil
+    self.menuHud = nil
     ---@type PlayHud|nil
     self.playHud = nil
     ---@type table|nil
@@ -126,6 +132,7 @@ function GameApp:CreateMenuScene()
     renderer:SetViewport(0, self.menuViewport)
     renderer:SetNumViewports(1)
     renderer.hdrRendering = false
+    Sfx.BindUiScene(self.menuScene)
 end
 
 function GameApp:BindMenuViewport()
@@ -139,6 +146,11 @@ function GameApp:Start()
     self:CreateMenuScene()
     self.playHud = PlayHud.New(function()
         self:BackToLevelSelect()
+    end)
+    AudioSettings.Load(function()
+        if self.menuHud then
+            self.menuHud:SyncVolumes()
+        end
     end)
     PlayerTelemetry.Load(function()
         if self.state == STATE_LEVEL_SELECT then
@@ -161,6 +173,11 @@ function GameApp:EnsureMenuPrism()
     end
     self.menuPrism.onExitReady = function(definition)
         self.pendingEnter = definition
+    end
+    self.menuPrism.onFogColorChanged = function(color)
+        if self.menuHud then
+            self.menuHud:SetFogColor(color)
+        end
     end
     -- Build 默认对准第一章。先建棱柱，再挂簇回调，避免回选关时先冒出第一章簇。
     self.menuPrism:Build()
@@ -206,6 +223,62 @@ function GameApp:DestroyMenuPrism()
     end
 end
 
+function GameApp:HideMenuHud()
+    if self.menuHud then
+        self.menuHud:Hide()
+        self.menuHud = nil
+    end
+end
+
+function GameApp:UnlockAllLevels()
+    local ids = {}
+    local levels = LevelCatalog.GetAll()
+    for i = 1, #levels do
+        local definition = levels[i]
+        if LevelCatalog.IsPlayable(definition) then
+            ids[#ids + 1] = definition.id
+        end
+    end
+    PlayerTelemetry.UnlockLevels(ids)
+    self:RefreshMenuTape()
+end
+
+function GameApp:ResetProgress()
+    PlayerTelemetry.ResetProgress()
+    self:RefreshMenuTape(LevelCatalog.FirstPlayable())
+end
+
+function GameApp:QuitGame()
+    print("GameApp: quit")
+    engine:Exit()
+end
+
+function GameApp:EnsureMenuHud()
+    if self.menuHud then
+        return
+    end
+    self.menuHud = MenuHud.New()
+    self.menuHud.onOpenChanged = function(open)
+        if self.menuPrism and self.menuPrism.SetInputLocked then
+            self.menuPrism:SetInputLocked(open)
+        end
+    end
+    self.menuHud.onUnlockAll = function()
+        self:UnlockAllLevels()
+    end
+    self.menuHud.onResetProgress = function()
+        self:ResetProgress()
+    end
+    self.menuHud.onQuit = function()
+        self:QuitGame()
+    end
+    self.menuHud:Show()
+    if self.menuPrism then
+        local front = self.menuPrism:FrontLevel()
+        self.menuHud:SetFogColor(self:FogColorFor(front))
+    end
+end
+
 function GameApp:FogColorFor(definition)
     return LevelCatalog.GetFogColor(definition, LevelCatalog.CONFIG.placeholderFogColor)
 end
@@ -229,6 +302,7 @@ function GameApp:ShowLevelSelect(status, returnDefinition)
     LookApplier.ApplyAtmosphere(self.menuScene, LookApplier.DefaultAtmosphere())
     self:RefreshMenuTape()
     self:EnsureMenuPrism()
+    self:EnsureMenuHud()
     if returnDefinition and self.menuPrism then
         self.menuPrism:FocusLevel(returnDefinition, self:FogColorFor(returnDefinition))
         self.menuPrism:BeginEnterRise()
@@ -245,6 +319,9 @@ function GameApp:EnterLevel(definition)
     if self.state ~= STATE_LEVEL_SELECT then
         return false
     end
+    if self.menuHud then
+        self.menuHud:BeginExitFade()
+    end
     if self.menuPrism then
         print("GameApp: begin menu exit " .. definition.id)
         return self.menuPrism:BeginExitDrop(definition)
@@ -257,6 +334,7 @@ function GameApp:FinishEnterLevel(definition)
         return false
     end
     print("GameApp: entering chapter " .. definition.id .. " source=" .. definition.sourcePath)
+    self:HideMenuHud()
     self:DestroyMenuPrism()
     self:DestroyMenuClusters()
     self:DisposeSession()
@@ -310,6 +388,10 @@ function GameApp:EnterEditor(definition)
         return false
     end
     print("GameApp: entering standalone level editor")
+    if self.menuHud then
+        self.menuHud:BeginExitFade()
+    end
+    self:HideMenuHud()
     self:DestroyMenuPrism()
     self:DestroyMenuClusters()
     self:DisposeSession()
@@ -615,6 +697,7 @@ end
 
 function GameApp:Update(timeStep)
     PlayerTelemetry.Update(timeStep)
+    AudioSettings.Update(timeStep)
     if self.state == STATE_LEVEL_SELECT then
         local pending = self.pendingEnter
         if pending then
@@ -635,13 +718,30 @@ function GameApp:Update(timeStep)
             self:FinishEnterLevel(pending)
             return
         end
+        if self.menuHud then
+            self.menuHud:Update(timeStep)
+        end
+        if input:GetKeyPress(KEY_ESCAPE) then
+            if self.menuHud and self.menuHud:HandleEscape() then
+                return
+            end
+        end
         if self.menuPrism then
             self.menuPrism:Update(timeStep)
         end
         if self.menuClusters then
             self.menuClusters:Update(timeStep)
         end
-        if not (self.menuPrism and self.menuPrism.phase == "enter") then
+        local prismBusy = self.menuPrism ~= nil
+            and (self.menuPrism.phase == "enter" or self.menuPrism.phase == "exit")
+        local menuOpen = self.menuHud ~= nil and self.menuHud:IsOpen()
+        if self.menuHud then
+            self.menuHud:SetToggleArmed(not prismBusy)
+        end
+        if self.menuPrism and self.menuPrism.SetInputLocked then
+            self.menuPrism:SetInputLocked(prismBusy or menuOpen)
+        end
+        if not prismBusy and not menuOpen then
             self:HandleLevelSelectHotkeys()
         end
         return
@@ -691,6 +791,7 @@ function GameApp:Stop()
         self.playHud:Hide()
         self.playHud = nil
     end
+    self:HideMenuHud()
     UI.Shutdown()
     self:DestroyMenuPrism()
     self:DestroyMenuClusters()

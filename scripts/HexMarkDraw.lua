@@ -40,6 +40,32 @@ function HexMarkDraw.HexPoint(cx, cy, radius, index)
     return cx + math.cos(angle) * radius, cy + math.sin(angle) * radius
 end
 
+function HexMarkDraw.FillHex(nvg, cx, cy, radius, color, alpha)
+    if radius <= 0.05 then
+        return
+    end
+    color = color or HexMarkDraw.COLOR
+    local alpha255 = color[4]
+    if alpha255 == nil then
+        alpha255 = 255
+    end
+    nvgBeginPath(nvg)
+    local x, y = HexMarkDraw.HexPoint(cx, cy, radius, 1)
+    nvgMoveTo(nvg, x, y)
+    for index = 2, 6 do
+        x, y = HexMarkDraw.HexPoint(cx, cy, radius, index)
+        nvgLineTo(nvg, x, y)
+    end
+    nvgClosePath(nvg)
+    nvgFillColor(nvg, nvgRGBA(
+        color[1],
+        color[2],
+        color[3],
+        math.floor(alpha255 * Clamp01(alpha or 1.0) + 0.5)
+    ))
+    nvgFill(nvg)
+end
+
 function HexMarkDraw.StrokeHex(nvg, cx, cy, radius, width, alpha, color)
     if alpha <= 0.0 or width <= 0.05 or radius <= 0.05 then
         return
