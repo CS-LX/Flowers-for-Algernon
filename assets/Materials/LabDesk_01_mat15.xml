@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<material>
+	<technique name="Techniques/Diff.xml" quality="0" loddistance="0" />
+	<parameter name="MatDiffColor" value="0.63 0.7 0.72 1" />
+	<parameter name="MatSpecColor" value="0.1575 0.175 0.18 0" />
+</material>

@@ -1,0 +1,124 @@
+{
+  "id": "camera_stand",
+  "label": "摄像机架",
+  "modelPath": "Meshes/CameraStand.mdl",
+  "component": "StaticModel",
+  "rootScale": {
+    "x": 1,
+    "y": 1,
+    "z": 1
+  },
+  "slots": [
+    {
+      "index": 0,
+      "id": "body",
+      "label": "机身",
+      "shader": "still_object_mesh_tint_fog",
+      "params": {
+        "meshColor": "#595959",
+        "colorNeg": "#FFFFFF",
+        "colorMid": "#FFFFFF",
+        "colorPos": "#FFFFFF",
+        "fogColor": "#348AA3",
+        "fogHeightA": 8.0,
+        "fogHeightB": 0.0,
+        "gradeSaturation": 0.55,
+        "gradeValue": 1.08,
+        "gradeContrast": 0.72,
+        "gradeHaze": 0.22
+      },
+      "pass": {
+        "opaque": true
+      }
+    },
+    {
+      "index": 1,
+      "id": "lens",
+      "label": "镜头",
+      "shader": "still_object_mesh_tint_fog",
+      "params": {
+        "meshColor": "#030303",
+        "colorNeg": "#FFFFFF",
+        "colorMid": "#FFFFFF",
+        "colorPos": "#FFFFFF",
+        "fogColor": "#348AA3",
+        "fogHeightA": 8.0,
+        "fogHeightB": 0.0,
+        "gradeSaturation": 0.55,
+        "gradeValue": 1.08,
+        "gradeContrast": 0.72,
+        "gradeHaze": 0.22
+      },
+      "pass": {
+        "opaque": true
+      }
+    },
+    {
+      "index": 2,
+      "id": "glass",
+      "label": "玻璃",
+      "shader": "still_object_mesh_tint_fog",
+      "params": {
+        "meshColor": "#D4E3DE",
+        "colorNeg": "#FFFFFF",
+        "colorMid": "#FFFFFF",
+        "colorPos": "#FFFFFF",
+        "fogColor": "#348AA3",
+        "fogHeightA": 8.0,
+        "fogHeightB": 0.0,
+        "gradeSaturation": 0.55,
+        "gradeValue": 1.08,
+        "gradeContrast": 0.72,
+        "gradeHaze": 0.22
+      },
+      "pass": {
+        "opaque": true
+      }
+    },
+    {
+      "index": 3,
+      "id": "accent",
+      "label": "标识",
+      "shader": "still_object_mesh_tint_fog",
+      "params": {
+        "meshColor": "#E80D08",
+        "colorNeg": "#FFFFFF",
+        "colorMid": "#FFFFFF",
+        "colorPos": "#FFFFFF",
+        "fogColor": "#348AA3",
+        "fogHeightA": 8.0,
+        "fogHeightB": 0.0,
+        "gradeSaturation": 0.55,
+        "gradeValue": 1.08,
+        "gradeContrast": 0.72,
+        "gradeHaze": 0.22
+      },
+      "pass": {
+        "opaque": true
+      }
+    }
+  ],
+  "inspect": [
+    {
+      "path": "slots.body.colorNeg",
+      "label": "暗面",
+      "type": "color"
+    },
+    {
+      "path": "slots.body.colorMid",
+      "label": "中面",
+      "type": "color"
+    },
+    {
+      "path": "slots.body.colorPos",
+      "label": "亮面",
+      "type": "color"
+    },
+    {
+      "path": "slots.body.fogColor",
+      "label": "高度雾",
+      "type": "color"
+    }
+  ],
+  "drivers": []
+}
