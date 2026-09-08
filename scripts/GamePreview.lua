@@ -846,6 +846,49 @@ function GamePreview:PlayChapterBgm(chapter)
     return self:PlayBgmPath(BgmTracks.ChapterPath(chapter), true)
 end
 
+function GamePreview:ReleaseBgm()
+    if not self.bgmNode or not self.bgmSource then
+        return nil
+    end
+    local snapshot = {
+        node = self.bgmNode,
+        source = self.bgmSource,
+        path = self.bgmPath,
+        gain = self.bgmGain,
+        from = self.bgmFrom,
+        to = self.bgmTo,
+        fadeElapsed = self.bgmFadeElapsed,
+        fadeDuration = self.bgmFadeDuration,
+    }
+    self.bgmNode = nil
+    self.bgmSource = nil
+    self.bgmPath = nil
+    self.bgmGain = 0.0
+    self.bgmFrom = 0.0
+    self.bgmTo = 0.0
+    self.bgmFadeElapsed = 0.0
+    self.bgmFadeDuration = 0.0
+    return snapshot
+end
+
+function GamePreview:AdoptBgm(snapshot)
+    if not snapshot or not snapshot.node or not snapshot.source or not self.scene then
+        return false
+    end
+    snapshot.node:SetParent(self.scene)
+    self.bgmNode = snapshot.node
+    self.bgmSource = snapshot.source
+    self.bgmPath = snapshot.path
+    self.bgmGain = snapshot.gain or 0.0
+    self.bgmFrom = snapshot.from or self.bgmGain
+    self.bgmTo = snapshot.to or 1.0
+    self.bgmFadeElapsed = snapshot.fadeElapsed or 0.0
+    self.bgmFadeDuration = snapshot.fadeDuration or 0.0
+    self:ApplyBgmGain()
+    print("GamePreview: adopt bgm " .. tostring(self.bgmPath))
+    return true
+end
+
 function GamePreview:PlayCreditsBgm()
     return self:PlayBgmPath(BgmTracks.CreditsPath(), true)
 end

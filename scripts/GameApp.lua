@@ -16,6 +16,18 @@ local MenuPrism = require "MenuPrism"
 local MenuClusterBackdrop = require "MenuClusterBackdrop"
 local UI = require("urhox-libs/UI")
 
+local function DiscardBgmSnapshot(snapshot)
+    if not snapshot then
+        return
+    end
+    if snapshot.source then
+        snapshot.source:Stop()
+    end
+    if snapshot.node then
+        snapshot.node:Remove()
+    end
+end
+
 ---@class GameApp
 ---@field state string
 ---@field edgeLength number
@@ -426,14 +438,27 @@ function GameApp:PresentSession(session, definition, coverColor)
 end
 
 function GameApp:StartNextSession(definition, coverColor)
-    self:DisposeSession()
+    local oldSession = self.session
+    local sameChapter = oldSession ~= nil
+        and self.lastDefinition ~= nil
+        and self.lastDefinition.chapter == definition.chapter
     local session = LevelSession.New(definition, self.edgeLength, self.voxelHeight)
     local started, errorMessage = session:Init()
     if not started then
         print("GameApp: next level init failed: " .. tostring(errorMessage))
+        self:DisposeSession()
         self:ShowLevelSelect("进入失败：" .. tostring(errorMessage))
         return false
     end
+    local snap = nil
+    if sameChapter and oldSession and oldSession.preview and oldSession.preview.ReleaseBgm then
+        snap = oldSession.preview:ReleaseBgm()
+    end
+    if snap and session.preview and session.preview.AdoptBgm and session.preview:AdoptBgm(snap) then
+        snap = nil
+    end
+    DiscardBgmSnapshot(snap)
+    self:DisposeSession()
     self.session = session
     self.lastDefinition = definition
     self.state = STATE_PLAYING
@@ -464,7 +489,8 @@ function GameApp:BeginLevelTransition(nextDefinition)
         if self.playHud then
             self.playHud:BeginExitFade()
         end
-        if preview.FadeOutBgm then
+        if preview.FadeOutBgm
+            and nextDefinition.chapter ~= (self.lastDefinition and self.lastDefinition.chapter) then
             preview:FadeOutBgm()
         end
         preview.onFogCoverFinished = function()
