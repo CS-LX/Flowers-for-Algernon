@@ -15,6 +15,7 @@ local KNOWN_SIDECARS = {
     "StillModels/Algernon.json",
     "StillModels/Grave.json",
     "StillModels/Daisy.json",
+    "StillModels/Flower.json",
     "StillModels/CameraStand.json",
     "StillModels/Monitor.json",
     "StillModels/LabDesk.json",

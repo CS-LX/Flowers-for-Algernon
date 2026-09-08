@@ -131,6 +131,9 @@ local MENU_CHARLIE_SCALE = 1.25 * 1.25
 local MENU_CHARLIE_YAW = 90.0 + 4.0 * 60.0 + 180.0
 local MENU_CHAPTER3_BUILDING_MODEL_ID = "small_building_Rq572hdKEz"
 local MENU_CHAPTER3_BUILDING_SCALE = 0.16 * 3.0 * 1.8
+local MENU_CHAPTER5_STENCIL_ID = 4
+local MENU_CHAPTER5_FLOWER_MODEL_ID = "flower"
+local MENU_CHAPTER5_FLOWER_TARGET_HEIGHT = 0.55
 local MENU_CHARLIE_FACE_YAW = 180.0
 local MENU_CHARLIE_SLOT_COLORS = {
     Color(0.234497, 0.672245, 0.684455, 1.0),
@@ -1349,6 +1352,67 @@ function MenuPrism:AddSmallBuildingExhibit(parent, stencilId)
     return node
 end
 
+function MenuPrism:AddFlowerExhibit(parent, stencilId)
+    local asset = StillModelCatalog.Get(MENU_CHAPTER5_FLOWER_MODEL_ID)
+    local resource = cache:GetResource("Model", "Meshes/Flower.mdl")
+    if not asset or not resource then
+        print("MenuPrism: missing chapter 5 flower exhibit")
+        return nil
+    end
+    local node = parent:CreateChild("ExhibitFlower")
+    local mesh = node:CreateChild("Mesh")
+    local drawable = mesh:CreateComponent("StaticModel")
+    drawable:SetModel(resource)
+    drawable.viewMask = WORLD_BIT
+    drawable.castShadows = false
+    local geoCount = drawable:GetNumGeometries()
+    for _, slot in ipairs(asset.slots) do
+        if slot.index >= 0 and slot.index < geoCount then
+            local look = StillModelCatalog.SlotLook(asset, slot)
+            look.fogHeightA = 0.0
+            look.fogHeightB = 0.0
+            look.gradeSaturation = 1.0
+            look.gradeValue = 1.0
+            look.gradeContrast = 1.0
+            look.gradeHaze = 0.0
+            drawable:SetMaterial(
+                slot.index,
+                LookApplier.CreateStillObjectMeshTintClipMaterial(
+                    look,
+                    StencilIdColor.ToColor(stencilId),
+                    self.rtTexture
+                )
+            )
+        end
+    end
+    local rootScale = asset.rootScale and asset.rootScale.y or 1.0
+    local bounds = resource.boundingBox
+    local height = (bounds.max.y - bounds.min.y) * rootScale
+    if height < 0.001 then
+        height = MENU_CHAPTER5_FLOWER_TARGET_HEIGHT
+    end
+    local scale = MENU_CHAPTER5_FLOWER_TARGET_HEIGHT / height
+    local centerX = (bounds.min.x + bounds.max.x) * 0.5
+    local centerZ = (bounds.min.z + bounds.max.z) * 0.5
+    mesh.position = Vector3(-centerX * rootScale, -bounds.min.y * rootScale, -centerZ * rootScale)
+    mesh.scale = Vector3(rootScale, rootScale, rootScale)
+    node.rotation = Quaternion(120.0, Vector3.UP)
+    node.scale = Vector3(scale, scale, scale)
+    node.position = Vector3(0.0, 0.0, 0.0)
+    local world = node:GetWorldPosition()
+    print(string.format(
+        "MenuPrism: chapter 5 Flower geos=%d scale=%.3f lift=%.3f world=(%.3f, %.3f, %.3f)",
+        geoCount,
+        scale * rootScale,
+        -bounds.min.y * rootScale * scale,
+        world.x,
+        world.y,
+        world.z
+    ))
+    self.exhibitNodes[#self.exhibitNodes + 1] = node
+    return node
+end
+
 function MenuPrism:BuildExhibits(prismHeight)
     if not self.root then
         return
@@ -1363,15 +1427,7 @@ function MenuPrism:BuildExhibits(prismHeight)
     self:AddDoorExhibit(self.exhibitRoot, MENU_CHAPTER2_STENCIL_ID)
     self:AddSmallBuildingExhibit(self.exhibitRoot, MENU_CHAPTER3_STENCIL_ID)
     self:AddCharlieExhibit(self.exhibitRoot, MENU_CHAPTER4_STENCIL_ID)
-
-    local sphere = self:AddExhibitModel(
-        self.exhibitRoot,
-        "ExhibitSphere",
-        SphereGeometry(0.20, 16, 12):ToModel(),
-        4,
-        { color = "#BDA07A" }
-    )
-    sphere.position = Vector3(0.0, 0.20, 0.0)
+    self:AddFlowerExhibit(self.exhibitRoot, MENU_CHAPTER5_STENCIL_ID)
     print("MenuPrism: five stencil exhibits ready")
 end
 
