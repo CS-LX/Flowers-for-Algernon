@@ -4,9 +4,9 @@
   "modelPath": "Meshes/Monitor.mdl",
   "component": "StaticModel",
   "rootScale": {
-    "x": 1,
-    "y": 1,
-    "z": 1
+    "x": 0.01,
+    "y": 0.01,
+    "z": 0.01
   },
   "slots": [
     {
