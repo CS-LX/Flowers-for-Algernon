@@ -1,14 +1,21 @@
--- 关卡内 HUD：只挂剧情层。
--- 调试信息、返回按钮、过关面板不进关卡画面；Esc 仍由 GameApp 处理。
+-- 关卡内 HUD：剧情层 + 退出按钮。
+-- 退出按钮和对话 Mark 共用 HexMarkDraw；Esc 仍由 GameApp 处理，按钮走同一回调。
 
 local UI = require("urhox-libs/UI")
 local StoryView = require "StoryView"
+local LevelExitButton = require "LevelExitButton"
 
 ---@class PlayHud
 ---@field onExit fun()|nil
 ---@field root Widget|nil
+---@field storyView table|nil
+---@field storyHost Widget|nil
+---@field exitButton LevelExitButton|nil
+---@field hiding boolean
 local PlayHud = {}
 PlayHud.__index = PlayHud
+
+local EXIT_FADE = LevelExitButton.FADE_DURATION
 
 local function EnsureUI()
     UI.Init({
@@ -35,23 +42,71 @@ function PlayHud.New(onExit)
     self.storyView = nil
     ---@type Widget|nil
     self.storyHost = nil
+    ---@type LevelExitButton|nil
+    self.exitButton = nil
+    self.hiding = false
     return self
+end
+
+function PlayHud:RequestExit()
+    if self.hiding then
+        return
+    end
+    if self.onExit then
+        self.onExit()
+    end
 end
 
 function PlayHud:Show(definition)
     EnsureUI()
+    self.hiding = false
     self.storyView = StoryView.New()
     self.storyHost = self.storyView:Build()
+    self.exitButton = LevelExitButton {
+        width = 56,
+        height = 56,
+        onExit = function()
+            self:RequestExit()
+        end,
+    }
+    self.exitButton:SetIconAlpha(0.0)
+    self.exitButton:FadeTo(1.0, EXIT_FADE)
     self.root = UI.Panel {
         width = "100%",
         height = "100%",
         pointerEvents = "box-none",
         children = {
             self.storyHost,
+            UI.Panel {
+                position = "absolute",
+                left = 0,
+                top = 0,
+                width = 96,
+                height = 96,
+                paddingTop = 20,
+                paddingLeft = 20,
+                pointerEvents = "box-none",
+                children = {
+                    self.exitButton,
+                },
+            },
         },
     }
     UI.SetRoot(self.root, true)
-    print("PlayHud: story-only hud for " .. tostring(definition and definition.id))
+    print("PlayHud: story+exit hud for " .. tostring(definition and definition.id))
+end
+
+function PlayHud:BeginExitFade()
+    if not self.exitButton then
+        return
+    end
+    self.hiding = true
+    self.exitButton:SetClickArmed(false)
+    self.exitButton:FadeTo(0.0, EXIT_FADE)
+    if self.storyView then
+        self.storyView:Hide()
+    end
+    print("PlayHud: exit button fade out")
 end
 
 function PlayHud:SetStatus(text)
@@ -63,6 +118,7 @@ function PlayHud:ShowFinish()
 end
 
 function PlayHud:Hide()
+    self.hiding = false
     if self.root then
         UI.SetRoot(nil, true)
         self.root = nil
@@ -72,6 +128,7 @@ function PlayHud:Hide()
         self.storyView = nil
     end
     self.storyHost = nil
+    self.exitButton = nil
 end
 
 return PlayHud

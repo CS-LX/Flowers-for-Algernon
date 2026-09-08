@@ -401,7 +401,7 @@ function GameApp:BeginLevelTransition(nextDefinition)
             director:Halt()
         end
         if self.playHud then
-            self.playHud:Hide()
+            self.playHud:BeginExitFade()
         end
         preview.onFogCoverFinished = function()
             self:StartNextSession(nextDefinition, nextColor)
@@ -432,7 +432,7 @@ function GameApp:BeginExitToLevelSelect()
             director:Halt()
         end
         if self.playHud then
-            self.playHud:Hide()
+            self.playHud:BeginExitFade()
         end
         preview.onFogCoverFinished = function()
             self:FinishBackToLevelSelect()
