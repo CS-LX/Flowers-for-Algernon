@@ -496,9 +496,6 @@ function GamePreview:SetCarriedStillObject(modelId, offset, scale)
         object:SetParam("slots." .. slot.id .. ".gradeValue", "1.08")
         object:SetParam("slots." .. slot.id .. ".gradeContrast", "1.0")
         object:SetParam("slots." .. slot.id .. ".gradeHaze", "0.0")
-        if slot.shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG then
-            object:SetParam("slots." .. slot.id .. ".meshColor", "#FFFFFF")
-        end
     end
     StillObjectRuntime.ApplyLooks(runtime, object)
     local bounds = runtime.localBounds
@@ -506,6 +503,11 @@ function GamePreview:SetCarriedStillObject(modelId, offset, scale)
     if bounds and bounds.max.y > bounds.min.y then
         local factor = targetHeight / (bounds.max.y - bounds.min.y)
         root.scale = Vector3(factor, factor, factor)
+        runtime.node.position = Vector3(
+            -(bounds.min.x + bounds.max.x) * 0.5,
+            -bounds.min.y,
+            -(bounds.min.z + bounds.max.z) * 0.5
+        )
     end
     local carryOffset = offset or Vector3(0.0, 0.68, 0.0)
     self.carryObjectView = {

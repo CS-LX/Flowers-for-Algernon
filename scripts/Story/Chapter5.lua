@@ -109,4 +109,12 @@ return {
             mode = "banner",
         },
     },
+    ch5_3_offering = {
+        {
+            id = "ch5.3.offering.1",
+            style = "charlie",
+            text = "这束花献给你。R I P 阿尔吉侬。",
+            mode = "banner",
+        },
+    },
 }

@@ -32,11 +32,11 @@ local TOMB_RISE_HEIGHT = 0.0
 local PATH_RISE_DURATION = 0.85
 local TOMB_RISE_DURATION = 1.15
 local FOCUS_DELAY = 1.0
-local FOCUS_DURATION = 2.2
+local FOCUS_DURATION = 4.6
 local FLOWER_DROP_DURATION = 0.9
-local FLOWER_OFFSET = Vector3(0.0, 0.68, 0.0)
-local FLOWER_SCALE = 0.28
-local FOCUS_ORTHO_SIZE = 8.0
+local FLOWER_OFFSET = Vector3(0.0, 0.58, 0.0)
+local FLOWER_SCALE = 0.55
+local FOCUS_ORTHO_SIZE = 5.4
 
 local DARK_NEG = Color(0.0, 0.0, 0.0, 1.0)
 local DARK_MID = Color(0.0, 0.0, 0.0, 1.0)
@@ -58,6 +58,15 @@ end
 local function EaseOutCubic(value)
     local inverse = 1.0 - Clamp01(value)
     return 1.0 - inverse * inverse * inverse
+end
+
+local function EaseInOutCubic(value)
+    local t = Clamp01(value)
+    if t < 0.5 then
+        return 4.0 * t * t * t
+    end
+    local remaining = -2.0 * t + 2.0
+    return 1.0 - remaining * remaining * remaining * 0.5
 end
 
 function Director5_3:OnStart()
@@ -307,7 +316,7 @@ function Director5_3:UpdateFocus(timeStep)
     local startTarget = self.focusStartTarget or target
     local startSize = self.focusStartSize
         or (preview and preview.levelDocument.fixedCamera.orthoSize or FOCUS_ORTHO_SIZE)
-    local eased = EaseOutCubic(progress)
+    local eased = EaseInOutCubic(progress)
     local focusTarget = startTarget + (target - startTarget) * eased
     local size = startSize + (FOCUS_ORTHO_SIZE - startSize) * eased
     self:SetCameraFocus(focusTarget, size)
@@ -339,11 +348,26 @@ function Director5_3:BeginFlowerDrop()
         gravePosition = gravePosition - direction / distance * 0.35
     end
     if not self:DropCarriedStillObject(gravePosition, FLOWER_DROP_DURATION) then
-        self.stage = "complete"
-        self:FinishLevel()
+        self:PlayOfferingStory()
         return
     end
     print("Director5_3: Charlie places the flower")
+end
+
+function Director5_3:PlayOfferingStory()
+    if self.stage == "offering" or self.stage == "complete" or self.finishStarted then
+        return
+    end
+    self.stage = "offering"
+    self:SetInputLocked(true)
+    self:SetPlayerLocked(true)
+    self:PlayStory(Story.ch5_3_offering, {
+        onComplete = function()
+            self.stage = "complete"
+            self:FinishLevel()
+        end,
+    })
+    print("Director5_3: Charlie offers the flower")
 end
 
 function Director5_3:OnFinish(payload)
@@ -401,8 +425,7 @@ function Director5_3:OnUpdate(timeStep)
         return
     end
     if self.stage == "flower_drop" and self:IsCarriedStillObjectDropped() then
-        self.stage = "complete"
-        self:FinishLevel()
+        self:PlayOfferingStory()
     end
 end
 
