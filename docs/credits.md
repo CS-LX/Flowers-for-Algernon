@@ -24,3 +24,19 @@ Flower by Poly by Google [CC-BY](https://creativecommons.org/licenses/by/3.0/) v
 
 本地源文件：`assets/model/Flower by Poly by Google - eydI4__jXpi.glb`
 
+## Camera Stand
+
+Camera stand by Jason Oudshoorn [CC-BY](https://creativecommons.org/licenses/by/3.0/) via [Poly Pizza](https://poly.pizza/m/5CHQvf_emuN)
+
+本地源文件：`assets/model/Camera stand by Jason Oudshoorn - 5CHQvf_emuN.glb`
+
+## Monitor
+
+Monitor by Poly by Google [CC-BY](https://creativecommons.org/licenses/by/3.0/) via [Poly Pizza](https://poly.pizza/m/2D221SHzAER)
+
+本地源文件：`assets/model/Monitor by Poly by Google - 2D221SHzAER.glb`
+
+## Lab Desk
+
+Lab Desk by Colonel Cthulu [CC-BY](https://creativecommons.org/licenses/by/3.0/) via [Poly Pizza](https://poly.pizza/m/6KxaD6I6I48)
+
