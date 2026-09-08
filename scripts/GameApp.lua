@@ -139,12 +139,9 @@ function GameApp:EnsureMenuPrism()
     self.menuPrism.onExitReady = function(definition)
         self.pendingEnter = definition
     end
-    self:EnsureMenuClusters()
+    -- Build 默认对准第一章。先建棱柱，再挂簇回调，避免回选关时先冒出第一章簇。
     self.menuPrism:Build()
-    local front = self.menuPrism:FrontLevel()
-    if self.menuClusters then
-        self.menuClusters:SetChapter(front and front.chapter or nil, true)
-    end
+    self:EnsureMenuClusters()
 end
 
 function GameApp:EnsureMenuClusters()
@@ -199,6 +196,9 @@ function GameApp:ShowLevelSelect(status, returnDefinition)
     if returnDefinition and self.menuPrism then
         self.menuPrism:FocusLevel(returnDefinition, self:FogColorFor(returnDefinition))
         self.menuPrism:BeginEnterRise()
+    elseif self.menuClusters and self.menuPrism then
+        local front = self.menuPrism:FrontLevel()
+        self.menuClusters:SetChapter(front and front.chapter or nil, true)
     end
     if status then
         print("GameApp: levelselect " .. tostring(status))

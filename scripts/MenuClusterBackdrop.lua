@@ -474,18 +474,28 @@ end
 function MenuClusterBackdrop:BeginEnterRise(chapter)
     local number = tonumber(chapter)
     if not number then
-        self:HideCurrent(false)
+        self:HideCurrent(true)
         return
     end
     number = math.floor(number + 0.5)
+    local keep = ChapterKey(number)
+    local stale = {}
+    for key in pairs(self.layers) do
+        if key ~= keep then
+            stale[#stale + 1] = key
+        end
+    end
+    for _, key in ipairs(stale) do
+        self:RemoveLayer(key)
+    end
     self.currentChapter = number
     local definition = MenuClusterCatalog.Get(number)
     if not definition then
         print("MenuClusterBackdrop: enter rise has no cluster chapter=" .. tostring(number))
         return
     end
-    self:TweenFogColorTo(self:FogColorOf(definition), false)
-    local layer = self.layers[ChapterKey(number)] or self:SpawnLayer(number, definition, REST_Y - TRAVEL)
+    self:TweenFogColorTo(self:FogColorOf(definition), true)
+    local layer = self.layers[keep] or self:SpawnLayer(number, definition, REST_Y - TRAVEL)
     if not layer then
         return
     end
