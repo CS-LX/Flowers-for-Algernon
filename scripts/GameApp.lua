@@ -38,7 +38,9 @@ GameApp.__index = GameApp
 
 local STATE_LEVEL_SELECT = "levelselect"
 local STATE_PLAYING = "playing"
+local STATE_CREDITS = "credits"
 local STATE_EDITOR = "editor"
+local CREDITS_CONCEAL_DURATION = 5.0
 local MENU_CAMERA_DISTANCE = 3.2
 local MENU_CAMERA_ORTHO = 3.2
 local MENU_CAMERA_PITCH = 10.0
@@ -238,6 +240,9 @@ function GameApp:FinishEnterLevel(definition)
     session.onFinish = function()
         self:CompleteLevel(definition)
     end
+    if session.preview and session.preview.PlayChapterBgm then
+        session.preview:PlayChapterBgm(definition.chapter)
+    end
     self:PresentSession(session, definition, self:FogColorFor(definition))
     return true
 end
@@ -329,9 +334,57 @@ function GameApp:CompleteLevel(definition)
         self:EnterNextLevel(nextDefinition)
         return
     end
-    if self.playHud then
-        self.playHud:ShowFinish()
+    self:BeginCredits(definition)
+end
+
+function GameApp:BeginCredits(definition)
+    if self.state ~= STATE_PLAYING then
+        return false
     end
+    local preview = self.session and self.session.preview
+    if preview and preview.BeginFogConceal then
+        if preview.fogReveal and preview.fogReveal.conceal then
+            return true
+        end
+        local director = self.session and self.session.director
+        if director then
+            director:Halt()
+        end
+        if self.playHud then
+            self.playHud:BeginExitFade()
+        end
+        preview.onFogCoverFinished = function()
+            if preview.PlayCreditsBgm then
+                preview:PlayCreditsBgm()
+            end
+            self:ShowCredits()
+        end
+        print("GameApp: conceal 5-3 then credits")
+        return preview:BeginFogConceal(nil, CREDITS_CONCEAL_DURATION)
+    end
+    self:ShowCredits()
+    return true
+end
+
+function GameApp:ShowCredits()
+    self.state = STATE_CREDITS
+    if self.playHud and self.playHud.ShowCredits then
+        self.playHud:ShowCredits(function()
+            self:FinishCredits()
+        end)
+        return true
+    end
+    self:FinishCredits()
+    return true
+end
+
+function GameApp:FinishCredits()
+    print("GameApp: credits finished, return to level select")
+    local preview = self.session and self.session.preview
+    if preview and preview.FadeOutBgm then
+        preview:FadeOutBgm()
+    end
+    self:FinishBackToLevelSelect()
 end
 
 function GameApp:EnterNextLevel(definition)
@@ -382,6 +435,9 @@ function GameApp:StartNextSession(definition, coverColor)
     session.onFinish = function()
         self:CompleteLevel(definition)
     end
+    if session.preview and session.preview.PlayChapterBgm then
+        session.preview:PlayChapterBgm(definition.chapter)
+    end
     self:PresentSession(session, definition, coverColor)
     return true
 end
@@ -402,6 +458,9 @@ function GameApp:BeginLevelTransition(nextDefinition)
         end
         if self.playHud then
             self.playHud:BeginExitFade()
+        end
+        if preview.FadeOutBgm then
+            preview:FadeOutBgm()
         end
         preview.onFogCoverFinished = function()
             self:StartNextSession(nextDefinition, nextColor)
@@ -433,6 +492,9 @@ function GameApp:BeginExitToLevelSelect()
         end
         if self.playHud then
             self.playHud:BeginExitFade()
+        end
+        if preview.FadeOutBgm then
+            preview:FadeOutBgm()
         end
         preview.onFogCoverFinished = function()
             self:FinishBackToLevelSelect()
@@ -484,6 +546,9 @@ function GameApp:Update(timeStep)
     if self.state == STATE_LEVEL_SELECT then
         local pending = self.pendingEnter
         if pending then
+            if self.menuPrism then
+                self.menuPrism:UpdateBgm(timeStep)
+            end
             if self.clusterHold > 0.0 then
                 self.clusterHold = self.clusterHold - timeStep
                 if self.menuClusters then
@@ -521,6 +586,18 @@ function GameApp:Update(timeStep)
         end
         if self.session then
             self.session:Update(timeStep)
+        end
+        if self.playHud and self.playHud.Update then
+            self.playHud:Update(timeStep)
+        end
+        return
+    end
+    if self.state == STATE_CREDITS then
+        if self.session then
+            self.session:Update(timeStep)
+        end
+        if self.playHud and self.playHud.Update then
+            self.playHud:Update(timeStep)
         end
         return
     end

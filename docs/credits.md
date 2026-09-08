@@ -96,7 +96,7 @@ Used under the [DOVA-SYNDROME Music License](https://dova-s.jp/help/articles/lic
 
 Used under the [DOVA-SYNDROME Music License](https://dova-s.jp/help/articles/license/)
 
-本地源文件：`assets/audio/夢の中ならば (credits).mp3`
+本地源文件：`assets/audio/Yume no Naka Naraba (credits).mp3`
 
 ### Chained Story
 

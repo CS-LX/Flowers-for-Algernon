@@ -12,6 +12,7 @@ local LevelExitButton = require "LevelExitButton"
 ---@field storyHost Widget|nil
 ---@field exitButton LevelExitButton|nil
 ---@field hiding boolean
+---@field creditsRoll table|nil
 local PlayHud = {}
 PlayHud.__index = PlayHud
 
@@ -45,6 +46,8 @@ function PlayHud.New(onExit)
     ---@type LevelExitButton|nil
     self.exitButton = nil
     self.hiding = false
+    ---@type table|nil
+    self.creditsRoll = nil
     return self
 end
 
@@ -117,6 +120,26 @@ function PlayHud:ShowFinish()
     print("PlayHud: finish acknowledged without overlay")
 end
 
+function PlayHud:Update(timeStep)
+    if self.creditsRoll then
+        self.creditsRoll:Update(timeStep)
+    end
+end
+
+function PlayHud:ShowCredits(onComplete)
+    EnsureUI()
+    self.hiding = true
+    if self.storyView then
+        self.storyView:Hide()
+    end
+    if not self.creditsRoll then
+        local CreditsRoll = require "CreditsRoll"
+        self.creditsRoll = CreditsRoll.New()
+    end
+    self.creditsRoll:Show(onComplete)
+    print("PlayHud: credits roll started")
+end
+
 function PlayHud:Hide()
     self.hiding = false
     if self.root then
@@ -129,6 +152,10 @@ function PlayHud:Hide()
     end
     self.storyHost = nil
     self.exitButton = nil
+    if self.creditsRoll then
+        self.creditsRoll:Hide()
+        self.creditsRoll = nil
+    end
 end
 
 return PlayHud

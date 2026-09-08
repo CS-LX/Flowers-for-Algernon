@@ -10,6 +10,7 @@ local StencilIdColor = require "StencilIdColor"
 local StillObject = require "StillObject"
 local StillObjectRuntime = require "StillObjectRuntime"
 local StillModelCatalog = require "StillModelCatalog"
+local BgmTracks = require "BgmTracks"
 
 ---@class MenuPrism
 ---@field scene Scene
@@ -57,6 +58,14 @@ local StillModelCatalog = require "StillModelCatalog"
 ---@field pendingExit LevelDefinition|nil
 ---@field pendingDrop LevelDefinition|nil
 ---@field skipFogTween boolean
+---@field bgmNode Node|nil
+---@field bgmSource SoundSource|nil
+---@field bgmPath string|nil
+---@field bgmGain number
+---@field bgmFrom number
+---@field bgmTo number
+---@field bgmFadeElapsed number
+---@field bgmFadeDuration number
 local MenuPrism = {}
 MenuPrism.__index = MenuPrism
 
@@ -195,6 +204,17 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     ---@type Viewport|nil
     self.worldViewport = worldViewport
     ---@type Node|nil
+    self.bgmNode = nil
+    ---@type SoundSource|nil
+    self.bgmSource = nil
+    ---@type string|nil
+    self.bgmPath = nil
+    self.bgmGain = 0.0
+    self.bgmFrom = 0.0
+    self.bgmTo = 0.0
+    self.bgmFadeElapsed = 0.0
+    self.bgmFadeDuration = 0.0
+    ---@type Node|nil
     self.root = nil
     ---@type Node[]
     self.voxelNodes = {}
@@ -325,6 +345,7 @@ function MenuPrism:UpdateWindow()
     if self.onFrontChapterChanged then
         self.onFrontChapterChanged(center and center.chapter or nil)
     end
+    self:PlayMenuBgm()
     print(string.format(
         "MenuPrism: window [%s][%s][%s]",
         left and left.code or "--",
@@ -572,6 +593,7 @@ function MenuPrism:BeginExitDrop(definition)
         definition = definition,
     }
     print(string.format("MenuPrism: exit drop from y=%.3f", fromY))
+    self:FadeOutBgm()
     if self.onExitDropStarted then
         self.onExitDropStarted()
     end
@@ -1497,6 +1519,95 @@ function MenuPrism:UpdateSnap(timeStep)
     ))
 end
 
+function MenuPrism:EnsureBgmSource()
+    if self.bgmSource then
+        return self.bgmSource
+    end
+    if not self.scene then
+        return nil
+    end
+    self.bgmNode = self.scene:CreateChild("MenuBgm")
+    local source = self.bgmNode:CreateComponent("SoundSource")
+    if not source then
+        print("MenuPrism: failed to create menu SoundSource")
+        return nil
+    end
+    source:SetSoundType(SOUND_MUSIC)
+    source:SetGain(0.0)
+    self.bgmSource = source
+    return source
+end
+
+function MenuPrism:ApplyBgmGain()
+    if self.bgmSource then
+        self.bgmSource:SetGain(self.bgmGain)
+    end
+end
+
+function MenuPrism:PlayMenuBgm()
+    local path = BgmTracks.MenuPath()
+    local source = self:EnsureBgmSource()
+    if not path or not source then
+        return false
+    end
+    if self.bgmPath == path and source.playing then
+        if self.bgmTo < 1.0 then
+            self.bgmFrom = self.bgmGain
+            self.bgmTo = 1.0
+            self.bgmFadeElapsed = 0.0
+            self.bgmFadeDuration = BgmTracks.FADE
+        end
+        return true
+    end
+    local sound = cache:GetResource("Sound", path)
+    if not sound then
+        print("MenuPrism: missing menu bgm " .. path)
+        return false
+    end
+    sound:SetLooped(true)
+    self.bgmPath = path
+    self.bgmGain = 0.0
+    self.bgmFrom = 0.0
+    self.bgmTo = 1.0
+    self.bgmFadeElapsed = 0.0
+    self.bgmFadeDuration = BgmTracks.FADE
+    source:Play(sound, 0, 0.0)
+    self:ApplyBgmGain()
+    print("MenuPrism: play menu bgm " .. path)
+    return true
+end
+
+function MenuPrism:FadeOutBgm()
+    if not self.bgmSource then
+        return
+    end
+    self.bgmFrom = self.bgmGain
+    self.bgmTo = 0.0
+    self.bgmFadeElapsed = 0.0
+    self.bgmFadeDuration = BgmTracks.FADE
+end
+
+function MenuPrism:UpdateBgm(timeStep)
+    if self.bgmFadeDuration <= 0.0 then
+        return
+    end
+    local elapsed = self.bgmFadeElapsed + timeStep
+    self.bgmFadeElapsed = elapsed
+    local t = elapsed / self.bgmFadeDuration
+    if t >= 1.0 then
+        self.bgmGain = self.bgmTo
+        self.bgmFadeDuration = 0.0
+        self:ApplyBgmGain()
+        if self.bgmTo <= 0.0 and self.bgmSource then
+            self.bgmSource:Stop()
+            self.bgmPath = nil
+        end
+        return
+    end
+    self.bgmGain = self.bgmFrom + (self.bgmTo - self.bgmFrom) * t
+    self:ApplyBgmGain()
+end
+
 function MenuPrism:FrontLevel()
     return self.window and self.window[2] or nil
 end
@@ -1539,6 +1650,7 @@ function MenuPrism:CancelPending()
 end
 
 function MenuPrism:Update(timeStep)
+    self:UpdateBgm(timeStep)
     if self.pendingExit then
         local definition = self.pendingExit
         self.pendingExit = nil
@@ -1636,6 +1748,15 @@ function MenuPrism:Destroy()
     self.exitTween = nil
     self.pendingExit = nil
     self.pendingDrop = nil
+    if self.bgmSource then
+        self.bgmSource:Stop()
+        self.bgmSource = nil
+    end
+    if self.bgmNode then
+        self.bgmNode:Remove()
+        self.bgmNode = nil
+    end
+    self.bgmPath = nil
     if self.rtCameraNode then
         self.rtCameraNode:Remove()
         self.rtCameraNode = nil
