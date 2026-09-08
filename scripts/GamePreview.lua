@@ -56,6 +56,8 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.algernon = nil
     ---@type table|nil
     self.algernonView = nil
+    self.algernonCarried = false
+    self.algernonCarryOffset = Vector3(0.0, 0.68, 0.0)
     self.spawnNodeKey = nil
     self.clickFeedback = ClickFeedbackVfx.New()
     self.rotatorController = nil
@@ -650,7 +652,34 @@ function GamePreview:PresentAlgernon()
         self.algernonView = AlgernonView.New(self.scene)
     end
     self.algernonView:SetVisible(self.algernon:IsVisible())
+    if self.algernonCarried and self.player then
+        local playerRotation = self.player:GetRotation()
+        local carryPosition = self.player:GetPosition()
+            + playerRotation * self.algernonCarryOffset
+        self.algernonView:Apply(carryPosition, playerRotation)
+        return
+    end
     self.algernonView:Apply(self.algernon:GetPosition(), self.algernon:GetRotation())
+end
+
+---@param carried boolean
+---@param offset Vector3|nil
+---@return boolean
+function GamePreview:SetAlgernonCarried(carried, offset)
+    if not self.algernon or not self.algernon:IsEnabled() then
+        return false
+    end
+    self.algernonCarried = carried == true
+    if offset then
+        self.algernonCarryOffset = Vector3(offset.x, offset.y, offset.z)
+    end
+    if self.algernonCarried then
+        self.algernon:Stop()
+        self.algernon:ClearTopmostHold()
+    end
+    self:PresentAlgernon()
+    print("GamePreview: Algernon carried=" .. tostring(self.algernonCarried))
+    return true
 end
 
 function GamePreview:ClearAlgernonView()
@@ -663,6 +692,9 @@ end
 function GamePreview:SetAlgernonEnabled(enabled, nodeKey)
     if not self.algernon then
         return false, "no algernon"
+    end
+    if not enabled then
+        self.algernonCarried = false
     end
     local ok, errorMessage = self.algernon:SetEnabled(enabled, nodeKey)
     if not ok then
@@ -918,6 +950,7 @@ function GamePreview:Stop()
     self.onLevelSettled = nil
     self.onFogCoverFinished = nil
     self.coverColor = nil
+    self.algernonCarried = false
     self.riderFollow = nil
     if self.rotatorController then
         self.rotatorController:RestoreAuthoredStates()

@@ -293,6 +293,17 @@ function LevelDirector:SetAlgernonSpeed(speed)
     return preview:SetAlgernonSpeed(speed)
 end
 
+---@param carried boolean
+---@param offset Vector3|nil
+---@return boolean
+function LevelDirector:SetAlgernonCarried(carried, offset)
+    local preview = self:GetPreview()
+    if not preview or not preview.SetAlgernonCarried then
+        return false
+    end
+    return preview:SetAlgernonCarried(carried, offset)
+end
+
 function LevelDirector:IsAlgernonExplorationPaused()
     local algernon = self:GetAlgernon()
     return algernon ~= nil
