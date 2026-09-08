@@ -95,4 +95,18 @@ return {
             mode = "banner",
         },
     },
+    ch5_3_intro = {
+        {
+            id = "ch5.3.intro.1",
+            style = "charlie",
+            text = "以后，我的视野里、视界里、空间观测里……只剩下我自己了。",
+            mode = "banner",
+        },
+        {
+            id = "ch5.3.intro.2",
+            style = "charlie",
+            text = "不过，我还记得要把你送到这里。阿尔吉侬，这是我还能为你做的最后一件事。",
+            mode = "banner",
+        },
+    },
 }

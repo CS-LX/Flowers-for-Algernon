@@ -9,6 +9,8 @@ local PlayerController = require "PlayerController"
 local PlayerView = require "PlayerView"
 local AlgernonController = require "AlgernonController"
 local AlgernonView = require "AlgernonView"
+local StillObject = require "StillObject"
+local StillObjectRuntime = require "StillObjectRuntime"
 local PreviewRotatorController = require "PreviewRotatorController"
 local PreviewMoverController = require "PreviewMoverController"
 local RiderFollow = require "RiderFollow"
@@ -47,6 +49,7 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.cameraBaseTarget = nil
     ---@type Vector3|nil
     self.cameraBasePosition = nil
+    self.cameraFocusTarget = nil
     self.partRenderer = nil
     self.pathRuntime = nil
     self.player = nil
@@ -61,6 +64,10 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     ---@type table|nil
     self.algernonDrop = nil
     self.spawnNodeKey = nil
+    ---@type table|nil
+    self.carryObjectView = nil
+    ---@type table|nil
+    self.carryObjectState = nil
     self.clickFeedback = ClickFeedbackVfx.New()
     self.rotatorController = nil
     self.hoverAmounts = {}
@@ -182,6 +189,7 @@ function GamePreview:Start()
     self.cameraBaseTarget, self.cameraBasePosition = FixedGameCamera.GetWorldPosition(
         self.levelDocument.fixedCamera
     )
+    self.cameraFocusTarget = self.cameraBaseTarget
     self.viewport = Viewport:new(self.scene, self.camera)
     self.partRenderer = PartRootRenderer.New(self.scene, self.edgeLength, self.voxelHeight)
     local built, errorMessage = self.partRenderer:Rebuild(self.levelDocument)
@@ -407,8 +415,9 @@ function GamePreview:SetCameraLiftOffset(offsetY)
         return false
     end
     local offset = Vector3(0, offsetY or 0.0, 0)
+    self.cameraFocusTarget = self.cameraBaseTarget + offset
     self.cameraNode.position = self.cameraBasePosition + offset
-    self.cameraNode:LookAt(self.cameraBaseTarget + offset)
+    self.cameraNode:LookAt(self.cameraFocusTarget)
     return true
 end
 
@@ -442,6 +451,178 @@ function GamePreview:SetPartVisualYaw(partId, yawDegrees)
         self:SyncRiders()
     end
     return applied
+end
+
+function GamePreview:PresentCarriedStillObject()
+    local view = self.carryObjectView
+    local state = self.carryObjectState
+    if not view or not state or not self.player then
+        return
+    end
+    local playerRotation = self.player:GetRotation()
+    if state.carried then
+        view.root.position = self.player:GetPosition()
+            + playerRotation * state.offset
+        view.root.rotation = playerRotation
+    elseif state.dropPosition then
+        view.root.position = state.dropPosition
+        view.root.rotation = state.dropRotation or playerRotation
+    end
+end
+
+function GamePreview:SetCarriedStillObject(modelId, offset, scale)
+    if not self.scene or not self.player or type(modelId) ~= "string" then
+        return false
+    end
+    self:ClearCarriedStillObject()
+    local object = StillObject.New({
+        id = "carried_still_object",
+        modelId = modelId,
+        transform = {
+            scale = { x = 1.0, y = 1.0, z = 1.0 },
+        },
+    })
+    local root = self.scene:CreateChild("CarriedStillObject")
+    local runtime = StillObjectRuntime.Bind(root, object)
+    if not runtime then
+        root:Remove()
+        return false
+    end
+    for _, slot in ipairs(runtime.asset.slots) do
+        object:SetParam("slots." .. slot.id .. ".fogHeightA", "0.0")
+        object:SetParam("slots." .. slot.id .. ".fogHeightB", "0.0")
+        object:SetParam("slots." .. slot.id .. ".fogColor", "#000000")
+        object:SetParam("slots." .. slot.id .. ".gradeSaturation", "1.0")
+        object:SetParam("slots." .. slot.id .. ".gradeValue", "1.08")
+        object:SetParam("slots." .. slot.id .. ".gradeContrast", "1.0")
+        object:SetParam("slots." .. slot.id .. ".gradeHaze", "0.0")
+        if slot.shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG then
+            object:SetParam("slots." .. slot.id .. ".meshColor", "#FFFFFF")
+        end
+    end
+    StillObjectRuntime.ApplyLooks(runtime, object)
+    local bounds = runtime.localBounds
+    local targetHeight = tonumber(scale) or 0.55
+    if bounds and bounds.max.y > bounds.min.y then
+        local factor = targetHeight / (bounds.max.y - bounds.min.y)
+        root.scale = Vector3(factor, factor, factor)
+    end
+    local carryOffset = offset or Vector3(0.0, 0.68, 0.0)
+    self.carryObjectView = {
+        root = root,
+        runtime = runtime,
+    }
+    self.carryObjectState = {
+        carried = true,
+        offset = Vector3(carryOffset.x, carryOffset.y, carryOffset.z),
+        dropPosition = nil,
+        dropRotation = nil,
+        elapsed = 0.0,
+        duration = 0.0,
+        startPosition = nil,
+        targetPosition = nil,
+    }
+    self:PresentCarriedStillObject()
+    print("GamePreview: carried still object set " .. modelId)
+    return true
+end
+
+function GamePreview:DropCarriedStillObject(targetPosition, duration)
+    local state = self.carryObjectState
+    if not state or not state.carried or not self.player then
+        return false
+    end
+    local playerRotation = self.player:GetRotation()
+    local startPosition = self.player:GetPosition()
+        + playerRotation * state.offset
+    state.carried = false
+    state.elapsed = 0.0
+    state.duration = math.max(0.1, tonumber(duration) or 0.7)
+    state.startPosition = startPosition
+    state.targetPosition = Vector3(
+        targetPosition.x,
+        targetPosition.y,
+        targetPosition.z
+    )
+    state.dropPosition = startPosition
+    state.dropRotation = playerRotation
+    self:PresentCarriedStillObject()
+    print("GamePreview: carried still object drop started")
+    return true
+end
+
+function GamePreview:IsCarriedStillObjectDropping()
+    local state = self.carryObjectState
+    return state ~= nil and state.carried == false and state.targetPosition ~= nil
+        and state.dropFinished ~= true
+end
+
+function GamePreview:IsCarriedStillObjectDropped()
+    local state = self.carryObjectState
+    return state ~= nil and state.dropFinished == true
+end
+
+function GamePreview:UpdateCarriedStillObject(timeStep)
+    local state = self.carryObjectState
+    if not state then
+        return
+    end
+    if state.carried then
+        self:PresentCarriedStillObject()
+        return
+    end
+    if not state.targetPosition or state.dropFinished then
+        return
+    end
+    state.elapsed = state.elapsed + timeStep
+    local progress = math.max(0.0, math.min(1.0, state.elapsed / state.duration))
+    local eased = progress * progress * (3.0 - 2.0 * progress)
+    local base = state.startPosition
+        + (state.targetPosition - state.startPosition) * eased
+    local dropOffset = -math.sin(progress * math.pi) * 0.12
+    state.dropPosition = base + Vector3(0.0, dropOffset, 0.0)
+    self:PresentCarriedStillObject()
+    if progress >= 1.0 then
+        state.dropPosition = state.targetPosition
+        state.dropFinished = true
+        self:PresentCarriedStillObject()
+        print("GamePreview: carried still object drop finished")
+    end
+end
+
+function GamePreview:ClearCarriedStillObject()
+    if self.carryObjectView and self.carryObjectView.root then
+        self.carryObjectView.root:Remove()
+    end
+    self.carryObjectView = nil
+    self.carryObjectState = nil
+end
+
+function GamePreview:SetCameraFocus(target, orthoSize)
+    if not self.cameraNode or not self.camera or not self.cameraBaseTarget
+        or not self.cameraBasePosition then
+        return false
+    end
+    local targetPoint = Vector3(target.x, target.y, target.z)
+    local baseOffset = self.cameraBasePosition - self.cameraBaseTarget
+    local baseSize = self.levelDocument.fixedCamera.orthoSize
+    local size = tonumber(orthoSize) or baseSize
+    local ratio = size / math.max(0.001, baseSize)
+    self.cameraFocusTarget = targetPoint
+    self.camera.orthoSize = size
+    self.cameraNode.position = targetPoint + baseOffset * ratio
+    self.cameraNode:LookAt(targetPoint)
+    return true
+end
+
+function GamePreview:GetCameraFocusState()
+    if not self.cameraNode or not self.camera then
+        return nil
+    end
+    return {
+        target = self.cameraFocusTarget or self.cameraBaseTarget,
+        orthoSize = self.camera.orthoSize,
+    }
 end
 
 function GamePreview:SetPartVisualPosition(partId, position)
@@ -501,6 +682,13 @@ function GamePreview:ApplyPart(part, refreshPath)
     end
     self:SyncRiders()
     return true
+end
+
+function GamePreview:RefreshPathRuntime()
+    if not self.pathRuntime then
+        return false, "no path runtime"
+    end
+    return self.pathRuntime:RefreshAfterMechanismSnap()
 end
 
 function GamePreview:SyncRiders()
@@ -609,6 +797,7 @@ function GamePreview:Update(timeStep)
         self.algernon:Update(timeStep)
     end
     self:UpdateAlgernonDrop(timeStep)
+    self:UpdateCarriedStillObject(timeStep)
     self:SyncRiders()
     self:UpdateHoverEmission(timeStep)
     self:UpdateFeedback(timeStep)
@@ -1014,6 +1203,7 @@ function GamePreview:Stop()
     self.coverColor = nil
     self.algernonCarried = false
     self.algernonDrop = nil
+    self:ClearCarriedStillObject()
     self.riderFollow = nil
     if self.rotatorController then
         self.rotatorController:RestoreAuthoredStates()
@@ -1050,6 +1240,7 @@ function GamePreview:Stop()
     self.viewport = nil
     self.cameraBaseTarget = nil
     self.cameraBasePosition = nil
+    self.cameraFocusTarget = nil
 end
 
 return GamePreview

@@ -38,6 +38,7 @@ LevelDirectorCatalog.MODULES = {
     ch4_4 = "LevelDirectors.Director4_4",
     ch5_1 = "LevelDirectors.Director5_1",
     ch5_2 = "LevelDirectors.Director5_2",
+    ch5_3 = "LevelDirectors.Director5_3",
 }
 
 ---@param session table

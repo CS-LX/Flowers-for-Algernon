@@ -315,6 +315,67 @@ function LevelDirector:DropAlgernonAt(nodeKey, duration)
     return preview:DropAlgernonAt(nodeKey, duration)
 end
 
+---@param modelId string
+---@param offset Vector3|nil
+---@param scale number|nil
+---@return boolean
+function LevelDirector:SetCarriedStillObject(modelId, offset, scale)
+    local preview = self:GetPreview()
+    if not preview or not preview.SetCarriedStillObject then
+        return false
+    end
+    return preview:SetCarriedStillObject(modelId, offset, scale)
+end
+
+---@param targetPosition Vector3
+---@param duration number|nil
+---@return boolean
+function LevelDirector:DropCarriedStillObject(targetPosition, duration)
+    local preview = self:GetPreview()
+    if not preview or not preview.DropCarriedStillObject then
+        return false
+    end
+    return preview:DropCarriedStillObject(targetPosition, duration)
+end
+
+function LevelDirector:IsCarriedStillObjectDropping()
+    local preview = self:GetPreview()
+    return preview ~= nil and preview:IsCarriedStillObjectDropping()
+end
+
+function LevelDirector:IsCarriedStillObjectDropped()
+    local preview = self:GetPreview()
+    return preview ~= nil and preview:IsCarriedStillObjectDropped()
+end
+
+---@param target Vector3
+---@param orthoSize number|nil
+---@return boolean
+function LevelDirector:SetCameraFocus(target, orthoSize)
+    local preview = self:GetPreview()
+    if not preview or not preview.SetCameraFocus then
+        return false
+    end
+    return preview:SetCameraFocus(target, orthoSize)
+end
+
+function LevelDirector:GetCameraFocusState()
+    local preview = self:GetPreview()
+    if not preview or not preview.GetCameraFocusState then
+        return nil
+    end
+    return preview:GetCameraFocusState()
+end
+
+function LevelDirector:ClearCarriedStillObject()
+    local preview = self:GetPreview()
+    if not preview or not preview.ClearCarriedStillObject then
+        return false
+    end
+    preview:ClearCarriedStillObject()
+    return true
+end
+
 function LevelDirector:IsAlgernonExplorationPaused()
     local algernon = self:GetAlgernon()
     return algernon ~= nil
@@ -447,6 +508,14 @@ function LevelDirector:SetPartVisualPosition(partId, position)
         return false
     end
     return preview:SetPartVisualPosition(partId, position)
+end
+
+function LevelDirector:RefreshPathRuntime()
+    local preview = self:GetPreview()
+    if not preview or not preview.RefreshPathRuntime then
+        return false, "no preview"
+    end
+    return preview:RefreshPathRuntime()
 end
 
 function LevelDirector:SetCameraLiftOffset(offsetY)
