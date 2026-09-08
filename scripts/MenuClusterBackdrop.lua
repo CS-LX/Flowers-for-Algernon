@@ -23,6 +23,7 @@ local MenuClusterCatalog = require "MenuClusterCatalog"
 ---@field currentChapter number|nil
 ---@field fogClear number
 ---@field fogSolid number
+---@field fogColor Color|nil
 local MenuClusterBackdrop = {}
 MenuClusterBackdrop.__index = MenuClusterBackdrop
 
@@ -71,6 +72,8 @@ function MenuClusterBackdrop.New(scene)
     self.currentChapter = nil
     self.fogClear = FOG_HEIGHT_A
     self.fogSolid = FOG_HEIGHT_B
+    ---@type Color|nil
+    self.fogColor = nil
     return self
 end
 
@@ -97,23 +100,48 @@ function MenuClusterBackdrop:ModelFootY(asset)
     return offsetY + minY * scaleY
 end
 
+function MenuClusterBackdrop:ResolveFogColor(look)
+    if self.fogColor then
+        return self.fogColor
+    end
+    return LookApplier.HexToColor(look and look["slots.wall.fogColor"], Color(0.204, 0.541, 0.639, 1))
+end
+
 function MenuClusterBackdrop:ApplyFogToEntry(entry, look, fogClear, fogSolid)
     if not entry or not entry.model or not entry.asset then
         return
     end
+    local fogColor = self:ResolveFogColor(look)
     for _, slot in ipairs(entry.asset.slots) do
         local material = entry.slotMaterials and entry.slotMaterials[slot.id]
         if material then
             material:SetShaderParameter("color_neg", Variant(LookApplier.HexToColor(look["slots.wall.colorNeg"], Color(0.169, 0.435, 0.659, 1))))
             material:SetShaderParameter("color_mid", Variant(LookApplier.HexToColor(look["slots.wall.colorMid"], Color(0.494, 0.718, 0.902, 1))))
             material:SetShaderParameter("color_pos", Variant(LookApplier.HexToColor(look["slots.wall.colorPos"], Color(1.0, 0.957, 0.910, 1))))
-            material:SetShaderParameter("fog_color", Variant(LookApplier.HexToColor(look["slots.wall.fogColor"], Color(0.204, 0.541, 0.639, 1))))
+            material:SetShaderParameter("fog_color", Variant(fogColor))
             material:SetShaderParameter("fog_height_a", Variant(fogClear))
             material:SetShaderParameter("fog_height_b", Variant(fogSolid))
             material:SetShaderParameter("grade_saturation", Variant(tonumber(look["slots.wall.gradeSaturation"]) or 0.55))
             material:SetShaderParameter("grade_value", Variant(tonumber(look["slots.wall.gradeValue"]) or 1.08))
             material:SetShaderParameter("grade_contrast", Variant(tonumber(look["slots.wall.gradeContrast"]) or 0.72))
             material:SetShaderParameter("grade_haze", Variant(tonumber(look["slots.wall.gradeHaze"]) or 0.22))
+        end
+    end
+end
+
+function MenuClusterBackdrop:SetFogColor(color)
+    if not color then
+        return
+    end
+    self.fogColor = color
+    for _, layer in pairs(self.layers) do
+        for _, bound in ipairs(layer.entries or {}) do
+            local entry = bound.entry
+            if entry and entry.slotMaterials then
+                for _, material in pairs(entry.slotMaterials) do
+                    material:SetShaderParameter("fog_color", Variant(color))
+                end
+            end
         end
     end
 end
@@ -362,6 +390,7 @@ function MenuClusterBackdrop:Destroy()
     self.currentChapter = nil
     self.fogClear = FOG_HEIGHT_A
     self.fogSolid = FOG_HEIGHT_B
+    self.fogColor = nil
 end
 
 return MenuClusterBackdrop

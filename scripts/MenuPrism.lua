@@ -49,6 +49,7 @@ local StillModelCatalog = require "StillModelCatalog"
 ---@field onFrontChapterChanged fun(chapter: number|nil)|nil
 ---@field onExitDropStarted fun()|nil
 ---@field onEnterRiseStarted fun(chapter: number|nil)|nil
+---@field onFogColorChanged fun(color: Color)|nil
 ---@field fogTween {duration: number, clock: number, from: Color, to: Color}|nil
 ---@field exitTween {duration: number, clock: number, fromY: number, toY: number, definition: LevelDefinition}|nil
 ---@field enterTween {duration: number, clock: number, fromY: number, toY: number}|nil
@@ -249,6 +250,8 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.onExitDropStarted = nil
     ---@type fun(chapter: number|nil)|nil
     self.onEnterRiseStarted = nil
+    ---@type fun(color: Color)|nil
+    self.onFogColorChanged = nil
     ---@type table|nil
     self.fogTween = nil
     ---@type table|nil
@@ -425,12 +428,19 @@ function MenuPrism:PlaceholderFogColor()
     return LevelCatalog.CONFIG.placeholderFogColor
 end
 
+function MenuPrism:NotifyFogColor(color)
+    if self.onFogColorChanged and color then
+        self.onFogColorChanged(color)
+    end
+end
+
 function MenuPrism:SetFogColorNow(color)
     self.fogTween = nil
     if not self.scene or not color then
         return
     end
     LookApplier.SetFogColor(self.scene, color)
+    self:NotifyFogColor(color)
 end
 
 function MenuPrism:TweenFogToFront(definition)
@@ -457,7 +467,9 @@ function MenuPrism:UpdateFogTween(timeStep)
     end
     tween.clock = tween.clock + timeStep
     local t = Clamp01(tween.clock / tween.duration)
-    LookApplier.SetFogColor(self.scene, MixColor(tween.from, tween.to, t))
+    local mixed = MixColor(tween.from, tween.to, t)
+    LookApplier.SetFogColor(self.scene, mixed)
+    self:NotifyFogColor(mixed)
     if t >= 1.0 then
         self.fogTween = nil
     end
@@ -1563,6 +1575,7 @@ function MenuPrism:Destroy()
     self.onFrontChapterChanged = nil
     self.onExitDropStarted = nil
     self.onEnterRiseStarted = nil
+    self.onFogColorChanged = nil
     self.fogTween = nil
     self.exitTween = nil
     self.pendingExit = nil
