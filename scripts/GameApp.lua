@@ -12,6 +12,7 @@ local LevelDocument = require "LevelDocument"
 local StarterLevel = require "StarterLevel"
 local TriPrismGrid = require "TriPrismGrid"
 local MenuPrism = require "MenuPrism"
+local MenuClusterBackdrop = require "MenuClusterBackdrop"
 local UI = require("urhox-libs/UI")
 
 ---@class GameApp
@@ -23,11 +24,13 @@ local UI = require("urhox-libs/UI")
 ---@field menuCamera Camera|nil
 ---@field menuViewport Viewport|nil
 ---@field menuPrism table|nil
+---@field menuClusters table|nil
 ---@field playHud PlayHud|nil
 ---@field session table|nil
 ---@field levelEditor LevelEditor|nil
 ---@field editorDocument table|nil
 ---@field pendingEnter LevelDefinition|nil
+---@field clusterHold number
 ---@field lastDefinition LevelDefinition|nil
 local GameApp = {}
 GameApp.__index = GameApp
@@ -55,6 +58,8 @@ function GameApp.New()
     self.menuViewport = nil
     ---@type table|nil
     self.menuPrism = nil
+    ---@type table|nil
+    self.menuClusters = nil
     ---@type PlayHud|nil
     self.playHud = nil
     ---@type table|nil
@@ -65,6 +70,7 @@ function GameApp.New()
     self.editorDocument = nil
     ---@type LevelDefinition|nil
     self.pendingEnter = nil
+    self.clusterHold = 0.0
     ---@type LevelDefinition|nil
     self.lastDefinition = nil
     return self
@@ -133,7 +139,44 @@ function GameApp:EnsureMenuPrism()
     self.menuPrism.onExitReady = function(definition)
         self.pendingEnter = definition
     end
+    self:EnsureMenuClusters()
     self.menuPrism:Build()
+    local front = self.menuPrism:FrontLevel()
+    if self.menuClusters then
+        self.menuClusters:SetChapter(front and front.chapter or nil, true)
+    end
+end
+
+function GameApp:EnsureMenuClusters()
+    if self.menuClusters or not self.menuScene then
+        return
+    end
+    self.menuClusters = MenuClusterBackdrop.New(self.menuScene)
+    if self.menuPrism then
+        self.menuPrism.onFrontChapterChanged = function(chapter)
+            if self.menuClusters then
+                self.menuClusters:SetChapter(chapter, false)
+            end
+        end
+        self.menuPrism.onExitDropStarted = function()
+            if self.menuClusters then
+                self.menuClusters:BeginExitDrop()
+            end
+            self.clusterHold = 0.85
+        end
+        self.menuPrism.onEnterRiseStarted = function(chapter)
+            if self.menuClusters then
+                self.menuClusters:BeginEnterRise(chapter)
+            end
+        end
+    end
+end
+
+function GameApp:DestroyMenuClusters()
+    if self.menuClusters then
+        self.menuClusters:Destroy()
+        self.menuClusters = nil
+    end
 end
 
 function GameApp:DestroyMenuPrism()
@@ -179,6 +222,7 @@ function GameApp:FinishEnterLevel(definition)
     end
     print("GameApp: entering chapter " .. definition.id .. " source=" .. definition.sourcePath)
     self:DestroyMenuPrism()
+    self:DestroyMenuClusters()
     self:DisposeSession()
     local session = LevelSession.New(definition, self.edgeLength, self.voxelHeight)
     local started, errorMessage = session:Init()
@@ -227,6 +271,7 @@ function GameApp:EnterEditor(definition)
     end
     print("GameApp: entering standalone level editor")
     self:DestroyMenuPrism()
+    self:DestroyMenuClusters()
     self:DisposeSession()
     local grid = TriPrismGrid.New(self.edgeLength, self.voxelHeight)
     local document, loadWarning = self:LoadEditorDocument(grid, definition)
@@ -438,12 +483,25 @@ function GameApp:Update(timeStep)
     if self.state == STATE_LEVEL_SELECT then
         local pending = self.pendingEnter
         if pending then
+            if self.clusterHold > 0.0 then
+                self.clusterHold = self.clusterHold - timeStep
+                if self.menuClusters then
+                    self.menuClusters:Update(timeStep)
+                end
+                if self.clusterHold > 0.0 then
+                    return
+                end
+            end
             self.pendingEnter = nil
+            self.clusterHold = 0.0
             self:FinishEnterLevel(pending)
             return
         end
         if self.menuPrism then
             self.menuPrism:Update(timeStep)
+        end
+        if self.menuClusters then
+            self.menuClusters:Update(timeStep)
         end
         if not (self.menuPrism and self.menuPrism.phase == "enter") then
             self:HandleLevelSelectHotkeys()
@@ -484,6 +542,7 @@ function GameApp:Stop()
     end
     UI.Shutdown()
     self:DestroyMenuPrism()
+    self:DestroyMenuClusters()
     if self.menuScene then
         self.menuScene:Clear(true, true)
         self.menuScene = nil

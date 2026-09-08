@@ -46,6 +46,9 @@ local StillModelCatalog = require "StillModelCatalog"
 ---@field onFrontClicked fun(definition: LevelDefinition)|nil
 ---@field onFrontEditClicked fun(definition: LevelDefinition|nil)|nil
 ---@field onExitReady fun(definition: LevelDefinition)|nil
+---@field onFrontChapterChanged fun(chapter: number|nil)|nil
+---@field onExitDropStarted fun()|nil
+---@field onEnterRiseStarted fun(chapter: number|nil)|nil
 ---@field fogTween {duration: number, clock: number, from: Color, to: Color}|nil
 ---@field exitTween {duration: number, clock: number, fromY: number, toY: number, definition: LevelDefinition}|nil
 ---@field enterTween {duration: number, clock: number, fromY: number, toY: number}|nil
@@ -240,6 +243,12 @@ function MenuPrism.New(scene, camera, cameraNode, worldViewport)
     self.onFrontEditClicked = nil
     ---@type fun(definition: LevelDefinition)|nil
     self.onExitReady = nil
+    ---@type fun(chapter: number|nil)|nil
+    self.onFrontChapterChanged = nil
+    ---@type fun()|nil
+    self.onExitDropStarted = nil
+    ---@type fun(chapter: number|nil)|nil
+    self.onEnterRiseStarted = nil
     ---@type table|nil
     self.fogTween = nil
     ---@type table|nil
@@ -307,6 +316,9 @@ function MenuPrism:UpdateWindow()
     local center = self.window[2]
     local right = self.window[3]
     self:TweenFogToFront(center)
+    if self.onFrontChapterChanged then
+        self.onFrontChapterChanged(center and center.chapter or nil)
+    end
     print(string.format(
         "MenuPrism: window [%s][%s][%s]",
         left and left.code or "--",
@@ -495,6 +507,10 @@ function MenuPrism:BeginEnterRise()
         toY = restY,
     }
     print(string.format("MenuPrism: enter rise from y=%.3f", restY - EXIT_DROP))
+    if self.onEnterRiseStarted then
+        local front = self:FrontLevel()
+        self.onEnterRiseStarted(front and front.chapter or nil)
+    end
     return true
 end
 
@@ -541,6 +557,9 @@ function MenuPrism:BeginExitDrop(definition)
         definition = definition,
     }
     print(string.format("MenuPrism: exit drop from y=%.3f", fromY))
+    if self.onExitDropStarted then
+        self.onExitDropStarted()
+    end
     return true
 end
 
@@ -1541,6 +1560,9 @@ function MenuPrism:Destroy()
     self.onFrontClicked = nil
     self.onFrontEditClicked = nil
     self.onExitReady = nil
+    self.onFrontChapterChanged = nil
+    self.onExitDropStarted = nil
+    self.onEnterRiseStarted = nil
     self.fogTween = nil
     self.exitTween = nil
     self.pendingExit = nil
