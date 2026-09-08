@@ -10,6 +10,9 @@ logs/.nfs*
 
 # Temp & swap files
 .tmp/
+_uploads/
+screenshots/
+secret/
 *.crswap
 .DS_Store
 
