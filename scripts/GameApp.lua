@@ -14,6 +14,7 @@ local StarterLevel = require "StarterLevel"
 local TriPrismGrid = require "TriPrismGrid"
 local MenuPrism = require "MenuPrism"
 local MenuClusterBackdrop = require "MenuClusterBackdrop"
+local PlayerTelemetry = require "PlayerTelemetry"
 local UI = require("urhox-libs/UI")
 
 local function DiscardBgmSnapshot(snapshot)
@@ -139,6 +140,7 @@ function GameApp:Start()
     self.playHud = PlayHud.New(function()
         self:BackToLevelSelect()
     end)
+    PlayerTelemetry.Load()
     self:ShowLevelSelect()
     print("GameApp: started in levelselect, chapters=" .. tostring(#LevelCatalog.GetAll()))
 end
@@ -255,6 +257,7 @@ function GameApp:FinishEnterLevel(definition)
     if session.preview and session.preview.PlayChapterBgm then
         session.preview:PlayChapterBgm(definition.chapter)
     end
+    self:BindTelemetry(session, definition)
     self:PresentSession(session, definition, self:FogColorFor(definition))
     return true
 end
@@ -339,13 +342,29 @@ function GameApp:StopEditor()
     self:RestoreMenuCamera()
 end
 
+function GameApp:BindTelemetry(session, definition)
+    if not session or not definition then
+        return
+    end
+    local preview = session.preview
+    local spawnNodeKey = preview and preview.spawnNodeKey or nil
+    PlayerTelemetry.BeginLevel(definition.id, spawnNodeKey)
+    if preview and preview.player and preview.player.AddOnArrived then
+        preview.player:AddOnArrived(function(nodeKey)
+            PlayerTelemetry.RecordNode(nodeKey)
+        end)
+    end
+end
+
 function GameApp:CompleteLevel(definition)
     print("GameApp: chapter finished " .. definition.id)
+    PlayerTelemetry.ClearLevel(definition.id)
     local nextDefinition = LevelCatalog.GetNext(definition.id)
     if nextDefinition then
         self:EnterNextLevel(nextDefinition)
         return
     end
+    PlayerTelemetry.FinishGame()
     self:BeginCredits(definition)
 end
 
@@ -468,6 +487,7 @@ function GameApp:StartNextSession(definition, coverColor)
     if session.preview and session.preview.PlayChapterBgm then
         session.preview:PlayChapterBgm(definition.chapter)
     end
+    self:BindTelemetry(session, definition)
     self:PresentSession(session, definition, coverColor)
     return true
 end
@@ -504,6 +524,7 @@ end
 
 function GameApp:FinishBackToLevelSelect()
     local definition = self.lastDefinition
+    PlayerTelemetry.AbandonLevel()
     self:DisposeSession()
     self:ShowLevelSelect("已返回选关", definition)
 end
@@ -574,6 +595,7 @@ function GameApp:HandleLevelSelectHotkeys()
 end
 
 function GameApp:Update(timeStep)
+    PlayerTelemetry.Update(timeStep)
     if self.state == STATE_LEVEL_SELECT then
         local pending = self.pendingEnter
         if pending then
@@ -643,6 +665,7 @@ function GameApp:Update(timeStep)
 end
 
 function GameApp:Stop()
+    PlayerTelemetry.AbandonLevel()
     self:DisposeSession()
     self:StopEditor()
     if self.playHud then
