@@ -2,6 +2,7 @@
 -- 排队、打字、点击翻页、阻塞输入、完成回调。不写某关台词。
 
 local StoryTextStyle = require "StoryTextStyle"
+local Sfx = require "Sfx"
 
 local StoryPlayer = {}
 StoryPlayer.__index = StoryPlayer
@@ -66,6 +67,8 @@ function StoryPlayer.New(view)
     self.exiting = false
     ---@type fun()|nil
     self.onComplete = nil
+    ---@type table|nil
+    self.sfx = nil
     if self.view then
         self.view.onAdvance = function()
             self:Advance()
@@ -80,6 +83,30 @@ function StoryPlayer:AttachView(view)
         self.view.onAdvance = function()
             self:Advance()
         end
+    end
+end
+
+function StoryPlayer:AttachSfx(sfx)
+    self.sfx = sfx
+end
+
+function StoryPlayer:PlaySfx(path)
+    if self.sfx and path then
+        self.sfx:Play(path)
+    end
+end
+
+function StoryPlayer:TypePath(line)
+    if line and line.style == StoryTextStyle.CHARLIE then
+        return Sfx.TYPE_CHARLIE
+    end
+    return Sfx.TYPE_RESEARCHER
+end
+
+function StoryPlayer:PlayTypeChars(line, fromCount, toCount)
+    local path = self:TypePath(line)
+    for _ = fromCount + 1, toCount do
+        self:PlaySfx(path)
     end
 end
 
@@ -169,6 +196,9 @@ function StoryPlayer:Advance()
         end
         self:ShowCurrent(false)
         return true
+    end
+    if line.mode == "modal" then
+        self:PlaySfx(Sfx.MODAL_CLICK)
     end
     self.exiting = true
     local function Continue()
@@ -266,7 +296,9 @@ function StoryPlayer:Update(timeStep)
     self.charProgress = self.charProgress + timeStep * speed
     local nextCount = math.floor(self.charProgress)
     if nextCount > self.visibleChars then
+        local fromCount = self.visibleChars
         self.visibleChars = math.min(total, nextCount)
+        self:PlayTypeChars(line, fromCount, self.visibleChars)
         if self.visibleChars >= total then
             self.lineComplete = true
         end

@@ -18,6 +18,7 @@ local LookApplier = require "LookApplier"
 local ClickFeedbackVfx = require "ClickFeedbackVfx"
 local PointerInput = require "PointerInput"
 local BgmTracks = require "BgmTracks"
+local Sfx = require "Sfx"
 local UI = require("urhox-libs/UI")
 
 local FOG_REVEAL_DURATION = 1.0
@@ -102,6 +103,8 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.bgmTo = 0.0
     self.bgmFadeElapsed = 0.0
     self.bgmFadeDuration = 0.0
+    ---@type table|nil
+    self.sfx = nil
     return self
 end
 
@@ -193,6 +196,7 @@ function GamePreview:Start()
         return false, "必须先配置有效的出生点"
     end
     self:CreateScene()
+    self.sfx = Sfx.New(self.scene)
     self.cameraNode, self.camera = FixedGameCamera.Create(
         self.scene,
         "FixedPreviewCamera",
@@ -1385,6 +1389,10 @@ function GamePreview:Stop()
         self.algernon = nil
     end
     self:ClearAlgernonView()
+    if self.sfx then
+        self.sfx:Destroy()
+        self.sfx = nil
+    end
     if self.bgmSource then
         self.bgmSource:Stop()
         self.bgmSource = nil

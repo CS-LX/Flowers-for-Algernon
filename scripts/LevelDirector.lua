@@ -596,6 +596,10 @@ function LevelDirector:AttachStoryView(view)
     else
         self.storyPlayer:AttachView(view)
     end
+    local preview = self:GetPreview()
+    if preview and preview.sfx then
+        self.storyPlayer:AttachSfx(preview.sfx)
+    end
     return true
 end
 
