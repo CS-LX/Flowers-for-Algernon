@@ -140,7 +140,13 @@ function GameApp:Start()
     self.playHud = PlayHud.New(function()
         self:BackToLevelSelect()
     end)
-    PlayerTelemetry.Load()
+    PlayerTelemetry.Load(function()
+        if self.state == STATE_LEVEL_SELECT then
+            self:RefreshMenuTape()
+        else
+            LevelCatalog.BuildMenuTape(PlayerTelemetry.GetCleared())
+        end
+    end)
     self:ShowLevelSelect()
     print("GameApp: started in levelselect, chapters=" .. tostring(#LevelCatalog.GetAll()))
 end
@@ -204,11 +210,24 @@ function GameApp:FogColorFor(definition)
     return LevelCatalog.GetFogColor(definition, LevelCatalog.CONFIG.placeholderFogColor)
 end
 
+function GameApp:RefreshMenuTape(focusDefinition)
+    LevelCatalog.BuildMenuTape(PlayerTelemetry.GetCleared())
+    if not self.menuPrism then
+        return
+    end
+    if focusDefinition then
+        self.menuPrism:FocusLevel(focusDefinition, self:FogColorFor(focusDefinition))
+        return
+    end
+    self.menuPrism:UpdateFrontFaceColors()
+end
+
 function GameApp:ShowLevelSelect(status, returnDefinition)
     self.state = STATE_LEVEL_SELECT
     self:RestoreMenuCamera()
     self:BindMenuViewport()
     LookApplier.ApplyAtmosphere(self.menuScene, LookApplier.DefaultAtmosphere())
+    self:RefreshMenuTape()
     self:EnsureMenuPrism()
     if returnDefinition and self.menuPrism then
         self.menuPrism:FocusLevel(returnDefinition, self:FogColorFor(returnDefinition))

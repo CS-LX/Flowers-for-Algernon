@@ -321,12 +321,27 @@ local function ColorForLevel(definition)
     return LevelCatalog.GetColor(definition)
 end
 
+local ROMAN = {
+    "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X",
+    "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII",
+}
+
+local function StageRoman(definition)
+    local code = definition and definition.code
+    local stage = math.floor(tonumber(code and code:match("%-(%d+)$")) or 0)
+    if stage <= 0 then
+        local index = tonumber(definition and definition.index) or 1
+        stage = math.floor(index)
+    end
+    return ROMAN[stage] or tostring(stage)
+end
+
 function MenuPrism:StepIndexFromYaw(yawDegrees)
     return math.floor(yawDegrees / STEP_DEGREES)
 end
 
 function MenuPrism:CenterIndexFromStep(stepIndex)
-    local count = #LevelCatalog.GetAll()
+    local count = LevelCatalog.GetMenuTapeCount()
     if count <= 0 then
         return 1
     end
@@ -337,7 +352,7 @@ end
 function MenuPrism:UpdateWindow()
     local stepIndex = self.lastStepIndex or 0
     local centerIndex = self:CenterIndexFromStep(stepIndex)
-    self.window = LevelCatalog.GetWindow(centerIndex)
+    self.window = LevelCatalog.GetMenuWindow(centerIndex)
     local left = self.window[1]
     local center = self.window[2]
     local right = self.window[3]
@@ -376,10 +391,7 @@ function MenuPrism:UpdateFrontFaceColors()
     local left = self.window[1]
     local center = self.window[2]
     local right = self.window[3]
-    local centerIndex = 1
-    if center then
-        centerIndex = center.index
-    end
+    local centerIndex = self:CenterIndexFromStep(self.lastStepIndex or 0)
     for i = 1, faceCount do
         local color = LevelCatalog.GetBackColor()
         if i == frontIndex then
@@ -401,7 +413,7 @@ function MenuPrism:UpdateFrontFaceColors()
 end
 
 function MenuPrism:LevelForFaceYaw(localYaw, centerIndex, frontMaskIndex)
-    local count = #LevelCatalog.GetAll()
+    local count = LevelCatalog.GetMenuTapeCount()
     if count <= 0 then
         return nil
     end
@@ -416,7 +428,7 @@ function MenuPrism:LevelForFaceYaw(localYaw, centerIndex, frontMaskIndex)
     while slot < -2 do
         slot = slot + 6
     end
-    return LevelCatalog.GetByIndex(centerIndex + slot)
+    return LevelCatalog.GetMenuByIndex(centerIndex + slot)
 end
 
 function MenuPrism:FaceCopy(definition)
@@ -428,6 +440,8 @@ function MenuPrism:FaceCopy(definition)
     local title = definition.stageName or "—"
     if definition.placeholder then
         title = "—"
+    else
+        title = StageRoman(definition) .. " " .. title
     end
     return chapter, title
 end
@@ -500,7 +514,7 @@ function MenuPrism:UpdateFogTween(timeStep)
 end
 
 function MenuPrism:YawForCenterIndex(centerIndex)
-    local count = #LevelCatalog.GetAll()
+    local count = LevelCatalog.GetMenuTapeCount()
     if count <= 0 then
         return SNAP_OFFSET_DEGREES
     end
@@ -512,7 +526,8 @@ function MenuPrism:FocusLevel(definition, fogColor)
     if not definition then
         return
     end
-    local yaw = self:YawForCenterIndex(definition.index)
+    local tapeIndex = LevelCatalog.IndexOnMenuTape(definition) or 1
+    local yaw = self:YawForCenterIndex(tapeIndex)
     self.skipFogTween = true
     self:ApplyVisualYaw(yaw)
     self.yawDegrees = yaw

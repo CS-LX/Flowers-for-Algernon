@@ -52,6 +52,8 @@ local FALLBACK_CONFIG = {
 
 ---@type LevelDefinition[]
 LevelCatalog.LEVELS = {}
+---@type LevelDefinition[]
+LevelCatalog.MENU_TAPE = {}
 ---@type LevelCatalogConfig
 LevelCatalog.CONFIG = {
     whiteboxPath = "Levels/whitebox-level.json",
@@ -208,6 +210,89 @@ end
 
 ApplyConfig(LoadConfigJson() or FALLBACK_CONFIG)
 
+function LevelCatalog.FirstPlayable()
+    for i = 1, #LevelCatalog.LEVELS do
+        local definition = LevelCatalog.LEVELS[i]
+        if LevelCatalog.IsPlayable(definition) then
+            return definition
+        end
+    end
+    return nil
+end
+
+function LevelCatalog.BuildMenuTape(cleared)
+    local tape = {}
+    local lastCleared = nil
+    if type(cleared) ~= "table" then
+        cleared = {}
+    end
+    for i = 1, #LevelCatalog.LEVELS do
+        local definition = LevelCatalog.LEVELS[i]
+        if LevelCatalog.IsPlayable(definition) and cleared[definition.id] then
+            tape[#tape + 1] = definition
+            lastCleared = definition
+        end
+    end
+    if lastCleared then
+        local nextDefinition = LevelCatalog.GetNext(lastCleared.id)
+        if nextDefinition then
+            tape[#tape + 1] = nextDefinition
+        end
+    else
+        local first = LevelCatalog.FirstPlayable()
+        if first then
+            tape[1] = first
+        end
+    end
+    LevelCatalog.MENU_TAPE = tape
+    local ids = {}
+    for i = 1, #tape do
+        ids[i] = tape[i].code or tape[i].id
+    end
+    print("LevelCatalog: menu tape [" .. table.concat(ids, ",") .. "]")
+    return tape
+end
+
+function LevelCatalog.GetMenuTape()
+    return LevelCatalog.MENU_TAPE
+end
+
+function LevelCatalog.GetMenuTapeCount()
+    return #LevelCatalog.MENU_TAPE
+end
+
+function LevelCatalog.GetMenuByIndex(index)
+    if type(index) ~= "number" then
+        return nil
+    end
+    local count = #LevelCatalog.MENU_TAPE
+    if count <= 0 then
+        return nil
+    end
+    return LevelCatalog.MENU_TAPE[Repeat(index - 1, count) + 1]
+end
+
+function LevelCatalog.GetMenuWindow(centerIndex)
+    return {
+        LevelCatalog.GetMenuByIndex(centerIndex - 1),
+        LevelCatalog.GetMenuByIndex(centerIndex),
+        LevelCatalog.GetMenuByIndex(centerIndex + 1),
+    }
+end
+
+function LevelCatalog.IndexOnMenuTape(definition)
+    if not definition then
+        return nil
+    end
+    for i = 1, #LevelCatalog.MENU_TAPE do
+        local item = LevelCatalog.MENU_TAPE[i]
+        if item and item.id == definition.id then
+            return i
+        end
+    end
+    return nil
+end
+
 function LevelCatalog.GetAll()
     return LevelCatalog.LEVELS
 end
@@ -331,5 +416,7 @@ function LevelCatalog.ReadSourceJson(path)
     end
     return nil, "cannot open level json: " .. tostring(path)
 end
+
+LevelCatalog.BuildMenuTape({})
 
 return LevelCatalog

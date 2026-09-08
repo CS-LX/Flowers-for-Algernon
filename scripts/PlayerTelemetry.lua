@@ -16,6 +16,8 @@ local currentLevelId = nil
 local currentPath = nil
 local loaded = false
 local loadStarted = false
+---@type fun()[]
+local loadCallbacks = {}
 local dirty = false
 local saving = false
 local pendingSave = false
@@ -89,6 +91,15 @@ local function CloudAvailable()
     return clientCloud ~= nil and type(clientCloud.Set) == "function" and type(clientCloud.Get) == "function"
 end
 
+local function FinishLoad()
+    loaded = true
+    local callbacks = loadCallbacks
+    loadCallbacks = {}
+    for i = 1, #callbacks do
+        callbacks[i]()
+    end
+end
+
 local function MarkDirty()
     dirty = true
     flushDelay = DIRTY_FLUSH_DELAY
@@ -149,33 +160,40 @@ function PlayerTelemetry.Save(reason)
     return true
 end
 
-function PlayerTelemetry.Load()
+function PlayerTelemetry.Load(onLoaded)
+    if type(onLoaded) == "function" then
+        loadCallbacks[#loadCallbacks + 1] = onLoaded
+    end
+    if loaded then
+        FinishLoad()
+        return
+    end
     if loadStarted then
         return
     end
     loadStarted = true
     if not CloudAvailable() then
-        loaded = true
         print("PlayerTelemetry: cloud unavailable, empty local profile")
+        FinishLoad()
         return
     end
     clientCloud:Get(CLOUD_KEY, {
         ok = function(values)
             local payload = values and values[CLOUD_KEY]
             data = NormalizePayload(payload)
-            loaded = true
             print(string.format(
                 "PlayerTelemetry: loaded finished=%s",
                 tostring(data.finishedGame)
             ))
+            FinishLoad()
         end,
         error = function(code, message)
-            loaded = true
             print(string.format(
                 "PlayerTelemetry: load failed code=%s message=%s",
                 tostring(code),
                 tostring(message)
             ))
+            FinishLoad()
         end,
     })
 end
@@ -259,6 +277,10 @@ end
 
 function PlayerTelemetry.HasCleared(levelId)
     return type(levelId) == "string" and data.cleared[levelId] == true
+end
+
+function PlayerTelemetry.GetCleared()
+    return CopyStringSet(data.cleared)
 end
 
 function PlayerTelemetry.HasFinishedGame()
