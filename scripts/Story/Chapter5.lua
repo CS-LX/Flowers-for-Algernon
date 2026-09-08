@@ -61,4 +61,38 @@ return {
             mode = "modal",
         },
     },
+    ch5_2_intro = {
+        {
+            id = "ch5.2.intro.1",
+            style = "charlie",
+            text = "现在的我，只能看见这些真实存在的道路了。那些曾经清晰的错位联系……已经从我的感知里消失了。",
+            mode = "modal",
+        },
+        {
+            id = "ch5.2.intro.2",
+            style = "charlie",
+            text = "我的能力已经衰退到这种地步了吗……如今还陪着我的，也只有你了，阿尔吉侬。",
+            mode = "modal",
+        },
+    },
+    ch5_2_loss = {
+        {
+            id = "ch5.2.loss.1",
+            style = "charlie",
+            text = "阿尔吉侬？！",
+            mode = "banner",
+        },
+        {
+            id = "ch5.2.loss.2",
+            style = "charlie",
+            text = "最终……还是这样了吗……我明明说过，要陪你一起走完剩下的路。",
+            mode = "banner",
+        },
+        {
+            id = "ch5.2.loss.3",
+            style = "charlie",
+            text = "可我甚至没能把你带到花园。对不起……阿尔吉侬。",
+            mode = "banner",
+        },
+    },
 }

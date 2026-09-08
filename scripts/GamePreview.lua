@@ -58,6 +58,8 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.algernonView = nil
     self.algernonCarried = false
     self.algernonCarryOffset = Vector3(0.0, 0.68, 0.0)
+    ---@type table|nil
+    self.algernonDrop = nil
     self.spawnNodeKey = nil
     self.clickFeedback = ClickFeedbackVfx.New()
     self.rotatorController = nil
@@ -606,6 +608,7 @@ function GamePreview:Update(timeStep)
     if self.algernon then
         self.algernon:Update(timeStep)
     end
+    self:UpdateAlgernonDrop(timeStep)
     self:SyncRiders()
     self:UpdateHoverEmission(timeStep)
     self:UpdateFeedback(timeStep)
@@ -652,6 +655,13 @@ function GamePreview:PresentAlgernon()
         self.algernonView = AlgernonView.New(self.scene)
     end
     self.algernonView:SetVisible(self.algernon:IsVisible())
+    if self.algernonDrop then
+        self.algernonView:Apply(
+            self.algernonDrop.position,
+            self.algernonDrop.rotation
+        )
+        return
+    end
     if self.algernonCarried and self.player then
         local playerRotation = self.player:GetRotation()
         local carryPosition = self.player:GetPosition()
@@ -670,6 +680,7 @@ function GamePreview:SetAlgernonCarried(carried, offset)
         return false
     end
     self.algernonCarried = carried == true
+    self.algernonDrop = nil
     if offset then
         self.algernonCarryOffset = Vector3(offset.x, offset.y, offset.z)
     end
@@ -680,6 +691,57 @@ function GamePreview:SetAlgernonCarried(carried, offset)
     self:PresentAlgernon()
     print("GamePreview: Algernon carried=" .. tostring(self.algernonCarried))
     return true
+end
+
+---@param nodeKey string
+---@param duration number|nil
+---@return boolean
+function GamePreview:DropAlgernonAt(nodeKey, duration)
+    if not self.algernon or not self.algernon:IsEnabled() or not self.player then
+        return false
+    end
+    local record = self.pathRuntime and self.pathRuntime:GetNode(nodeKey) or nil
+    if not record or not record.worldPoint then
+        return false
+    end
+    local playerRotation = self.player:GetRotation()
+    local startPosition = self.player:GetPosition()
+        + playerRotation * self.algernonCarryOffset
+    self.algernonCarried = false
+    self.algernon:Stop()
+    self.algernon:ClearTopmostHold()
+    self.algernonDrop = {
+        elapsed = 0.0,
+        duration = math.max(0.1, tonumber(duration) or 0.55),
+        startPosition = startPosition,
+        position = startPosition,
+        targetPosition = record.worldPoint,
+        rotation = playerRotation,
+        targetKey = nodeKey,
+    }
+    self:PresentAlgernon()
+    print("GamePreview: Algernon drop started at " .. nodeKey)
+    return true
+end
+
+function GamePreview:UpdateAlgernonDrop(timeStep)
+    local drop = self.algernonDrop
+    if not drop then
+        return
+    end
+    drop.elapsed = drop.elapsed + timeStep
+    local progress = math.max(0.0, math.min(1.0, drop.elapsed / drop.duration))
+    local eased = progress * progress * (3.0 - 2.0 * progress)
+    local base = drop.startPosition + (drop.targetPosition - drop.startPosition) * eased
+    local fall = -math.sin(progress * math.pi) * 0.12
+    drop.position = base + Vector3(0.0, fall, 0.0)
+    if progress >= 1.0 then
+        drop.position = drop.targetPosition
+        self.algernon:TeleportTo(drop.targetKey)
+        print("GamePreview: Algernon drop finished at " .. drop.targetKey)
+        drop = nil
+        self.algernonDrop = nil
+    end
 end
 
 function GamePreview:ClearAlgernonView()
@@ -951,6 +1013,7 @@ function GamePreview:Stop()
     self.onFogCoverFinished = nil
     self.coverColor = nil
     self.algernonCarried = false
+    self.algernonDrop = nil
     self.riderFollow = nil
     if self.rotatorController then
         self.rotatorController:RestoreAuthoredStates()

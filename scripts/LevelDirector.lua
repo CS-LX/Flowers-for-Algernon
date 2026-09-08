@@ -304,6 +304,17 @@ function LevelDirector:SetAlgernonCarried(carried, offset)
     return preview:SetAlgernonCarried(carried, offset)
 end
 
+---@param nodeKey string
+---@param duration number|nil
+---@return boolean
+function LevelDirector:DropAlgernonAt(nodeKey, duration)
+    local preview = self:GetPreview()
+    if not preview or not preview.DropAlgernonAt then
+        return false
+    end
+    return preview:DropAlgernonAt(nodeKey, duration)
+end
+
 function LevelDirector:IsAlgernonExplorationPaused()
     local algernon = self:GetAlgernon()
     return algernon ~= nil
