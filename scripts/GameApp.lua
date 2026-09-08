@@ -199,6 +199,9 @@ function GameApp:EnsureMenuClusters()
             if self.menuClusters then
                 self.menuClusters:BeginExitDrop()
             end
+            if self.menuHud then
+                self.menuHud:BeginExitFade()
+            end
             self.clusterHold = 0.85
         end
         self.menuPrism.onEnterRiseStarted = function(chapter)
@@ -303,6 +306,9 @@ function GameApp:ShowLevelSelect(status, returnDefinition)
     self:RefreshMenuTape()
     self:EnsureMenuPrism()
     self:EnsureMenuHud()
+    if self.menuHud then
+        self.menuHud:BeginEnterFade()
+    end
     if returnDefinition and self.menuPrism then
         self.menuPrism:FocusLevel(returnDefinition, self:FogColorFor(returnDefinition))
         self.menuPrism:BeginEnterRise()
@@ -699,6 +705,9 @@ function GameApp:Update(timeStep)
     PlayerTelemetry.Update(timeStep)
     AudioSettings.Update(timeStep)
     if self.state == STATE_LEVEL_SELECT then
+        if self.menuHud then
+            self.menuHud:Update(timeStep)
+        end
         local pending = self.pendingEnter
         if pending then
             if self.menuPrism then
@@ -717,9 +726,6 @@ function GameApp:Update(timeStep)
             self.clusterHold = 0.0
             self:FinishEnterLevel(pending)
             return
-        end
-        if self.menuHud then
-            self.menuHud:Update(timeStep)
         end
         if input:GetKeyPress(KEY_ESCAPE) then
             if self.menuHud and self.menuHud:HandleEscape() then

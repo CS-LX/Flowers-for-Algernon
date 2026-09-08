@@ -41,7 +41,7 @@ local TITLE_COLOR = { 255, 248, 236, 255 }
 local LINE_COLOR = { 255, 255, 255, 38 }
 local OPEN_SECONDS = 0.2
 local PANEL_WIDTH = 820
-local BUTTON_FADE = 1.0
+local BUTTON_FADE = 0.85
 
 local function EnsureUI()
     UI.Init({
@@ -414,11 +414,17 @@ function MenuHud:HideConfirm()
     self.confirm.root:SetProp("pointerEvents", "none")
 end
 
+function MenuHud:BeginEnterFade()
+    self:SetToggleArmed(true)
+    if self.hexButton then
+        self.hexButton:SetIconAlpha(0.0)
+        self.hexButton:FadeTo(1.0, BUTTON_FADE)
+    end
+    print("MenuHud: hex button fade in")
+end
+
 function MenuHud:Show()
     self:Build()
-    if self.hexButton then
-        self.hexButton:SetClickArmed(self.toggleArmed)
-    end
     UI.SetRoot(self.root, true)
     print("MenuHud: shown")
 end
