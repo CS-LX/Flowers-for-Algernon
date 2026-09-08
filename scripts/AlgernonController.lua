@@ -133,12 +133,36 @@ function AlgernonController:SetOnArrived(listener)
 end
 
 function AlgernonController:HandleArrived(nodeKey)
+    local exploration = self.exploration
+    local arrivedCandidate = exploration and exploration.travelWasCandidate == true
+    local reverseTargetKey = exploration and exploration.reverseTargetKey or nil
     if self.onArrived then
         self.onArrived(nodeKey)
     end
-    local exploration = self.exploration
+    exploration = self.exploration
     if exploration and exploration.targetKey == nodeKey then
         self.exploration = nil
+        return
+    end
+    if exploration and arrivedCandidate and exploration.pauseAtEveryCandidate then
+        if exploration.suppressCandidatePause then
+            exploration.suppressCandidatePause = false
+            exploration.travelWasCandidate = false
+            exploration.reverseTargetKey = nil
+            exploration.pauseReason = nil
+            self:ContinueExploration()
+            return
+        end
+        exploration.travelWasCandidate = false
+        exploration.paused = true
+        exploration.pauseReason = "candidate_arrival"
+        exploration.pauseElapsed = 0.0
+        exploration.pauseDuration = exploration.minPause
+            + (exploration.maxPause - exploration.minPause) * math.random()
+        exploration.pauseFromKey = nodeKey
+        exploration.pauseToKey = reverseTargetKey
+        exploration.reverseTargetKey = reverseTargetKey
+        print("AlgernonController: candidate path pause at " .. tostring(nodeKey))
     end
 end
 
@@ -155,14 +179,23 @@ function AlgernonController:StartExploration(targetKey, options)
         minPause = tonumber(options.minPause) or 3.0,
         maxPause = tonumber(options.maxPause) or 5.0,
         candidateProbability = tonumber(options.candidateProbability) or 0.4,
+        pauseAtEveryCandidate = options.pauseAtEveryCandidate == true,
+        candidateReverseProbability = math.max(0.0, math.min(1.0,
+            tonumber(options.candidateReverseProbability) or 0.0)),
         pauseElapsed = 0.0,
         pauseDuration = 0.0,
         paused = false,
+        pauseReason = nil,
         skipPause = false,
         pauseFromKey = nil,
         pauseToKey = nil,
         previousCandidate = false,
         nextCandidate = false,
+        travelWasCandidate = false,
+        reverseTargetKey = nil,
+        suppressCandidatePause = false,
+        blockedFromKey = nil,
+        blockedToKey = nil,
         lastNodeKey = self.walker:GetCurrentNodeKey(),
     }
     return self:ContinueExploration()
@@ -212,6 +245,7 @@ function AlgernonController:ContinueExploration()
     exploration.skipPause = false
     if shouldPause then
         exploration.paused = true
+        exploration.pauseReason = "edge_transition"
         exploration.pauseElapsed = 0.0
         exploration.pauseDuration = exploration.minPause
             + (exploration.maxPause - exploration.minPause) * math.random()
@@ -221,20 +255,27 @@ function AlgernonController:ContinueExploration()
         return true
     end
     local run = { currentKey, nextKey }
-    for index = 3, #path do
-        local fromKey = path[index - 1]
-        local toKey = path[index]
-        if IsCandidate(fromKey, toKey) ~= nextCandidate then
-            break
+    if not exploration.pauseAtEveryCandidate then
+        for index = 3, #path do
+            local fromKey = path[index - 1]
+            local toKey = path[index]
+            if IsCandidate(fromKey, toKey) ~= nextCandidate then
+                break
+            end
+            run[#run + 1] = toKey
         end
-        run[#run + 1] = toKey
     end
     local runTarget = run[#run]
     exploration.paused = false
+    exploration.pauseReason = nil
     exploration.lastNodeKey = currentKey
     exploration.previousCandidate = nextCandidate
+    exploration.travelWasCandidate = nextCandidate
+    exploration.reverseTargetKey = nextCandidate and currentKey or nil
     local moved, moveError = self.walker:MoveTo(run, runTarget)
     if not moved then
+        exploration.travelWasCandidate = false
+        exploration.reverseTargetKey = nil
         self.exploration = nil
         return false, moveError
     end
@@ -251,6 +292,39 @@ function AlgernonController:UpdateExploration(timeStep)
         if exploration.pauseElapsed < exploration.pauseDuration then
             return
         end
+        if exploration.pauseReason == "candidate_arrival"
+            and exploration.pauseToKey
+            and math.random() < exploration.candidateReverseProbability then
+            local reverseFromKey = exploration.pauseFromKey
+            local reverseToKey = exploration.pauseToKey
+            exploration.pauseReason = "candidate_reverse"
+            exploration.pauseElapsed = 0.0
+            exploration.pauseDuration = 0.0
+            exploration.paused = false
+            exploration.blockedFromKey = nil
+            exploration.blockedToKey = nil
+            exploration.suppressCandidatePause = true
+            exploration.travelWasCandidate = true
+            exploration.reverseTargetKey = reverseFromKey
+            local moved, moveError = self.walker:MoveTo(
+                { reverseFromKey, reverseToKey },
+                reverseToKey
+            )
+            if not moved then
+                exploration.suppressCandidatePause = false
+                exploration.travelWasCandidate = false
+                exploration.reverseTargetKey = nil
+                print("AlgernonController: candidate reverse failed " .. tostring(moveError))
+                self:ContinueExploration()
+            else
+                print(string.format(
+                    "AlgernonController: candidate path reverses %s -> %s",
+                    tostring(reverseFromKey),
+                    tostring(reverseToKey)
+                ))
+            end
+            return
+        end
         local continueOriginal = math.random() >= exploration.candidateProbability
         if continueOriginal then
             exploration.blockedFromKey = nil
@@ -260,6 +334,7 @@ function AlgernonController:UpdateExploration(timeStep)
             exploration.blockedToKey = exploration.pauseToKey
         end
         exploration.paused = false
+        exploration.pauseReason = nil
         exploration.skipPause = true
         local continued, continueError = self:ContinueExploration()
         if not continued then

@@ -82,9 +82,11 @@ function Director4_3:StartAlgernonExplorationCommand(nodeKey)
         return false, "no algernon"
     end
     return algernon:StartExploration(nodeKey, {
-        minPause = 1.2,
-        maxPause = 1.8,
+        minPause = 3.0,
+        maxPause = 5.0,
         candidateProbability = 0.0,
+        pauseAtEveryCandidate = true,
+        candidateReverseProbability = 0.30,
     })
 end
 
