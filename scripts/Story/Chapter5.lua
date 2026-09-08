@@ -114,7 +114,7 @@ return {
             id = "ch5.3.offering.1",
             style = "charlie",
             text = "我把这束花留在这里……安息吧，阿尔吉侬。",
-            mode = "banner",
+            mode = "modal",
         },
     },
 }
