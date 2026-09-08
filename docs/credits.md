@@ -18,3 +18,9 @@ Daisy by Zsky [CC-BY](https://creativecommons.org/licenses/by/3.0/) via [Poly Pi
 
 本地源文件：`assets/model/Daisy by Zsky - 4r0WBz3RZz.glb`
 
+## Flower
+
+Flower by Poly by Google [CC-BY](https://creativecommons.org/licenses/by/3.0/) via [Poly Pizza](https://poly.pizza/m/eydI4__jXpi)
+
+本地源文件：`assets/model/Flower by Poly by Google - eydI4__jXpi.glb`
+
