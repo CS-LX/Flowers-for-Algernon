@@ -42,7 +42,7 @@ function Sfx:Play(path)
         nextIndex = 1
     end
     self.nextIndex = nextIndex
-    source:Play(sound, 0, 1.0)
+    source:Play(sound, sound:GetFrequency(), 1.0)
     return true
 end
 

@@ -840,7 +840,7 @@ function GamePreview:PlayBgmPath(path, looped)
     self.bgmTo = 1.0
     self.bgmFadeElapsed = 0.0
     self.bgmFadeDuration = BgmTracks.FADE
-    source:Play(sound, 0, 0.0)
+    source:Play(sound, sound:GetFrequency(), 0.0)
     self:ApplyBgmGain()
     print("GamePreview: play bgm " .. path)
     return true
@@ -882,6 +882,10 @@ function GamePreview:AdoptBgm(snapshot)
     snapshot.node:SetParent(self.scene)
     self.bgmNode = snapshot.node
     self.bgmSource = snapshot.source
+    local sound = snapshot.source:GetSound()
+    if sound then
+        snapshot.source:SetFrequency(sound:GetFrequency())
+    end
     self.bgmPath = snapshot.path
     self.bgmGain = snapshot.gain or 0.0
     self.bgmFrom = snapshot.from or self.bgmGain

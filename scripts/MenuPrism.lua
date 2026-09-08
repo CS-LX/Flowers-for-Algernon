@@ -1571,7 +1571,7 @@ function MenuPrism:PlayMenuBgm()
     self.bgmTo = 1.0
     self.bgmFadeElapsed = 0.0
     self.bgmFadeDuration = BgmTracks.FADE
-    source:Play(sound, 0, 0.0)
+    source:Play(sound, sound:GetFrequency(), 0.0)
     self:ApplyBgmGain()
     print("MenuPrism: play menu bgm " .. path)
     return true
