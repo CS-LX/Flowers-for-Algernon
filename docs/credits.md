@@ -104,5 +104,5 @@ Used under the [DOVA-SYNDROME Music License](https://dova-s.jp/help/articles/lic
 
 Used under the [DOVA-SYNDROME Music License](https://dova-s.jp/help/articles/license/)
 
-本地源文件：`assets/audio/千里 - Chained Story.mp3`
+本地源文件：`assets/audio/Chained Story (Menu).mp3`
 
