@@ -363,9 +363,9 @@ function MenuClusterBackdrop:GradeSourceMonitor(entry, look)
     local fogHex = (look and look["slots.wall.fogColor"]) or "#102121"
     local fogColor = LookApplier.HexToColor(fogHex, Color(0.063, 0.129, 0.129, 1))
     local tint = Color(
-        fogColor.r * 0.78 + 0.18,
-        fogColor.g * 0.78 + 0.22,
-        fogColor.b * 0.78 + 0.24,
+        fogColor.r * 0.42 + 0.52,
+        fogColor.g * 0.42 + 0.56,
+        fogColor.b * 0.42 + 0.58,
         1.0
     )
     material:SetShaderParameter("MatDiffColor", Variant(tint))
