@@ -92,6 +92,11 @@ local function NormalizeSlotParams(shader, source)
             albedoMap = albedoMap,
         }
     end
+    if shader == LookApplier.SHADER_STILL_OBJECT_SOURCE then
+        return {
+            materialPath = type(source.materialPath) == "string" and source.materialPath or "",
+        }
+    end
     if shader == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG then
         local fogUp = source.fogUp or {}
         return {
@@ -136,6 +141,9 @@ local function NormalizeShader(value)
     end
     if value == LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG then
         return LookApplier.SHADER_STILL_OBJECT_MESH_TINT_FOG
+    end
+    if value == LookApplier.SHADER_STILL_OBJECT_SOURCE then
+        return LookApplier.SHADER_STILL_OBJECT_SOURCE
     end
     return LookApplier.SHADER_STILL_OBJECT_BASE
 end

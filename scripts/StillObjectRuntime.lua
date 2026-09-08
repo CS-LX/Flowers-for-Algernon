@@ -97,6 +97,17 @@ local function HiddenMaterial()
 end
 
 local function CreateSlotMaterial(slot, look)
+    if slot.shader == LookApplier.SHADER_STILL_OBJECT_SOURCE then
+        local path = look and look.materialPath or ""
+        if path ~= "" then
+            local material = cache:GetResource("Material", path)
+            if material then
+                return material
+            end
+            print("StillObjectRuntime: missing source material " .. path)
+        end
+        return LookApplier.CreateStillObjectBaseMaterial(look)
+    end
     if slot.shader == LookApplier.SHADER_STILL_OBJECT_UNLIT then
         return LookApplier.CreateStillObjectUnlitMaterial(look)
     end

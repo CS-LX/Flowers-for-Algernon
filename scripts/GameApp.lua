@@ -1,6 +1,7 @@
 -- 玩法入口状态机。
 -- levelselect <-> playing / editor。
 -- 章节进关只读游戏内配置 JSON。按住 E 点前台关进编辑器；保存仍写用户档，不覆盖内置关。
+-- 实验室簇高度雾已烘焙进 MenuClusterCatalog，选关页不再挂调试滑条。
 
 local VoxelRenderer = require "VoxelRenderer"
 local LookApplier = require "LookApplier"

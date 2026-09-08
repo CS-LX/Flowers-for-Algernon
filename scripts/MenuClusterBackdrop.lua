@@ -104,6 +104,16 @@ function MenuClusterBackdrop:FogOf(definition)
     }
 end
 
+function MenuClusterBackdrop:FogOfItem(item, fallback)
+    fallback = fallback or DEFAULT_FOG
+    local fog = (item and item.fog) or fallback
+    return {
+        heightA = tonumber(fog.heightA) or fallback.heightA,
+        heightB = tonumber(fog.heightB) or fallback.heightB,
+        color = fog.color or fallback.color,
+    }
+end
+
 function MenuClusterBackdrop:EnsureRoot()
     if self.root or not self.scene then
         return self.root
@@ -139,22 +149,45 @@ function MenuClusterBackdrop:ApplyFogToEntry(entry, look, fog)
         return
     end
     fog = fog or DEFAULT_FOG
+    look = look or {}
     local fogColor = self:ResolveFogColor(fog)
     local fogClear = fog.heightA
     local fogSolid = fog.heightB
     for _, slot in ipairs(entry.asset.slots) do
         local material = entry.slotMaterials and entry.slotMaterials[slot.id]
-        if material then
-            material:SetShaderParameter("color_neg", Variant(LookApplier.HexToColor(look["slots.wall.colorNeg"], Color(0.169, 0.435, 0.659, 1))))
-            material:SetShaderParameter("color_mid", Variant(LookApplier.HexToColor(look["slots.wall.colorMid"], Color(0.494, 0.718, 0.902, 1))))
-            material:SetShaderParameter("color_pos", Variant(LookApplier.HexToColor(look["slots.wall.colorPos"], Color(1.0, 0.957, 0.910, 1))))
+        if material and slot.shader ~= LookApplier.SHADER_STILL_OBJECT_SOURCE then
+            local prefix = "slots." .. slot.id
+            local colorNeg = look[prefix .. ".colorNeg"] or look["slots.wall.colorNeg"]
+            local colorMid = look[prefix .. ".colorMid"] or look["slots.wall.colorMid"]
+            local colorPos = look[prefix .. ".colorPos"] or look["slots.wall.colorPos"]
+            if colorNeg then
+                material:SetShaderParameter("color_neg", Variant(LookApplier.HexToColor(colorNeg, Color(0.169, 0.435, 0.659, 1))))
+            end
+            if colorMid then
+                material:SetShaderParameter("color_mid", Variant(LookApplier.HexToColor(colorMid, Color(0.494, 0.718, 0.902, 1))))
+            end
+            if colorPos then
+                material:SetShaderParameter("color_pos", Variant(LookApplier.HexToColor(colorPos, Color(1.0, 0.957, 0.910, 1))))
+            end
             material:SetShaderParameter("fog_color", Variant(fogColor))
             material:SetShaderParameter("fog_height_a", Variant(fogClear))
             material:SetShaderParameter("fog_height_b", Variant(fogSolid))
-            material:SetShaderParameter("grade_saturation", Variant(tonumber(look["slots.wall.gradeSaturation"]) or 0.55))
-            material:SetShaderParameter("grade_value", Variant(tonumber(look["slots.wall.gradeValue"]) or 1.08))
-            material:SetShaderParameter("grade_contrast", Variant(tonumber(look["slots.wall.gradeContrast"]) or 0.72))
-            material:SetShaderParameter("grade_haze", Variant(tonumber(look["slots.wall.gradeHaze"]) or 0.22))
+            local saturation = look[prefix .. ".gradeSaturation"] or look["slots.wall.gradeSaturation"]
+            local value = look[prefix .. ".gradeValue"] or look["slots.wall.gradeValue"]
+            local contrast = look[prefix .. ".gradeContrast"] or look["slots.wall.gradeContrast"]
+            local haze = look[prefix .. ".gradeHaze"] or look["slots.wall.gradeHaze"]
+            if saturation then
+                material:SetShaderParameter("grade_saturation", Variant(tonumber(saturation) or 0.55))
+            end
+            if value then
+                material:SetShaderParameter("grade_value", Variant(tonumber(value) or 1.08))
+            end
+            if contrast then
+                material:SetShaderParameter("grade_contrast", Variant(tonumber(contrast) or 0.72))
+            end
+            if haze then
+                material:SetShaderParameter("grade_haze", Variant(tonumber(haze) or 0.22))
+            end
         end
     end
 end
@@ -167,9 +200,14 @@ function MenuClusterBackdrop:WriteFogColor(color)
     for _, layer in pairs(self.layers) do
         for _, bound in ipairs(layer.entries or {}) do
             local entry = bound.entry
-            if entry and entry.slotMaterials then
-                for _, material in pairs(entry.slotMaterials) do
-                    material:SetShaderParameter("fog_color", Variant(color))
+            if entry and entry.slotMaterials and entry.asset then
+                for _, slot in ipairs(entry.asset.slots) do
+                    if slot.shader ~= LookApplier.SHADER_STILL_OBJECT_SOURCE then
+                        local material = entry.slotMaterials[slot.id]
+                        if material then
+                            material:SetShaderParameter("fog_color", Variant(color))
+                        end
+                    end
                 end
             end
             local voxelMaterial = bound.material
@@ -274,8 +312,9 @@ function MenuClusterBackdrop:BindItem(parent, item, look)
         return nil
     end
     local scale = item.scale or 1.0
+    local extraY = tonumber(item.y) or 0.0
     local localFoot = self:ModelFootY(asset)
-    local holderY = ALIGNED_FOOT_Y - REST_Y - localFoot * scale
+    local holderY = ALIGNED_FOOT_Y - REST_Y - localFoot * scale + extraY
     local object = StillObject.New({
         id = item.id,
         name = item.id,
@@ -302,7 +341,43 @@ function MenuClusterBackdrop:BindItem(parent, item, look)
     end
     entry.model.viewMask = WORLD_BIT
     entry.model.castShadows = false
+    if item.modelId == "monitor" then
+        self:GradeSourceMonitor(entry, look)
+    end
     return { holder = holder, entry = entry, item = item }
+end
+
+function MenuClusterBackdrop:GradeSourceMonitor(entry, look)
+    if not entry or not entry.slotMaterials then
+        return
+    end
+    local source = entry.slotMaterials.screen
+    if not source then
+        return
+    end
+    local material = source:Clone("MenuClusterMonitor")
+    if not material then
+        return
+    end
+    -- 选关背景是冷灰绿。克隆材质后压饱和、染雾色，只影响簇里的监视器。
+    local fogHex = (look and look["slots.wall.fogColor"]) or "#102121"
+    local fogColor = LookApplier.HexToColor(fogHex, Color(0.063, 0.129, 0.129, 1))
+    local tint = Color(
+        fogColor.r * 0.78 + 0.18,
+        fogColor.g * 0.78 + 0.22,
+        fogColor.b * 0.78 + 0.24,
+        1.0
+    )
+    material:SetShaderParameter("MatDiffColor", Variant(tint))
+    entry.slotMaterials.screen = material
+    if entry.model then
+        for _, slot in ipairs(entry.asset.slots) do
+            if slot.id == "screen" then
+                entry.model:SetMaterial(slot.index, material)
+                break
+            end
+        end
+    end
 end
 
 function MenuClusterBackdrop:SpawnLayer(chapter, definition, y)
@@ -343,14 +418,15 @@ function MenuClusterBackdrop:SpawnLayer(chapter, definition, y)
         end
         for _, bound in ipairs(spawned) do
             local box = bound.entry.model.worldBoundingBox
-            self:ApplyFogToEntry(bound.entry, definition.look, fog)
+            local itemFog = self:FogOfItem(bound.item, fog)
+            self:ApplyFogToEntry(bound.entry, definition.look, itemFog)
             print(string.format(
                 "MenuClusterBackdrop: %s worldFoot=%.3f worldTop=%.3f fogA=%.3f fogB=%.3f",
                 bound.item.modelId,
                 box.min.y,
                 box.max.y,
-                fog.heightA,
-                fog.heightB
+                itemFog.heightA,
+                itemFog.heightB
             ))
         end
     end

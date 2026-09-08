@@ -133,6 +133,36 @@ local DAISY_LOOK = {
 
 local DAISY_FOG = { heightA = 0.80, heightB = 0.00, color = "#000000" }
 local CHAPTER1_FOG = { heightA = -1.25, heightB = -1.55, color = "#C0B499" }
+local LAB_FOG = { heightA = 0.80, heightB = 0.00, color = "#102121" }
+local LAB_CAMERA_FOG = { heightA = -0.22, heightB = -1.08, color = "#102121" }
+local LAB_DESK_FOG = { heightA = 0.20, heightB = 0.02, color = "#102121" }
+local LAB_MONITOR_FOG = { heightA = 0.00, heightB = 0.00, color = "#102121" }
+
+-- 实验室簇：左边摄像机朝中心拍，右边桌子上放监视器。槽色走 sidecar。
+local LAB_LOOK = {}
+
+local function LabItems(prefix)
+    -- 监视器网格中心和屏幕都在 +Z。rootScale 0.01 后再乘条目 scale。
+    -- 视觉中心压回桌面中心；yaw 转 180° 让屏幕朝外，不要屁股朝镜头。
+    local camX, camZ = -1.55, 1.15
+    local deskX, deskZ = 1.60, 1.05
+    local deskScale = 0.48
+    local monitorScale = 0.22
+    local deskLift = 0.28
+    local deskTop = 0.981809 * deskScale
+    local monitorCenterZ = ((149.75 + 360.0) * 0.5) * 0.01 * monitorScale
+    local deskYaw = math.deg(math.atan(-deskX, -deskZ))
+    local camYaw = math.deg(math.atan(-camX, -camZ))
+    local monitorYaw = deskYaw + 180.0
+    local rad = math.rad(monitorYaw)
+    local monitorX = deskX - math.sin(rad) * monitorCenterZ
+    local monitorZ = deskZ - math.cos(rad) * monitorCenterZ
+    return {
+        { id = prefix .. "_camera", modelId = "camera_stand", x = camX, z = camZ, yaw = camYaw, scale = 0.38, fog = LAB_CAMERA_FOG },
+        { id = prefix .. "_desk", modelId = "lab_desk", x = deskX, z = deskZ, yaw = deskYaw, scale = deskScale, y = deskLift, fog = LAB_DESK_FOG },
+        { id = prefix .. "_monitor", modelId = "monitor", x = monitorX, z = monitorZ, yaw = monitorYaw, scale = monitorScale, y = deskTop + deskLift, fog = LAB_MONITOR_FOG },
+    }
+end
 
 -- 菜单正交视野约 3.2。建筑铺在棱柱脚下偏后/两侧，不挡滚筒。
 -- 各楼包围盒底由 Backdrop 对齐到同一世界高度，不再单独写 y。
@@ -178,11 +208,25 @@ local CHAPTERS = {
         fog = CHAPTER1_FOG,
         viewMask = WORLD_BIT,
     },
+    [2] = {
+        id = "chapter2_lab",
+        items = LabItems("menu_ch2"),
+        look = LAB_LOOK,
+        fog = LAB_FOG,
+        viewMask = WORLD_BIT,
+    },
     [3] = {
         id = "chapter3_city",
         items = CHAPTER_3_ITEMS,
         look = CITY_LOOK,
         fog = CITY_FOG,
+        viewMask = WORLD_BIT,
+    },
+    [4] = {
+        id = "chapter4_lab",
+        items = LabItems("menu_ch4"),
+        look = LAB_LOOK,
+        fog = LAB_FOG,
         viewMask = WORLD_BIT,
     },
     [5] = {

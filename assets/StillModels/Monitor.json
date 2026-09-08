@@ -13,46 +13,12 @@
       "index": 0,
       "id": "screen",
       "label": "屏幕",
-      "shader": "still_object_mesh_tint_fog",
+      "shader": "still_object_source",
       "params": {
-        "meshColor": "#FFFFFF",
-        "colorNeg": "#FFFFFF",
-        "colorMid": "#FFFFFF",
-        "colorPos": "#FFFFFF",
-        "fogColor": "#348AA3",
-        "fogHeightA": 8.0,
-        "fogHeightB": 0.0,
-        "gradeSaturation": 0.55,
-        "gradeValue": 1.08,
-        "gradeContrast": 0.72,
-        "gradeHaze": 0.22
-      },
-      "pass": {
-        "opaque": true
+        "materialPath": "Materials/Monitor_00_lambert3SG.xml"
       }
     }
   ],
-  "inspect": [
-    {
-      "path": "slots.screen.colorNeg",
-      "label": "暗面",
-      "type": "color"
-    },
-    {
-      "path": "slots.screen.colorMid",
-      "label": "中面",
-      "type": "color"
-    },
-    {
-      "path": "slots.screen.colorPos",
-      "label": "亮面",
-      "type": "color"
-    },
-    {
-      "path": "slots.screen.fogColor",
-      "label": "高度雾",
-      "type": "color"
-    }
-  ],
+  "inspect": [],
   "drivers": []
 }
