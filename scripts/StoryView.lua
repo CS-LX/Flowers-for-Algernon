@@ -46,8 +46,7 @@ end
 
 function StoryView:Build()
     self.bottomTextHost = UI.Panel {
-        width = "80%",
-        maxWidth = 720,
+        width = "100%",
         flexDirection = "row",
         flexWrap = "wrap",
         justifyContent = "center",
