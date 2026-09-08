@@ -57,8 +57,8 @@
       "title": "给阿尔吉侬的花",
       "stencilId": 4,
       "stages": [
-        { "name": "真正的路", "sourcePath": "Levels/level-5-1.json", "fogColor": "#000000" },
-        { "name": "花园", "sourcePath": "Levels/level-5-2.json", "fogColor": "#000000" },
+        { "name": "衰褪 - 同行", "sourcePath": "Levels/level-5-1.json", "fogColor": "#000000" },
+        { "name": "剩下的路", "sourcePath": "Levels/level-5-2.json", "fogColor": "#000000" },
         { "name": "余光", "sourcePath": "Levels/level-5-3.json", "fogColor": "#000000" }
       ]
     }
