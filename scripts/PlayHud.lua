@@ -126,7 +126,7 @@ function PlayHud:Update(timeStep)
     end
 end
 
-function PlayHud:ShowCredits(onComplete)
+function PlayHud:ShowCredits(onComplete, onFadeOut)
     EnsureUI()
     self.hiding = true
     if self.storyView then
@@ -136,7 +136,7 @@ function PlayHud:ShowCredits(onComplete)
         local CreditsRoll = require "CreditsRoll"
         self.creditsRoll = CreditsRoll.New()
     end
-    self.creditsRoll:Show(onComplete)
+    self.creditsRoll:Show(onComplete, onFadeOut)
     print("PlayHud: credits roll started")
 end
 

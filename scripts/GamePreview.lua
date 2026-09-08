@@ -850,14 +850,19 @@ function GamePreview:PlayCreditsBgm()
     return self:PlayBgmPath(BgmTracks.CreditsPath(), true)
 end
 
-function GamePreview:FadeOutBgm()
+function GamePreview:FadeOutBgm(duration)
     if not self.bgmSource then
         return
+    end
+    if self.bgmTo <= 0.0 then
+        if self.bgmFadeDuration > 0.0 or self.bgmGain <= 0.0 then
+            return
+        end
     end
     self.bgmFrom = self.bgmGain
     self.bgmTo = 0.0
     self.bgmFadeElapsed = 0.0
-    self.bgmFadeDuration = BgmTracks.FADE
+    self.bgmFadeDuration = tonumber(duration) or BgmTracks.FADE
 end
 
 function GamePreview:UpdateBgm(timeStep)

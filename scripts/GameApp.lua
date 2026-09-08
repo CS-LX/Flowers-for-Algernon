@@ -371,6 +371,11 @@ function GameApp:ShowCredits()
     if self.playHud and self.playHud.ShowCredits then
         self.playHud:ShowCredits(function()
             self:FinishCredits()
+        end, function(duration)
+            local preview = self.session and self.session.preview
+            if preview and preview.FadeOutBgm then
+                preview:FadeOutBgm(duration)
+            end
         end)
         return true
     end

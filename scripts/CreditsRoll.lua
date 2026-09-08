@@ -184,8 +184,11 @@ function CreditsRoll.New()
     self.scrollDistance = 0.0
     self.scrollDuration = 0.0
     self.finished = false
+    self.fadeOutStarted = false
     ---@type fun()|nil
     self.onComplete = nil
+    ---@type fun(duration: number)|nil
+    self.onFadeOut = nil
     return self
 end
 
@@ -223,15 +226,17 @@ function CreditsRoll:BuildChildren()
     return children
 end
 
-function CreditsRoll:Show(onComplete)
+function CreditsRoll:Show(onComplete, onFadeOut)
     EnsureUI()
     self.onComplete = onComplete
+    self.onFadeOut = onFadeOut
     self.elapsed = 0.0
     self.opacity = 0.0
     self.scroll = 0.0
     self.scrollDistance = 0.0
     self.scrollDuration = 0.0
     self.finished = false
+    self.fadeOutStarted = false
     self.scroller = UI.Panel {
         width = "80%",
         maxWidth = 720,
@@ -372,6 +377,7 @@ function CreditsRoll:Update(timeStep)
     end
 
     local scrollStart = FADE_IN + HOLD_START
+    local fadeOutStart = scrollStart + self.scrollDuration + HOLD_END
     if t <= scrollStart then
         self.scroll = 0.0
     elseif t >= scrollStart + self.scrollDuration then
@@ -379,8 +385,15 @@ function CreditsRoll:Update(timeStep)
     else
         self.scroll = (t - scrollStart) * SCROLL_SPEED
     end
+    if t >= fadeOutStart and not self.fadeOutStarted then
+        self.fadeOutStarted = true
+        local fadeOut = self.onFadeOut
+        if type(fadeOut) == "function" then
+            fadeOut(FADE_OUT)
+        end
+    end
     self:ApplyVisual()
-    if t >= FADE_IN + HOLD_START + self.scrollDuration + HOLD_END + FADE_OUT then
+    if t >= fadeOutStart + FADE_OUT then
         self:Finish()
     end
 end
