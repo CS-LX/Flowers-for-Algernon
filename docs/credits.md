@@ -40,3 +40,5 @@ Monitor by Poly by Google [CC-BY](https://creativecommons.org/licenses/by/3.0/) 
 
 Lab Desk by Colonel Cthulu [CC-BY](https://creativecommons.org/licenses/by/3.0/) via [Poly Pizza](https://poly.pizza/m/6KxaD6I6I48)
 
+本地源文件：`assets/model/Lab Desk by Colonel Cthulu - 6KxaD6I6I48.glb`
+
