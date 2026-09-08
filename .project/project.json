@@ -5,30 +5,47 @@
     "id": "771520039"
   },
   "entry": "main.lua",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "taptap_publish": {
-    "title": "Hexagon Visual Challenge",
-    "description": "六边形体素关卡编辑与创作工具",
+    "title": "留给先行者的花束",
+    "description": "为了摆脱平庸并“看清这个世界”，查理接受了一项高阶大脑逻辑重构手术。手术赋予了他洞察空间错位、重构隐秘路径的天赋能力，但这项神迹般的技术却伴随着残酷的隐秘代价——查理的感知屏蔽了所有属于“世俗生活”的信号。原本热闹的城市变得空无一人，车流与声音凭空消失，世界沦为一片只有冰冷结构与错位视角的寂静废墟。\n\n在这个与世隔绝的感知孤岛中，查理唯一能够观测到的，是比他更早接受手术的小白鼠——“先行者”阿尔吉侬。然而，率先触碰智力巅峰的阿尔吉侬却很快迎来了断崖式的认知衰退，开始在曾经熟悉的迷宫前迷茫与停滞。\n\n伴随着阿尔吉侬的衰退，查理也隐隐发觉，自己操纵和重构结构的能力正在迅速褪去。在空间感知彻底熄灭之前，查理背负起衰弱的同行者，踏上了这段穿过错位几何、通往真实墓地的最终旅程。",
     "category": "simulation",
     "screen_orientation": "landscape",
     "collection_type": "sce",
-    "trial_note": "<developer's note>",
+    "trial_note": "灵感来自于《献给阿尔吉侬的花束》以及《纪念碑谷》\n第一次在taptapmaker里面尝试独游风格的游戏！希望大家喜欢！",
     "app_platforms": "1,2",
     "developer_id": 248818,
     "app_id": 911154,
-    "miniapp_id": "tapmcqg7gjq7wcycxw"
+    "miniapp_id": "tapmcqg7gjq7wcycxw",
+    "gameplay_demo_video_source": "https://tapcode-sce.spark.xd.com/videos/f2451823-6fd2-4b59-8e5f-3cc2253ee8aa/1788871586759-uploaded_ff962b1e.mp4",
+    "release_phase": "official"
   },
   "assets": {
-    "icon": "./game_material/ICON_2026-08-19T06-17-47_01.png",
-    "screenshots": [],
-    "promotional_image": "",
-    "icon_url": "https://tapcode-sce.spark.xd.com/assets/game_material/Hexagon Visual Challenge/ICON_2026-08-19T06-17-47_01.png"
+    "icon": "./game_material/ICON_2026-09-08T12-52-02_01.png",
+    "screenshots": [
+      "./game_material/SCREENSHOT_2026-09-08T13-07-25_01.png",
+      "./game_material/SCREENSHOT_2026-09-08T13-07-25_02.png",
+      "./game_material/SCREENSHOT_2026-09-08T13-07-25_03.png"
+    ],
+    "promotional_image": "./game_material/promotional.png",
+    "icon_url": "https://tapcode-sce.spark.xd.com/assets/game_material/留给先行者的花束/ICON_2026-09-08T12-52-02_01.png",
+    "promotional_image_url": "https://tapcode-sce.spark.xd.com/assets/game_material/m_mi13/promotional.png",
+    "screenshot_urls": [
+      "https://tapcode-sce.spark.xd.com/assets/game_material/留给先行者的花束/SCREENSHOT_2026-09-08T13-07-25_01.png",
+      "https://tapcode-sce.spark.xd.com/assets/game_material/留给先行者的花束/SCREENSHOT_2026-09-08T13-07-25_02.png",
+      "https://tapcode-sce.spark.xd.com/assets/game_material/留给先行者的花束/SCREENSHOT_2026-09-08T13-07-25_03.png"
+    ],
+    "cover_horizontal": "./game_material/cover_horizontal.png",
+    "cover_horizontal_url": "https://tapcode-sce.spark.xd.com/assets/game_material/m_mi13/cover_horizontal.png",
+    "cover_vertical": "./game_material/cover_vertical.png",
+    "cover_vertical_url": "https://tapcode-sce.spark.xd.com/assets/game_material/m_mi13/cover_vertical.png"
   },
   "metadata": {
-    "updated_at": "2026-08-19T06:18:32.439Z"
+    "updated_at": "2026-09-08T13:11:09.766Z",
+    "promo_dependent_hash": "47b42591091fc098b35080d17c258435"
   },
   "test_qrcode": {
-    "url": "https://tapcode-sce.spark.xd.com/qrcode/m_mi13_1787120312296.png",
-    "generated_at": "2026-08-19T06:18:32.439Z"
+    "url": "https://tapcode-sce.spark.xd.com/qrcode/m_mi13_1788869053192.png",
+    "generated_at": "2026-09-08T12:04:13.362Z"
   }
 }
