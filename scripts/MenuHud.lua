@@ -22,6 +22,7 @@ local Sfx = require "Sfx"
 ---@field confirm table|nil
 ---@field open boolean
 ---@field confirmOpen boolean
+---@field confirmKind string|nil
 ---@field toggleArmed boolean
 ---@field openAmount number
 ---@field openFrom number
@@ -106,6 +107,8 @@ function MenuHud.New()
     self.confirm = nil
     self.open = false
     self.confirmOpen = false
+    ---@type string|nil
+    self.confirmKind = nil
     self.toggleArmed = true
     self.openAmount = 0.0
     self.openFrom = 0.0
@@ -204,12 +207,10 @@ function MenuHud:Build()
         end,
     }
     local unlockItem = self:AddItem("解锁所有关卡", function()
-        if self.onUnlockAll then
-            self.onUnlockAll()
-        end
+        self:ShowConfirm("unlock")
     end)
     local resetItem = self:AddItem("重置进度", function()
-        self:ShowConfirm()
+        self:ShowConfirm("reset")
     end)
     local quitItem = self:AddItem("退出游戏", function()
         if self.onQuit then
@@ -281,12 +282,13 @@ function MenuHud:Build()
             Sfx.PlayModalClick()
             self:HideConfirm()
         end,
-        onConfirm = function()
+        onOverlay = function()
             Sfx.PlayModalClick()
             self:HideConfirm()
-            if self.onResetProgress then
-                self.onResetProgress()
-            end
+        end,
+        onConfirm = function()
+            Sfx.PlayModalClick()
+            self:ConfirmCurrent()
         end,
     })
     self.root = UI.Panel {
@@ -355,7 +357,7 @@ function MenuHud:SetOpen(open, instant)
     end
     self.open = target
     if not target then
-        self:HideConfirm()
+        self:HideConfirm(true)
     end
     self.openFrom = self.openAmount
     self.openTo = target and 1.0 or 0.0
@@ -396,22 +398,65 @@ function MenuHud:Toggle()
     self:SetOpen(not self.open, false)
 end
 
-function MenuHud:ShowConfirm()
+function MenuHud:ShowConfirm(kind)
     if not self.confirm then
         return
     end
+    self.confirmKind = kind or "reset"
+    self.confirm.pendingConfirm = false
+    MenuConfirmDialog.SetCopy(self.confirm, self.confirmKind)
     self.confirmOpen = true
-    self.confirm.root:SetVisible(true)
-    self.confirm.root:SetProp("pointerEvents", "auto")
+    MenuConfirmDialog.SetOpen(self.confirm, true, false)
 end
 
-function MenuHud:HideConfirm()
+function MenuHud:HideConfirm(instant)
+    if not self.confirm then
+        self.confirmOpen = false
+        self.confirmKind = nil
+        return
+    end
     self.confirmOpen = false
+    if not self.confirm.pendingConfirm then
+        self.confirmKind = nil
+    end
+    MenuConfirmDialog.SetOpen(self.confirm, false, instant == true)
+    if instant then
+        if self.confirm.pendingConfirm then
+            self:FinishConfirm()
+            return
+        end
+        self.confirmKind = nil
+    end
+end
+
+function MenuHud:ConfirmCurrent()
     if not self.confirm then
         return
     end
-    self.confirm.root:SetVisible(false)
-    self.confirm.root:SetProp("pointerEvents", "none")
+    self.confirm.pendingConfirm = true
+    self.confirmOpen = false
+    MenuConfirmDialog.SetOpen(self.confirm, false, false)
+end
+
+function MenuHud:FinishConfirm()
+    local kind = self.confirmKind
+    local pending = self.confirm and self.confirm.pendingConfirm
+    if self.confirm then
+        self.confirm.pendingConfirm = false
+    end
+    self.confirmKind = nil
+    if not pending then
+        return
+    end
+    if kind == "unlock" then
+        if self.onUnlockAll then
+            self.onUnlockAll()
+        end
+        return
+    end
+    if kind == "reset" and self.onResetProgress then
+        self.onResetProgress()
+    end
 end
 
 function MenuHud:BeginEnterFade()
@@ -431,6 +476,9 @@ end
 
 function MenuHud:BeginExitFade()
     self:SetToggleArmed(false)
+    if self.confirmOpen then
+        self:HideConfirm(true)
+    end
     if self.open then
         self:SetOpen(false, false)
     end
@@ -443,6 +491,7 @@ end
 function MenuHud:Hide()
     self.open = false
     self.confirmOpen = false
+    self.confirmKind = nil
     self.openAmount = 0.0
     self.openDuration = 0.0
     if self.root then
@@ -479,6 +528,12 @@ function MenuHud:HandleEscape()
 end
 
 function MenuHud:Update(timeStep)
+    if self.confirm then
+        local finished = MenuConfirmDialog.Update(self.confirm, timeStep)
+        if finished and not self.confirm.open then
+            self:FinishConfirm()
+        end
+    end
     if self.openDuration <= 0.0 then
         return
     end
