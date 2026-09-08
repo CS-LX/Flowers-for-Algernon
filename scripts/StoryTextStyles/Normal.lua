@@ -2,7 +2,7 @@
 
 local Normal = {}
 
-local BASE_SIZE = 18
+local BASE_SIZE = 32
 local COLOR = { 255, 255, 255, 255 }
 local SHADOW = {
     offsetX = 0,

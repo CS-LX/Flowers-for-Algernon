@@ -3,7 +3,7 @@
 
 local Charlie = {}
 
-local BASE_SIZE = 18
+local BASE_SIZE = 32
 local COLOR = { 255, 255, 255, 255 }
 local SHADOW = {
     offsetX = 0,
@@ -42,7 +42,7 @@ function Charlie.Layout(text, options)
     math.randomseed(seed)
     local glyphs = {}
     EachChar(text, function(ch)
-        local sizeJitter = math.random(-2, 2)
+        local sizeJitter = math.random(-4, 4)
         local rotate = 0
         if math.random() < ITALIC_CHANCE then
             if math.random() < 0.5 then

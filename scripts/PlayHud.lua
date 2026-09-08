@@ -30,8 +30,9 @@ local function EnsureUI()
                 },
             },
         },
-        scale = UI.Scale.DEFAULT,
+        scale = UI.Scale.DESIGN_RESOLUTION(1920, 1080),
     })
+    UI.SetScale(UI.Scale.DESIGN_RESOLUTION(1920, 1080))
 end
 
 function PlayHud.New(onExit)

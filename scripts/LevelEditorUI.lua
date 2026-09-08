@@ -42,6 +42,7 @@ function LevelEditorUI:Build()
         },
         scale = UI.Scale.DEFAULT,
     })
+    UI.SetScale(UI.Scale.DEFAULT)
 
     local editor = self.editor
     self.titleLabel = UI.Label {

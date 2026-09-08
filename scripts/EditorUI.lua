@@ -33,6 +33,7 @@ function EditorUI:Build()
         },
         scale = UI.Scale.DEFAULT,
     })
+    UI.SetScale(UI.Scale.DEFAULT)
     UI.Gesture.Config.longPressMinDuration = 220
 
     local editor = self.editor

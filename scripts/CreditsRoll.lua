@@ -143,17 +143,21 @@ local function EnsureUI()
                 },
             },
         },
-        scale = UI.Scale.DEFAULT,
+        scale = UI.Scale.DESIGN_RESOLUTION(1920, 1080),
     })
+    UI.SetScale(UI.Scale.DESIGN_RESOLUTION(1920, 1080))
 end
 
 local function ScreenHeight()
     local physH = graphics:GetHeight()
-    local dpr = graphics:GetDPR()
-    if not dpr or dpr <= 0.0 then
-        dpr = 1.0
+    if not physH or physH <= 0.0 then
+        return 1080.0
     end
-    return physH / dpr
+    local scale = UI.GetScale()
+    if not scale or scale <= 0.0 then
+        scale = 1.0
+    end
+    return physH / scale
 end
 
 local function StartY()
