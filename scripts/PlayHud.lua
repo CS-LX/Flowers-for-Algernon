@@ -46,6 +46,8 @@ function PlayHud.New(onExit)
     self.storyHost = nil
     ---@type LevelExitButton|nil
     self.exitButton = nil
+    ---@type Widget|nil
+    self.exitHost = nil
     self.hiding = false
     ---@type table|nil
     self.creditsRoll = nil
@@ -73,25 +75,26 @@ function PlayHud:Show(definition)
     }
     self.exitButton:SetIconAlpha(0.0)
     self.exitButton:FadeTo(1.0, EXIT_FADE)
+    self.exitHost = UI.Panel {
+        position = "absolute",
+        left = 0,
+        top = 0,
+        width = 140,
+        height = 140,
+        paddingTop = 24,
+        paddingLeft = 24,
+        pointerEvents = "box-none",
+        children = {
+            self.exitButton,
+        },
+    }
     self.root = UI.Panel {
         width = "100%",
         height = "100%",
         pointerEvents = "box-none",
         children = {
             self.storyHost,
-            UI.Panel {
-                position = "absolute",
-                left = 0,
-                top = 0,
-                width = 140,
-                height = 140,
-                paddingTop = 24,
-                paddingLeft = 24,
-                pointerEvents = "box-none",
-                children = {
-                    self.exitButton,
-                },
-            },
+            self.exitHost,
         },
     }
     UI.SetRoot(self.root, true)
@@ -125,8 +128,11 @@ function PlayHud:Update(timeStep)
     end
 end
 
-function PlayHud:ShowCredits(onComplete, onFadeOut)
+function PlayHud:ShowCredits(onComplete, onFadeOut, canSkip)
     EnsureUI()
+    if not self.root or not self.exitButton then
+        self:Show(nil)
+    end
     self.hiding = true
     if self.storyView then
         self.storyView:Hide()
@@ -135,8 +141,41 @@ function PlayHud:ShowCredits(onComplete, onFadeOut)
         local CreditsRoll = require "CreditsRoll"
         self.creditsRoll = CreditsRoll.New()
     end
-    self.creditsRoll:Show(onComplete, onFadeOut)
-    print("PlayHud: credits roll started")
+    self.creditsRoll:Show(onComplete, onFadeOut, canSkip == true)
+    if self.root and self.creditsRoll.root then
+        self.root:AddChild(self.creditsRoll.root)
+        if self.exitHost then
+            self.root:AddChild(self.exitHost)
+        end
+    end
+    if self.exitButton then
+        if canSkip == true then
+            self.hiding = false
+            self.exitButton:SetClickArmed(true)
+            self.exitButton:SetIconAlpha(0.0)
+            self.exitButton:FadeTo(1.0, EXIT_FADE)
+        else
+            self.exitButton:SetClickArmed(false)
+            self.exitButton:FadeTo(0.0, EXIT_FADE)
+        end
+    end
+    print("PlayHud: credits roll started skip=" .. tostring(canSkip == true))
+end
+
+function PlayHud:CanSkipCredits()
+    return self.creditsRoll ~= nil and self.creditsRoll:CanSkip()
+end
+
+function PlayHud:SkipCredits()
+    if not self.creditsRoll then
+        return false
+    end
+    if self.exitButton then
+        self.hiding = true
+        self.exitButton:SetClickArmed(false)
+        self.exitButton:FadeTo(0.0, EXIT_FADE)
+    end
+    return self.creditsRoll:BeginSkip()
 end
 
 function PlayHud:Hide()
@@ -151,6 +190,7 @@ function PlayHud:Hide()
     end
     self.storyHost = nil
     self.exitButton = nil
+    self.exitHost = nil
     if self.creditsRoll then
         self.creditsRoll:Hide()
         self.creditsRoll = nil

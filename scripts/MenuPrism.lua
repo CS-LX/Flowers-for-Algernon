@@ -1562,8 +1562,7 @@ function MenuPrism:ApplyBgmGain()
     end
 end
 
-function MenuPrism:PlayMenuBgm()
-    local path = BgmTracks.MenuPath()
+function MenuPrism:PlayBgmPath(path, looped)
     local source = self:EnsureBgmSource()
     if not path or not source then
         return false
@@ -1579,10 +1578,10 @@ function MenuPrism:PlayMenuBgm()
     end
     local sound = cache:GetResource("Sound", path)
     if not sound then
-        print("MenuPrism: missing menu bgm " .. path)
+        print("MenuPrism: missing bgm " .. path)
         return false
     end
-    sound:SetLooped(true)
+    sound:SetLooped(looped ~= false)
     self.bgmPath = path
     self.bgmGain = 0.0
     self.bgmFrom = 0.0
@@ -1591,18 +1590,31 @@ function MenuPrism:PlayMenuBgm()
     self.bgmFadeDuration = BgmTracks.FADE
     source:Play(sound, sound:GetFrequency(), 0.0)
     self:ApplyBgmGain()
-    print("MenuPrism: play menu bgm " .. path)
+    print("MenuPrism: play bgm " .. path)
     return true
 end
 
-function MenuPrism:FadeOutBgm()
+function MenuPrism:PlayMenuBgm()
+    local path = BgmTracks.MenuPath()
+    local source = self:EnsureBgmSource()
+    if not path or not source then
+        return false
+    end
+    return self:PlayBgmPath(path, true)
+end
+
+function MenuPrism:PlayCreditsBgm()
+    return self:PlayBgmPath(BgmTracks.CreditsPath(), false)
+end
+
+function MenuPrism:FadeOutBgm(duration)
     if not self.bgmSource then
         return
     end
     self.bgmFrom = self.bgmGain
     self.bgmTo = 0.0
     self.bgmFadeElapsed = 0.0
-    self.bgmFadeDuration = BgmTracks.FADE
+    self.bgmFadeDuration = tonumber(duration) or BgmTracks.FADE
 end
 
 function MenuPrism:UpdateBgm(timeStep)

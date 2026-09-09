@@ -10,11 +10,11 @@ local HOLD_START = 5.0
 local HOLD_END = 5.0
 local FADE_IN = 1.2
 local FADE_OUT = 10.0
-local SCROLL_SPEED = 42.0
+local SCROLL_SPEED = 64.0
 local START_OFFSET = 80.0
 local END_HOLD_RATIO = 0.55
 local END_SAFETY = 160.0
-local TITLE_BLOCK_ESTIMATE = 96.0
+local TITLE_BLOCK_ESTIMATE = 140.0
 local INTRO_GAP_EXTRA = 96.0
 
 local LINES = {
@@ -120,15 +120,15 @@ local LINES = {
 }
 
 local STYLES = {
-    h1 = { fontSize = 42, fontWeight = "bold", color = { 255, 248, 236, 255 }, marginBottom = 8 },
-    h2 = { fontSize = 18, fontWeight = "normal", color = { 214, 196, 168, 220 }, marginBottom = 8 },
-    h3 = { fontSize = 22, fontWeight = "bold", color = { 236, 224, 204, 255 }, marginTop = 6, marginBottom = 10 },
-    h4 = { fontSize = 16, fontWeight = "bold", color = { 196, 176, 148, 255 }, marginBottom = 4 },
-    title = { fontSize = 18, fontWeight = "normal", color = { 242, 232, 214, 255 }, marginTop = 8, marginBottom = 2 },
-    body = { fontSize = 18, fontWeight = "normal", color = { 232, 220, 200, 255 }, marginBottom = 4 },
-    credit = { fontSize = 15, fontWeight = "normal", color = { 176, 160, 136, 230 }, marginBottom = 8 },
-    studio = { fontSize = 22, fontWeight = "bold", color = { 255, 248, 236, 255 }, marginBottom = 6 },
-    closing = { fontSize = 20, fontWeight = "normal", color = { 236, 224, 204, 255 }, marginBottom = 6 },
+    h1 = { fontSize = 64, fontWeight = "bold", color = { 255, 248, 236, 255 }, marginBottom = 12 },
+    h2 = { fontSize = 28, fontWeight = "normal", color = { 214, 196, 168, 220 }, marginBottom = 12 },
+    h3 = { fontSize = 34, fontWeight = "bold", color = { 236, 224, 204, 255 }, marginTop = 10, marginBottom = 16 },
+    h4 = { fontSize = 24, fontWeight = "bold", color = { 196, 176, 148, 255 }, marginBottom = 6 },
+    title = { fontSize = 28, fontWeight = "normal", color = { 242, 232, 214, 255 }, marginTop = 12, marginBottom = 4 },
+    body = { fontSize = 28, fontWeight = "normal", color = { 232, 220, 200, 255 }, marginBottom = 6 },
+    credit = { fontSize = 22, fontWeight = "normal", color = { 176, 160, 136, 230 }, marginBottom = 12 },
+    studio = { fontSize = 34, fontWeight = "bold", color = { 255, 248, 236, 255 }, marginBottom = 8 },
+    closing = { fontSize = 30, fontWeight = "normal", color = { 236, 224, 204, 255 }, marginBottom = 8 },
 }
 
 local function EnsureUI()
@@ -189,6 +189,8 @@ function CreditsRoll.New()
     self.scrollDuration = 0.0
     self.finished = false
     self.fadeOutStarted = false
+    self.canSkip = false
+    self.skipping = false
     ---@type fun()|nil
     self.onComplete = nil
     ---@type fun(duration: number)|nil
@@ -230,10 +232,12 @@ function CreditsRoll:BuildChildren()
     return children
 end
 
-function CreditsRoll:Show(onComplete, onFadeOut)
+function CreditsRoll:Show(onComplete, onFadeOut, canSkip)
     EnsureUI()
     self.onComplete = onComplete
     self.onFadeOut = onFadeOut
+    self.canSkip = canSkip == true
+    self.skipping = false
     self.elapsed = 0.0
     self.opacity = 0.0
     self.scroll = 0.0
@@ -243,9 +247,11 @@ function CreditsRoll:Show(onComplete, onFadeOut)
     self.fadeOutStarted = false
     self.scroller = UI.Panel {
         width = "80%",
-        maxWidth = 720,
+        maxWidth = 1100,
         alignItems = "center",
         translateY = StartY(),
+        borderRadius = 0,
+        pointerEvents = "none",
         children = self:BuildChildren(),
     }
     self.root = UI.Panel {
@@ -256,11 +262,12 @@ function CreditsRoll:Show(onComplete, onFadeOut)
         justifyContent = "flex-start",
         overflow = "hidden",
         opacity = 0.0,
+        borderRadius = 0,
+        pointerEvents = "none",
         children = {
             self.scroller,
         },
     }
-    UI.SetRoot(self.root, true)
     print("CreditsRoll: shown")
     return true
 end
@@ -337,6 +344,31 @@ function CreditsRoll:ApplyVisual()
     end
 end
 
+function CreditsRoll:CanSkip()
+    return self.canSkip == true and not self.finished
+end
+
+function CreditsRoll:BeginSkip()
+    if not self:CanSkip() or self.skipping then
+        return false
+    end
+    self:MeasureScroll()
+    local fadeOutStart = FADE_IN + HOLD_START + self.scrollDuration + HOLD_END
+    if self.elapsed < fadeOutStart then
+        self.elapsed = fadeOutStart
+    end
+    self.skipping = true
+    if not self.fadeOutStarted then
+        self.fadeOutStarted = true
+        local fadeOut = self.onFadeOut
+        if type(fadeOut) == "function" then
+            fadeOut(FADE_OUT)
+        end
+    end
+    print("CreditsRoll: skip requested")
+    return true
+end
+
 function CreditsRoll:Finish()
     if self.finished then
         return
@@ -354,9 +386,6 @@ function CreditsRoll:Hide()
     self.root = nil
     self.scroller = nil
     self.lastLine = nil
-    if UI.SetRoot then
-        UI.SetRoot(nil, true)
-    end
 end
 
 function CreditsRoll:Update(timeStep)

@@ -95,6 +95,7 @@ function GameApp.New()
     self.clusterHold = 0.0
     ---@type LevelDefinition|nil
     self.lastDefinition = nil
+    self.creditsCanSkip = false
     return self
 end
 
@@ -145,6 +146,10 @@ end
 function GameApp:Start()
     self:CreateMenuScene()
     self.playHud = PlayHud.New(function()
+        if self.state == STATE_CREDITS then
+            self:SkipCredits()
+            return
+        end
         self:BackToLevelSelect()
     end)
     AudioSettings.Load(function()
@@ -272,6 +277,9 @@ function GameApp:EnsureMenuHud()
     self.menuHud.onResetProgress = function()
         self:ResetProgress()
     end
+    self.menuHud.onCredits = function()
+        self:PlayMenuCredits()
+    end
     self.menuHud.onQuit = function()
         self:QuitGame()
     end
@@ -302,7 +310,21 @@ function GameApp:ShowLevelSelect(status, returnDefinition)
     self.state = STATE_LEVEL_SELECT
     self:RestoreMenuCamera()
     self:BindMenuViewport()
-    LookApplier.ApplyAtmosphere(self.menuScene, LookApplier.DefaultAtmosphere())
+    local atmosphere = LookApplier.DefaultAtmosphere()
+    local fogSource = nil
+    if self.menuPrism then
+        fogSource = self.menuPrism:FrontLevel()
+    end
+    fogSource = fogSource or returnDefinition
+    local fogColor = fogSource and self:FogColorFor(fogSource) or nil
+    if fogColor then
+        atmosphere.fog = atmosphere.fog or {}
+        atmosphere.fog.color = string.format("#%02X%02X%02X",
+            math.floor(fogColor.r * 255.0 + 0.5),
+            math.floor(fogColor.g * 255.0 + 0.5),
+            math.floor(fogColor.b * 255.0 + 0.5))
+    end
+    LookApplier.ApplyAtmosphere(self.menuScene, atmosphere)
     self:RefreshMenuTape()
     self:EnsureMenuPrism()
     self:EnsureMenuHud()
@@ -471,14 +493,16 @@ function GameApp:CompleteLevel(definition)
         self:EnterNextLevel(nextDefinition)
         return
     end
+    local replay = PlayerTelemetry.HasFinishedGame()
     PlayerTelemetry.FinishGame()
-    self:BeginCredits(definition)
+    self:BeginCredits(definition, replay)
 end
 
-function GameApp:BeginCredits(definition)
+function GameApp:BeginCredits(definition, canSkip)
     if self.state ~= STATE_PLAYING then
         return false
     end
+    self.creditsCanSkip = canSkip == true
     local preview = self.session and self.session.preview
     if preview and preview.BeginFogConceal then
         if preview.fogReveal and preview.fogReveal.conceal then
@@ -513,12 +537,41 @@ function GameApp:ShowCredits()
             local preview = self.session and self.session.preview
             if preview and preview.FadeOutBgm then
                 preview:FadeOutBgm(duration)
+            elseif self.menuPrism and self.menuPrism.FadeOutBgm then
+                self.menuPrism:FadeOutBgm(duration)
             end
-        end)
+        end, self.creditsCanSkip == true)
         return true
     end
     self:FinishCredits()
     return true
+end
+
+function GameApp:PlayMenuCredits()
+    if self.state ~= STATE_LEVEL_SELECT then
+        return false
+    end
+    self.creditsCanSkip = true
+    if self.menuHud then
+        self.menuHud:SetOpen(false, true)
+        self.menuHud:BeginExitFade()
+        self:HideMenuHud()
+    end
+    if self.menuPrism and self.menuPrism.PlayCreditsBgm then
+        self.menuPrism:PlayCreditsBgm()
+    end
+    print("GameApp: menu credits")
+    return self:ShowCredits()
+end
+
+function GameApp:SkipCredits()
+    if self.state ~= STATE_CREDITS then
+        return false
+    end
+    if not self.playHud or not self.playHud.SkipCredits then
+        return false
+    end
+    return self.playHud:SkipCredits()
 end
 
 function GameApp:FinishCredits()
@@ -526,6 +579,8 @@ function GameApp:FinishCredits()
     local preview = self.session and self.session.preview
     if preview and preview.FadeOutBgm then
         preview:FadeOutBgm()
+    elseif self.menuPrism and self.menuPrism.FadeOutBgm then
+        self.menuPrism:FadeOutBgm()
     end
     self:FinishBackToLevelSelect()
 end
@@ -743,8 +798,13 @@ function GameApp:Update(timeStep)
         return
     end
     if self.state == STATE_CREDITS then
+        if input:GetKeyPress(KEY_ESCAPE) then
+            self:SkipCredits()
+        end
         if self.session then
             self.session:Update(timeStep)
+        elseif self.menuPrism and self.menuPrism.UpdateBgm then
+            self.menuPrism:UpdateBgm(timeStep)
         end
         if self.playHud and self.playHud.Update then
             self.playHud:Update(timeStep)

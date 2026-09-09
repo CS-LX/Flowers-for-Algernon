@@ -33,6 +33,7 @@ local Sfx = require "Sfx"
 ---@field onOpenChanged fun(open: boolean)|nil
 ---@field onUnlockAll fun()|nil
 ---@field onResetProgress fun()|nil
+---@field onCredits fun()|nil
 ---@field onQuit fun()|nil
 local MenuHud = {}
 MenuHud.__index = MenuHud
@@ -123,6 +124,8 @@ function MenuHud.New()
     ---@type fun()|nil
     self.onResetProgress = nil
     ---@type fun()|nil
+    self.onCredits = nil
+    ---@type fun()|nil
     self.onQuit = nil
     return self
 end
@@ -212,6 +215,11 @@ function MenuHud:Build()
     local resetItem = self:AddItem("重置进度", function()
         self:ShowConfirm("reset")
     end)
+    local creditsItem = self:AddItem("播放制作人员名单", function()
+        if self.onCredits then
+            self.onCredits()
+        end
+    end)
     local quitItem = self:AddItem("退出游戏", function()
         self:ShowConfirm("quit")
     end)
@@ -238,6 +246,8 @@ function MenuHud:Build()
             unlockItem,
             Hairline(),
             resetItem,
+            Hairline(),
+            creditsItem,
             Hairline(),
             quitItem,
             Hairline(),
