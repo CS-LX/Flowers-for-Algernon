@@ -1,5 +1,5 @@
 -- 关卡内退出按钮：白色六边形框 + 左箭头。
--- 环和水波走 HexMarkDraw，与对话 Mark 同一套描边。点击走 Esc 语义。
+-- 环半径跟 Widget 布局走，不再写死 18。水波走 HexMarkDraw。点击走 Esc 语义。
 
 local Widget = require("urhox-libs/UI/Core/Widget")
 local HexMarkDraw = require "HexMarkDraw"
@@ -9,9 +9,15 @@ local Sfx = require "Sfx"
 ---@overload fun(props?: table): LevelExitButton
 local LevelExitButton = Widget:Extend("LevelExitButton")
 
-local RING_RADIUS = 18.0
+local DEFAULT_SIZE = 88.0
+local RING_RATIO = 0.32
 local COLOR = HexMarkDraw.COLOR
 local FADE_DURATION = 1.0
+
+local function RingRadius(layout)
+    local size = math.min(layout.w, layout.h)
+    return size * RING_RATIO
+end
 
 local function DrawArrow(nvg, cx, cy, radius, alpha)
     if alpha <= 0.0 then
@@ -26,7 +32,7 @@ local function DrawArrow(nvg, cx, cy, radius, alpha)
     nvgMoveTo(nvg, tailX, shaftY)
     nvgLineTo(nvg, headX + radius * 0.08, shaftY)
     nvgStrokeColor(nvg, color)
-    nvgStrokeWidth(nvg, 3.0)
+    nvgStrokeWidth(nvg, math.max(3.0, radius * 0.12))
     nvgLineCap(nvg, NVG_BUTT)
     nvgStroke(nvg)
     nvgBeginPath(nvg)
@@ -34,7 +40,7 @@ local function DrawArrow(nvg, cx, cy, radius, alpha)
     nvgLineTo(nvg, headX, shaftY)
     nvgLineTo(nvg, headX + headSpan, shaftY + headSpan)
     nvgStrokeColor(nvg, color)
-    nvgStrokeWidth(nvg, 3.0)
+    nvgStrokeWidth(nvg, math.max(3.0, radius * 0.12))
     nvgLineCap(nvg, NVG_BUTT)
     nvgLineJoin(nvg, NVG_MITER)
     nvgStroke(nvg)
@@ -42,8 +48,8 @@ end
 
 function LevelExitButton:Init(props)
     props = props or {}
-    props.width = props.width or 56
-    props.height = props.height or 56
+    props.width = props.width or DEFAULT_SIZE
+    props.height = props.height or DEFAULT_SIZE
     props.pointerEvents = props.pointerEvents or "auto"
     -- Widget __newindex 会把 self.iconAlpha 路由到 SetIconAlpha，必须先 rawset。
     rawset(self, "iconAlpha", 0.0)
@@ -129,14 +135,17 @@ function LevelExitButton:Render(nvg)
     if self.iconAlpha <= 0.001 and self.waveElapsed < 0.0 then
         return
     end
+
     local layout = self:GetAbsoluteLayout()
     local cx = layout.x + layout.w * 0.5
     local cy = layout.y + layout.h * 0.5
+    local radius = RingRadius(layout)
+    local ringWidth = math.max(HexMarkDraw.RING_WIDTH, radius * 0.12)
     if self.iconAlpha > 0.001 then
-        HexMarkDraw.StrokeHex(nvg, cx, cy, RING_RADIUS, HexMarkDraw.RING_WIDTH, self.iconAlpha, COLOR)
-        DrawArrow(nvg, cx, cy, RING_RADIUS, self.iconAlpha)
+        HexMarkDraw.StrokeHex(nvg, cx, cy, radius, ringWidth, self.iconAlpha, COLOR)
+        DrawArrow(nvg, cx, cy, radius, self.iconAlpha)
     end
-    HexMarkDraw.StrokeWave(nvg, cx, cy, RING_RADIUS, self.waveElapsed, COLOR)
+    HexMarkDraw.StrokeWave(nvg, cx, cy, radius, self.waveElapsed, COLOR)
 end
 
 function LevelExitButton:IsStateful()

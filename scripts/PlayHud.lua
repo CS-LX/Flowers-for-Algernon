@@ -67,8 +67,6 @@ function PlayHud:Show(definition)
     self.storyView = StoryView.New()
     self.storyHost = self.storyView:Build()
     self.exitButton = LevelExitButton {
-        width = 56,
-        height = 56,
         onExit = function()
             self:RequestExit()
         end,
@@ -85,10 +83,10 @@ function PlayHud:Show(definition)
                 position = "absolute",
                 left = 0,
                 top = 0,
-                width = 96,
-                height = 96,
-                paddingTop = 20,
-                paddingLeft = 20,
+                width = 140,
+                height = 140,
+                paddingTop = 24,
+                paddingLeft = 24,
                 pointerEvents = "box-none",
                 children = {
                     self.exitButton,

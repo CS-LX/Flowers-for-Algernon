@@ -1,5 +1,5 @@
 -- 选关菜单六边形开关。
--- 关：环内两条横杠；开：环内两条短斜线。水波沿用 HexMarkDraw。
+-- 关：环内两条横杠；开：环内两条短斜线。环半径跟 Widget 布局走。
 
 local Widget = require("urhox-libs/UI/Core/Widget")
 local HexMarkDraw = require "HexMarkDraw"
@@ -21,9 +21,19 @@ local HexMarkDraw = require "HexMarkDraw"
 ---@overload fun(props?: table): MenuHexButton
 local MenuHexButton = Widget:Extend("MenuHexButton")
 
-local RING_RADIUS = 18.0
+local DEFAULT_SIZE = 88.0
+local RING_RATIO = 0.32
 local COLOR = HexMarkDraw.COLOR
 local FADE_DURATION = 0.2
+
+local function RingRadius(layout)
+    local size = math.min(layout.w, layout.h)
+    return size * RING_RATIO
+end
+
+local function StrokeWidth(radius)
+    return math.max(3.0, radius * 0.12)
+end
 
 local function StrokeColor(alpha)
     return nvgRGBA(COLOR[1], COLOR[2], COLOR[3], math.floor(255 * HexMarkDraw.Clamp01(alpha) + 0.5))
@@ -41,7 +51,7 @@ local function DrawMenuBars(nvg, cx, cy, radius, alpha)
     nvgMoveTo(nvg, cx - half, cy + gap)
     nvgLineTo(nvg, cx + half, cy + gap)
     nvgStrokeColor(nvg, StrokeColor(alpha))
-    nvgStrokeWidth(nvg, 3.0)
+    nvgStrokeWidth(nvg, StrokeWidth(radius))
     nvgLineCap(nvg, NVG_BUTT)
     nvgStroke(nvg)
 end
@@ -57,15 +67,15 @@ local function DrawCloseMark(nvg, cx, cy, radius, alpha)
     nvgMoveTo(nvg, cx + span, cy - span)
     nvgLineTo(nvg, cx - span, cy + span)
     nvgStrokeColor(nvg, StrokeColor(alpha))
-    nvgStrokeWidth(nvg, 3.0)
+    nvgStrokeWidth(nvg, StrokeWidth(radius))
     nvgLineCap(nvg, NVG_BUTT)
     nvgStroke(nvg)
 end
 
 function MenuHexButton:Init(props)
     props = props or {}
-    props.width = props.width or 56
-    props.height = props.height or 56
+    props.width = props.width or DEFAULT_SIZE
+    props.height = props.height or DEFAULT_SIZE
     props.pointerEvents = props.pointerEvents or "auto"
     rawset(self, "iconAlpha", 1.0)
     rawset(self, "openAmount", 0.0)
@@ -180,10 +190,12 @@ function MenuHexButton:Render(nvg)
     local layout = self:GetAbsoluteLayout()
     local cx = layout.x + layout.w * 0.5
     local cy = layout.y + layout.h * 0.5
-    HexMarkDraw.StrokeHex(nvg, cx, cy, RING_RADIUS, HexMarkDraw.RING_WIDTH, self.iconAlpha, COLOR)
-    DrawMenuBars(nvg, cx, cy, RING_RADIUS, self.iconAlpha * (1.0 - self.openAmount))
-    DrawCloseMark(nvg, cx, cy, RING_RADIUS, self.iconAlpha * self.openAmount)
-    HexMarkDraw.StrokeWave(nvg, cx, cy, RING_RADIUS, self.waveElapsed, COLOR)
+    local radius = RingRadius(layout)
+    local ringWidth = StrokeWidth(radius)
+    HexMarkDraw.StrokeHex(nvg, cx, cy, radius, ringWidth, self.iconAlpha, COLOR)
+    DrawMenuBars(nvg, cx, cy, radius, self.iconAlpha * (1.0 - self.openAmount))
+    DrawCloseMark(nvg, cx, cy, radius, self.iconAlpha * self.openAmount)
+    HexMarkDraw.StrokeWave(nvg, cx, cy, radius, self.waveElapsed, COLOR)
 end
 
 function MenuHexButton:IsStateful()
