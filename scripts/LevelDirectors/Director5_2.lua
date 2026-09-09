@@ -9,7 +9,29 @@ local SPAWN_NODE_KEY = "part_part_20:node_part_part_20_15"
 local DROP_TRIGGER_KEY = "part_part_20:node_part_part_20_9"
 local DROP_NODE_KEY = "part_part_20:node_part_part_20_9"
 local FINISH_NODE_KEY = "part_part_20:finish_node"
+local ENTER_DOOR_ID = "still_enterdoor_1"
 local DROP_DURATION = 0.65
+local DOOR_CLOSE_DURATION = 3.0
+
+local function Clamp01(value)
+    return math.max(0.0, math.min(1.0, value))
+end
+
+-- 推拉门：open 是 DoorBone 沿轴平移，曲线按位移而不是转角。
+-- 0.9s 慢启动 20%，0.9s 加快 55%，最后 1.2s 二次缓出合上剩余 25%。
+local function SlowFastVerySlow(t)
+    if t < 0.30 then
+        local u = t / 0.30
+        return 0.20 * u * u
+    end
+    if t < 0.60 then
+        local u = (t - 0.30) / 0.30
+        return 0.20 + 0.55 * u
+    end
+    local u = (t - 0.60) / 0.40
+    local eased = 1.0 - (1.0 - u) * (1.0 - u)
+    return 0.75 + 0.25 * eased
+end
 
 function Director5_2:OnStart()
     self.stage = "intro"
@@ -17,7 +39,11 @@ function Director5_2:OnStart()
     self.dropFinished = false
     self.finishStoryPlayed = false
     self.finishPayload = nil
+    self.doorClosing = false
+    self.doorCloseElapsed = 0.0
+    self.enterDoorOpen = 1.0
 
+    self:SetStillDriver(ENTER_DOOR_ID, "open", 1.0)
     self:SetInputLocked(true)
     self:SetPlayerLocked(true)
 
@@ -55,6 +81,41 @@ function Director5_2:OnPlayerArrived(nodeKey)
     end
 end
 
+function Director5_2:BeginEnterDoorClose()
+    if self.doorClosing or self.enterDoorOpen <= 0.0 then
+        return
+    end
+    self.doorClosing = true
+    self.doorCloseElapsed = 0.0
+    print("Director5_2: laboratory door closing behind Charlie")
+end
+
+function Director5_2:UpdateEnterDoor(timeStep)
+    if self.doorClosing then
+        self.doorCloseElapsed = self.doorCloseElapsed + timeStep
+        local progress = Clamp01(self.doorCloseElapsed / DOOR_CLOSE_DURATION)
+        self.enterDoorOpen = 1.0 - SlowFastVerySlow(progress)
+        self:SetStillDriver(ENTER_DOOR_ID, "open", self.enterDoorOpen)
+        if progress >= 1.0 then
+            self.doorClosing = false
+            self.enterDoorOpen = 0.0
+            self:SetStillDriver(ENTER_DOOR_ID, "open", 0.0)
+            print("Director5_2: laboratory door closed")
+        end
+        return
+    end
+    if self.enterDoorOpen <= 0.0 then
+        return
+    end
+    if self.stage ~= "playable" then
+        return
+    end
+    local player = self:GetPlayer()
+    if player and player.IsWalking and player:IsWalking() then
+        self:BeginEnterDoorClose()
+    end
+end
+
 function Director5_2:BeginAlgernonDrop()
     if self.dropStarted then
         return
@@ -88,6 +149,7 @@ function Director5_2:PlayLossStory()
 end
 
 function Director5_2:OnUpdate(timeStep)
+    self:UpdateEnterDoor(timeStep)
     if self.stage == "dropping" then
         local preview = self:GetPreview()
         local drop = preview and preview.algernonDrop or nil
