@@ -144,6 +144,17 @@ function AlgernonController:HandleArrived(nodeKey)
         self.exploration = nil
         return
     end
+    if exploration and exploration.wandering then
+        exploration.wandering = false
+        exploration.travelWasCandidate = false
+        exploration.paused = true
+        exploration.pauseReason = "wander_arrival"
+        exploration.pauseElapsed = 0.0
+        exploration.pauseDuration = exploration.minPause
+            + (exploration.maxPause - exploration.minPause) * math.random()
+        print("AlgernonController: wander pause at " .. tostring(nodeKey))
+        return
+    end
     if exploration and arrivedCandidate and exploration.pauseAtEveryCandidate then
         if exploration.suppressCandidatePause then
             exploration.suppressCandidatePause = false
@@ -182,6 +193,10 @@ function AlgernonController:StartExploration(targetKey, options)
         pauseAtEveryCandidate = options.pauseAtEveryCandidate == true,
         candidateReverseProbability = math.max(0.0, math.min(1.0,
             tonumber(options.candidateReverseProbability) or 0.0)),
+        effectiveGraphOnly = options.effectiveGraphOnly == true,
+        waitingForPath = false,
+        waitingLogged = false,
+        wandering = false,
         pauseElapsed = 0.0,
         pauseDuration = 0.0,
         paused = false,
@@ -209,6 +224,58 @@ function AlgernonController:IsExplorationPaused()
     return self.exploration ~= nil and self.exploration.paused == true
 end
 
+function AlgernonController:WanderOnEffectiveGraph(currentKey)
+    local exploration = self.exploration
+    if not exploration then
+        return false, "exploration-not-started"
+    end
+    local neighbors = self.pathRuntime:GetEffectiveNeighbors(currentKey)
+    if #neighbors == 0 then
+        exploration.waitingForPath = true
+        exploration.wandering = false
+        exploration.paused = true
+        exploration.pauseReason = "wander_wait"
+        exploration.pauseElapsed = 0.0
+        exploration.pauseDuration = exploration.minPause
+        if not exploration.waitingLogged then
+            exploration.waitingLogged = true
+            print("AlgernonController: no effective neighbors at " .. tostring(currentKey))
+        end
+        return true
+    end
+    local choices = {}
+    for i = 1, #neighbors do
+        if neighbors[i] ~= exploration.lastNodeKey then
+            choices[#choices + 1] = neighbors[i]
+        end
+    end
+    if #choices == 0 then
+        choices = neighbors
+    end
+    local nextKey = choices[math.random(1, #choices)]
+    exploration.waitingForPath = true
+    exploration.waitingLogged = false
+    exploration.wandering = true
+    exploration.paused = false
+    exploration.pauseReason = nil
+    exploration.lastNodeKey = currentKey
+    exploration.previousCandidate = false
+    exploration.travelWasCandidate = false
+    exploration.reverseTargetKey = nil
+    local moved, moveError = self.walker:MoveTo({ currentKey, nextKey }, nextKey)
+    if not moved then
+        exploration.wandering = false
+        print("AlgernonController: wander step failed " .. tostring(moveError))
+        exploration.paused = true
+        exploration.pauseReason = "wander_wait"
+        exploration.pauseElapsed = 0.0
+        exploration.pauseDuration = exploration.minPause
+        return true
+    end
+    print("AlgernonController: wander " .. tostring(currentKey) .. " -> " .. tostring(nextKey))
+    return true
+end
+
 function AlgernonController:ContinueExploration()
     local exploration = self.exploration
     if not exploration then
@@ -219,15 +286,29 @@ function AlgernonController:ContinueExploration()
         self.exploration = nil
         return true
     end
-    local path, errorMessage = self.pathRuntime:FindPathIncludingCandidates(
-        currentKey,
-        exploration.targetKey,
-        exploration.blockedFromKey,
-        exploration.blockedToKey
-    )
-    if not path then
-        self.exploration = nil
-        return false, errorMessage
+    local path, errorMessage
+    if exploration.effectiveGraphOnly then
+        path, errorMessage = self.pathRuntime:FindPath(currentKey, exploration.targetKey)
+        if path then
+            if exploration.waitingForPath or exploration.wandering then
+                print("AlgernonController: effective path opened to " .. tostring(exploration.targetKey))
+            end
+            exploration.waitingForPath = false
+            exploration.wandering = false
+        else
+            return self:WanderOnEffectiveGraph(currentKey)
+        end
+    else
+        path, errorMessage = self.pathRuntime:FindPathIncludingCandidates(
+            currentKey,
+            exploration.targetKey,
+            exploration.blockedFromKey,
+            exploration.blockedToKey
+        )
+        if not path then
+            self.exploration = nil
+            return false, errorMessage
+        end
     end
     local nextKey = path[2]
     if not nextKey then
@@ -235,6 +316,9 @@ function AlgernonController:ContinueExploration()
         return false, "exploration path has no next node"
     end
     local function IsCandidate(fromKey, toKey)
+        if exploration.effectiveGraphOnly then
+            return self.pathRuntime:IsCandidateEdge(fromKey, toKey)
+        end
         return self.pathRuntime:IsConfiguredCandidateEdge(fromKey, toKey)
             or self.pathRuntime:IsCandidateEdge(fromKey, toKey)
     end

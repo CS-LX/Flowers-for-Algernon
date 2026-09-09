@@ -1037,6 +1037,14 @@ function PathRuntime:BuildEffectiveGraph()
     self.topologyVersion = self.topologyVersion + 1
 end
 
+function PathRuntime:GetEffectiveNeighbors(fromKey)
+    local neighbors = {}
+    for _, edge in ipairs(self.adjacency[fromKey] or {}) do
+        neighbors[#neighbors + 1] = edge.key
+    end
+    return neighbors
+end
+
 function PathRuntime:IsCandidateEdge(fromKey, toKey)
     for _, edge in ipairs(self.adjacency[fromKey] or {}) do
         if edge.key == toKey and edge.kind == "candidate" then

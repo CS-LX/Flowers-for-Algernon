@@ -87,6 +87,7 @@ function Director4_3:StartAlgernonExplorationCommand(nodeKey)
         candidateProbability = 0.0,
         pauseAtEveryCandidate = true,
         candidateReverseProbability = 0.30,
+        effectiveGraphOnly = true,
     })
 end
 
