@@ -181,6 +181,9 @@ function GameApp:EnsureMenuPrism()
     end
     -- Build 默认对准第一章。先建棱柱，再挂簇回调，避免回选关时先冒出第一章簇。
     self.menuPrism:Build()
+    if self.menuHud then
+        self.menuHud:SetRtTexture(self.menuPrism.rtTexture)
+    end
     self:EnsureMenuClusters()
 end
 
@@ -277,6 +280,7 @@ function GameApp:EnsureMenuHud()
     end
     self.menuHud:Show()
     if self.menuPrism then
+        self.menuHud:SetRtTexture(self.menuPrism.rtTexture)
         local front = self.menuPrism:FrontLevel()
         self.menuHud:SetFogColor(self:FogColorFor(front))
     end

@@ -841,9 +841,10 @@ function MenuPrism:BuildMaskQuads(edgeLength, prismHeight)
     self.maskLocalYaws = {}
     local radius = edgeLength * math.sqrt(3.0) * 0.5
     local faceWidth = edgeLength
-    local faceHeight = prismHeight * 0.85 * 3.0
+    -- MASK_BIT only. Long enough to fill the RT as a continuous hex column.
+    local faceHeight = 12.0
     local thickness = 0.02
-    local centerY = prismHeight + faceHeight * 0.5
+    local centerY = prismHeight * 0.5
     for i = 0, 5 do
         local yaw = i * 60.0 + SNAP_OFFSET_DEGREES
         local rad = math.rad(yaw)
