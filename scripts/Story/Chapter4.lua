@@ -177,6 +177,14 @@ return {
             mode = "modal",
         },
     },
+    ch4_3_fault = {
+        {
+            id = "ch4.3.fault.1",
+            style = "charlie",
+            text = "奇怪……刚刚我对路径的操作……失灵了？",
+            mode = "banner",
+        },
+    },
     ch4_3_pause = {
         {
             id = "ch4.3.pause.1",

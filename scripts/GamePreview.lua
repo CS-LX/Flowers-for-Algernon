@@ -72,6 +72,8 @@ function GamePreview.New(levelDocument, edgeLength, voxelHeight)
     self.carryObjectState = nil
     self.clickFeedback = ClickFeedbackVfx.New()
     self.rotatorController = nil
+    ---@type fun(payload: table)|nil
+    self.onRotatorFault = nil
     self.hoverAmounts = {}
     self.moverController = nil
     ---@type table|nil
@@ -266,6 +268,9 @@ function GamePreview:Start()
         self.riderFollow
     )
     self.rotatorController.autoPick = false
+    if self.onRotatorFault then
+        self.rotatorController.onFault = self.onRotatorFault
+    end
     self.moverController = PreviewMoverController.New(
         self.levelDocument,
         self.partRenderer,
@@ -455,6 +460,14 @@ function GamePreview:SetRotatorFault(partId, config)
         return false
     end
     return self.rotatorController:SetFault(partId, config)
+end
+
+function GamePreview:SetOnRotatorFault(listener)
+    self.onRotatorFault = listener
+    if self.rotatorController then
+        self.rotatorController.onFault = listener
+    end
+    return true
 end
 
 function GamePreview:SetPartVisualYaw(partId, yawDegrees)

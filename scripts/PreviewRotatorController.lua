@@ -127,6 +127,8 @@ function PreviewRotatorController.New(levelDocument, partRenderer, pathRuntime, 
     self.slipStartYawDegrees = 0.0
     self.slowSnapAttempt = false
     self.failedSnapAttempt = false
+    ---@type fun(payload: table)|nil
+    self.onFault = nil
     self.authoredStates = {}
     for _, part in ipairs(self.levelDocument:GetParts()) do
         if part:HasBehavior(PartDefinition.MODE_ROTATOR) then
@@ -192,7 +194,24 @@ function PreviewRotatorController:PrepareFaultAttempt(part)
             tostring(self.slipScheduled),
             tostring(self.slowSnapAttempt)
         ))
+        self:NotifyFault(part)
     end
+end
+
+function PreviewRotatorController:NotifyFault(part)
+    if type(self.onFault) ~= "function" or not part then
+        return
+    end
+    local kind = "slowSnap"
+    if self.stallAttempt then
+        kind = "stall"
+    elseif self.slipScheduled then
+        kind = "slip"
+    end
+    self.onFault({
+        partId = part.id,
+        kind = kind,
+    })
 end
 
 function PreviewRotatorController:IsFaultAttemptActive()

@@ -488,6 +488,14 @@ function LevelDirector:SetRotatorFault(partId, config)
     return preview:SetRotatorFault(partId, config)
 end
 
+function LevelDirector:SetOnRotatorFault(listener)
+    local preview = self:GetPreview()
+    if not preview or not preview.SetOnRotatorFault then
+        return false
+    end
+    return preview:SetOnRotatorFault(listener)
+end
+
 function LevelDirector:SetPartVisualYaw(partId, yawDegrees)
     local preview = self:GetPreview()
     if not preview then

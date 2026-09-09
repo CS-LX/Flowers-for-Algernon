@@ -21,6 +21,8 @@ local ROTATOR_FAULT = {
 function Director4_3:OnStart()
     self.stage = "intro"
     self.observationPlayed = false
+    self.faultStoryPlayed = false
+    self.faultStoryPending = false
     self.pauseStoryPlayed = false
     self.algernonStarted = false
     self.algernonArrived = false
@@ -44,6 +46,9 @@ function Director4_3:OnStart()
     self:SetAlgernonOnArrived(function(nodeKey)
         self:OnAlgernonArrived(nodeKey)
     end)
+    self:SetOnRotatorFault(function(payload)
+        self:OnRotatorFault(payload)
+    end)
 
     local player = self:GetPlayer()
     if player and player.AddOnArrived then
@@ -57,6 +62,9 @@ function Director4_3:OnStart()
             self.stage = "playable"
             self:SetPlayerLocked(false)
             self:SetInputLocked(false)
+            self:SetOnRotatorFault(function(payload)
+                self:OnRotatorFault(payload)
+            end)
             self:StartAlgernonExploration()
             print("Director4_3: contact room playable")
         end,
@@ -161,6 +169,32 @@ function Director4_3:ObservePlayerProgress()
     end
 end
 
+function Director4_3:TryPlayFaultStory()
+    if self.faultStoryPlayed or not self.faultStoryPending then
+        return
+    end
+    if self:IsStoryPlaying() then
+        return
+    end
+    self.faultStoryPlayed = true
+    self.faultStoryPending = false
+    self:PlayStory(Story.ch4_3_fault)
+    print("Director4_3: first rotator fault noticed")
+end
+
+function Director4_3:OnRotatorFault(payload)
+    if self.faultStoryPlayed or self.faultStoryPending then
+        return
+    end
+    local partId = payload and payload.partId or nil
+    if partId and partId ~= ROTATEABLE_PART_ID then
+        return
+    end
+    self.faultStoryPending = true
+    print("Director4_3: rotator fault armed kind=" .. tostring(payload and payload.kind))
+    self:TryPlayFaultStory()
+end
+
 function Director4_3:OnAlgernonArrived(nodeKey)
     if nodeKey ~= FINISH_NODE_KEY or self.algernonArrived then
         return
@@ -190,6 +224,7 @@ function Director4_3:OnFinish(payload)
 end
 
 function Director4_3:OnUpdate(timeStep)
+    self:TryPlayFaultStory()
     if self.stage == "playable" then
         self:ObserveRotateableEntry()
         if self.algernonArrivalPending and not self:IsStoryPlaying() then
