@@ -5,7 +5,7 @@
     "id": "771520039"
   },
   "entry": "main.lua",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "taptap_publish": {
     "title": "留给先行者的花束",
     "description": "为了摆脱平庸并“看清这个世界”，查理接受了一项高阶大脑逻辑重构手术。手术赋予了他洞察空间错位、重构隐秘路径的天赋能力，但这项神迹般的技术却伴随着残酷的隐秘代价——查理的感知屏蔽了所有属于“世俗生活”的信号。原本热闹的城市变得空无一人，车流与声音凭空消失，世界沦为一片只有冰冷结构与错位视角的寂静废墟。\n\n在这个与世隔绝的感知孤岛中，查理唯一能够观测到的，是比他更早接受手术的小白鼠——“先行者”阿尔吉侬。然而，率先触碰智力巅峰的阿尔吉侬却很快迎来了断崖式的认知衰退，开始在曾经熟悉的迷宫前迷茫与停滞。\n\n伴随着阿尔吉侬的衰退，查理也隐隐发觉，自己操纵和重构结构的能力正在迅速褪去。在空间感知彻底熄灭之前，查理背负起衰弱的同行者，踏上了这段穿过错位几何、通往真实墓地的最终旅程。",
@@ -17,7 +17,7 @@
     "developer_id": 248818,
     "app_id": 911154,
     "miniapp_id": "tapmcqg7gjq7wcycxw",
-    "gameplay_demo_video_source": "https://tapcode-sce.spark.xd.com/videos/f2451823-6fd2-4b59-8e5f-3cc2253ee8aa/1788871586759-uploaded_ff962b1e.mp4",
+    "gameplay_demo_video_source": "https://tapcode-sce.spark.xd.com/videos/m_mi13/1788918287303-rec_a2204c95-decb-42af-9514-de2a5c61be4a.mp4",
     "release_phase": "public_test"
   },
   "assets": {
@@ -35,14 +35,14 @@
       "https://tapcode-sce.spark.xd.com/assets/game_material/m_mi13/screenshot_2.png",
       "https://tapcode-sce.spark.xd.com/assets/game_material/m_mi13/screenshot_3.png"
     ],
-    "cover_horizontal": "./game_material/cover_horizontal.png",
-    "cover_horizontal_url": "https://tapcode-sce.spark.xd.com/assets/game_material/m_mi13/cover_horizontal.png",
-    "cover_vertical": "./game_material/cover_vertical.png",
-    "cover_vertical_url": "https://tapcode-sce.spark.xd.com/assets/game_material/m_mi13/cover_vertical.png"
+    "cover_vertical": "./.project/game_material/COVER_VERTICAL_2026-09-09T01-11-05_01.png",
+    "cover_vertical_url": "https://tapcode-sce.spark.xd.com/assets/game_material/留给先行者的花束/COVER_VERTICAL_2026-09-09T01-11-05_01.png",
+    "cover_horizontal": "./.project/game_material/COVER_HORIZONTAL_2026-09-09T01-11-05_01.png",
+    "cover_horizontal_url": "https://tapcode-sce.spark.xd.com/assets/game_material/留给先行者的花束/COVER_HORIZONTAL_2026-09-09T01-11-05_01.png"
   },
   "metadata": {
-    "updated_at": "2026-09-09T00:50:43.545Z",
-    "promo_dependent_hash": "47b42591091fc098b35080d17c258435"
+    "updated_at": "2026-09-09T01:46:14.955Z",
+    "promo_dependent_hash": "5835baa5ad5cd8dc3c6c89ec98cdb02b"
   },
   "test_qrcode": {
     "url": "https://tapcode-sce.spark.xd.com/qrcode/m_mi13_1788869053192.png",
