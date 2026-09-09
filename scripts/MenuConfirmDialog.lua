@@ -22,6 +22,10 @@ local COPY = {
         title = "确定解锁全部关卡？",
         body = "解锁后可自由进入后续章节，但可能会错过沿途的故事与记忆。",
     },
+    quit = {
+        title = "确定退出游戏？",
+        body = "",
+    },
 }
 
 local function Clamp01(value)
@@ -165,7 +169,9 @@ function MenuConfirmDialog.SetCopy(dialog, kind)
         dialog.title:SetText(copy.title)
     end
     if dialog.body then
-        dialog.body:SetText(copy.body)
+        local body = copy.body or ""
+        dialog.body:SetText(body)
+        dialog.body:SetVisible(body ~= "")
     end
 end
 

@@ -213,9 +213,7 @@ function MenuHud:Build()
         self:ShowConfirm("reset")
     end)
     local quitItem = self:AddItem("退出游戏", function()
-        if self.onQuit then
-            self.onQuit()
-        end
+        self:ShowConfirm("quit")
     end)
     self.panel = UI.Panel {
         width = PANEL_WIDTH,
@@ -456,6 +454,10 @@ function MenuHud:FinishConfirm()
     end
     if kind == "reset" and self.onResetProgress then
         self.onResetProgress()
+        return
+    end
+    if kind == "quit" and self.onQuit then
+        self.onQuit()
     end
 end
 
