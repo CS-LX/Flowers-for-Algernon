@@ -27,7 +27,9 @@ render_mode shading_model_unlit, cull_back;
 varying vec3 world_n;
 
 void vertex() {
-    world_n = transpose(mat3(MODEL_MATRIX)) * NORMAL;
+    // Original: transpose(mat3(MODEL_MATRIX)) * NORMAL
+    // Not cross-platform: HLSL has no float3x3(float4x4).
+    world_n = (transpose(MODEL_MATRIX) * vec4(NORMAL, 0.0)).xyz;
 }
 
 void fragment() {
@@ -45,7 +47,7 @@ void fragment() {
 | 着色模型 | Unlit。`dot(N, axis)` 已经编码明暗，Lit 会二次乘光 |
 | 几何 | CustomGeometry 可以挂 Surface Shader，前提是不用 `world_vertex_coords` |
 | 法线读取 | **只在 `vertex()` 读 `NORMAL`**。fragment 里的 `NORMAL` 对 CustomGeometry 不是网格法线 |
-| 世界变换 | `transpose(mat3(MODEL_MATRIX)) * NORMAL`。正乘 `mat3(MODEL_MATRIX)` 会把符号反掉 |
+| 世界变换 | `(transpose(MODEL_MATRIX) * vec4(NORMAL, 0.0)).xyz`。不要写 `mat3(MODEL_MATRIX)`，HLSL 没有 `float3x3(float4x4)`。正乘 `MODEL_MATRIX * vec4(NORMAL, 0.0)` 会把符号反掉。详见 `docs/surface-shader-mat3-cross-platform.md` |
 | 轴 | `light_axis` 是世界轴。`+Y` 时顶面应是 `color_pos`，底面 `color_neg`，侧面 `color_mid` |
 
 Lua 侧：

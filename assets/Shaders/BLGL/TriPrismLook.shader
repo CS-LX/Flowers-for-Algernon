@@ -17,7 +17,9 @@ uniform float hover_amount = 0.0;
 varying vec3 world_n;
 
 void vertex() {
-    world_n = transpose(mat3(MODEL_MATRIX)) * NORMAL;
+    // Original: transpose(mat3(MODEL_MATRIX)) * NORMAL
+    // Not cross-platform: HLSL has no float3x3(float4x4).
+    world_n = (transpose(MODEL_MATRIX) * vec4(NORMAL, 0.0)).xyz;
 }
 
 void fragment() {

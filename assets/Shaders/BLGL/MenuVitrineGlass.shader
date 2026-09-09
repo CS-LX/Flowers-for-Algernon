@@ -11,7 +11,9 @@ varying vec3 world_n;
 varying vec3 world_p;
 
 void vertex() {
-    world_n = normalize(transpose(mat3(MODEL_MATRIX)) * NORMAL);
+    // Original: normalize(transpose(mat3(MODEL_MATRIX)) * NORMAL)
+    // Not cross-platform: HLSL has no float3x3(float4x4).
+    world_n = normalize((transpose(MODEL_MATRIX) * vec4(NORMAL, 0.0)).xyz);
     world_p = (transpose(MODEL_MATRIX) * vec4(VERTEX, 1.0)).xyz;
 }
 
