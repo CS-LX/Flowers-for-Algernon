@@ -7,6 +7,20 @@ return {
             mode = "banner",
         },
     },
+    ch3_1_platform = {
+        {
+            id = "ch3.1.platform.1",
+            style = "charlie",
+            text = "那扇门不在这条路面上……",
+            mode = "banner",
+        },
+        {
+            id = "ch3.1.platform.2",
+            style = "charlie",
+            text = "门底下那块绿色的台面，好像可以被我控制……",
+            mode = "banner",
+        },
+    },
     ch3_1_clear = {
         {
             id = "ch3.1.clear.1",

@@ -5,8 +5,16 @@ local Story = require "Story.Chapter3"
 
 local Director3_1 = LevelDirector.Extend()
 
+local PLATFORM_HINT_KEYS = {
+    ["part_part_9:node_part_part_9_4"] = true,
+    ["part_part_9:node_part_part_9_5"] = true,
+    ["part_part_9:node_part_part_9_6"] = true,
+}
+
 function Director3_1:OnStart()
     self.pathStoryPlayed = false
+    self.platformStoryPlayed = false
+    self.platformStoryPending = false
     self.finishStoryPlayed = false
     self:SetInputLocked(false)
     self:SetPlayerLocked(false)
@@ -15,6 +23,11 @@ function Director3_1:OnStart()
     if player and player.SetOnStarted then
         player:SetOnStarted(function(targetKey)
             self:OnPlayerStarted(targetKey)
+        end)
+    end
+    if player and player.AddOnArrived then
+        player:AddOnArrived(function(nodeKey)
+            self:OnPlayerArrived(nodeKey)
         end)
     end
     print("Director3_1: city entrance ready")
@@ -27,6 +40,35 @@ function Director3_1:OnPlayerStarted(targetKey)
     self.pathStoryPlayed = true
     self:PlayStory(Story.ch3_1_path)
     print("Director3_1: Charlie started observing the city target=" .. tostring(targetKey))
+end
+
+function Director3_1:TryPlayPlatformStory()
+    if self.platformStoryPlayed or not self.platformStoryPending then
+        return
+    end
+    if self:IsStoryPlaying() then
+        return
+    end
+    self.platformStoryPlayed = true
+    self.platformStoryPending = false
+    self:PlayStory(Story.ch3_1_platform)
+    print("Director3_1: Charlie noticed the green platform")
+end
+
+function Director3_1:OnPlayerArrived(nodeKey)
+    if self.platformStoryPlayed or self.platformStoryPending then
+        return
+    end
+    if not PLATFORM_HINT_KEYS[nodeKey] then
+        return
+    end
+    self.platformStoryPending = true
+    print("Director3_1: green platform hint armed at " .. tostring(nodeKey))
+    self:TryPlayPlatformStory()
+end
+
+function Director3_1:OnUpdate(timeStep)
+    self:TryPlayPlatformStory()
 end
 
 function Director3_1:OnFinish(payload)

@@ -10,6 +10,18 @@
 
   这就是研究所外面的城市……可街道上，怎么连一个人影都没有？
 
+### platform · 查理第一次走到正对绿台的节点
+
+`id` 前缀：`ch3.1.platform`
+
+1. `ch3.1.platform.1` · charlie · banner
+
+  那扇门不在这条路面上……
+
+2. `ch3.1.platform.2` · charlie · banner
+
+  门底下那块绿色的台面，好像可以被我控制……
+
 ### clear · 到达终点门
 
 `id` 前缀：`ch3.1.clear`
