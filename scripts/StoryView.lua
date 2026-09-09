@@ -45,8 +45,10 @@ function StoryView:RequestAdvance()
 end
 
 function StoryView:Build()
+    -- 60% 居中列：约 22 个汉字一行，避免手机横屏从左扫到右。
     self.bottomTextHost = UI.Panel {
-        width = "100%",
+        width = "60%",
+        maxWidth = "60%",
         flexDirection = "row",
         flexWrap = "wrap",
         justifyContent = "center",
