@@ -9,7 +9,6 @@ local MenuConfirmDialog = require "MenuConfirmDialog"
 local MenuHoverTint = require "MenuHoverTint"
 local AudioSettings = require "AudioSettings"
 local Sfx = require "Sfx"
-local MenuRtPreview = require "MenuRtPreview"
 
 ---@class MenuHud
 ---@field root Widget|nil
@@ -17,7 +16,6 @@ local MenuRtPreview = require "MenuRtPreview"
 ---@field panel Widget|nil
 ---@field panelHost Widget|nil
 ---@field hexButton MenuHexButton|nil
----@field rtPreview MenuRtPreview|nil
 ---@field bgmRow MenuVolumeRow|nil
 ---@field sfxRow MenuVolumeRow|nil
 ---@field items MenuTextItem[]
@@ -99,8 +97,6 @@ function MenuHud.New()
     self.panelHost = nil
     ---@type MenuHexButton|nil
     self.hexButton = nil
-    ---@type MenuRtPreview|nil
-    self.rtPreview = nil
     ---@type MenuVolumeRow|nil
     self.bgmRow = nil
     ---@type MenuVolumeRow|nil
@@ -159,12 +155,6 @@ function MenuHud:ApplyHoverColor()
     if self.confirm then
         self.confirm.cancelItem:SetHoverColor(self.hoverColor)
         self.confirm.confirmItem:SetHoverColor(self.hoverColor)
-    end
-end
-
-function MenuHud:SetRtTexture(texture)
-    if self.rtPreview then
-        self.rtPreview:SetTexture(texture)
     end
 end
 
@@ -286,7 +276,6 @@ function MenuHud:Build()
             self:Toggle()
         end,
     }
-    self.rtPreview = MenuRtPreview {}
     self.confirm = MenuConfirmDialog.Build({
         hoverColor = self.hoverColor,
         onCancel = function()
@@ -335,7 +324,6 @@ function MenuHud:Build()
                     self.hexButton,
                 },
             },
-            self.rtPreview,
             self.confirm.root,
         },
     }
@@ -359,9 +347,6 @@ function MenuHud:ApplyOpenVisual()
     end
     if self.hexButton then
         self.hexButton:SetOpened(self.open, self.openDuration <= 0.0)
-    end
-    if self.rtPreview then
-        self.rtPreview:SetVisible(t < 0.05)
     end
 end
 
@@ -517,7 +502,6 @@ function MenuHud:Hide()
     self.panel = nil
     self.panelHost = nil
     self.hexButton = nil
-    self.rtPreview = nil
     self.bgmRow = nil
     self.sfxRow = nil
     self.items = {}
