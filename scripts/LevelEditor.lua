@@ -16,6 +16,7 @@ local FixedGameCamera = require "FixedGameCamera"
 local PathRuntime = require "PathRuntime"
 local LookApplier = require "LookApplier"
 local ScreenColorPicker = require "ScreenColorPicker"
+local StillHelperCatalog = require "StillHelperCatalog"
 
 local LevelEditor = {}
 
@@ -2880,10 +2881,21 @@ function LevelEditor:Refresh(timeStep)
                 end
             end
         end
+        local selectedStill = self:GetSelectedStillObject()
         local root = self.partRenderer:GetRoot(self.selectedStillObjectId or self.selectedPartId)
         local minPoint, maxPoint = self.partRenderer:GetLocalBounds(self.selectedStillObjectId or self.selectedPartId)
         local pivotPosition = self.partRenderer:GetPivotWorldPosition(self.selectedStillObjectId or self.selectedPartId)
-        self.overlayRenderer:DrawSelection(root, minPoint, maxPoint, pivotPosition)
+        local helper = selectedStill and StillHelperCatalog.Get(selectedStill.modelId) or nil
+        if helper and type(helper.WorldTriggerBox) == "function" then
+            local triggerBox = helper.WorldTriggerBox(self.partRenderer:GetStillWorldBoundingBox(selectedStill.id))
+            if triggerBox then
+                self.overlayRenderer:DrawWorldBox(triggerBox, pivotPosition or (root and root.worldPosition))
+            else
+                self.overlayRenderer:DrawSelection(root, minPoint, maxPoint, pivotPosition)
+            end
+        else
+            self.overlayRenderer:DrawSelection(root, minPoint, maxPoint, pivotPosition)
+        end
         self.overlayRenderer:DrawLevelHexGrid(self.partRenderer.grid, self.levelDocument, 0, 6)
         self.overlayRenderer:DrawLevelPathNodes(
             self.pathRuntime,

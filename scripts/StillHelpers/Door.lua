@@ -6,8 +6,8 @@
 local Door = {}
 
 Door.OPEN_THRESHOLD = 0.95
--- 门板打开后包围盒会变；只略微外扩到门槛，不要把体积撑成整段楼梯。
-Door.BOUNDS_INFLATE = 0.08
+-- 门板打开后包围盒会变；外扩到门槛附近，方便站稳后触发过关。
+Door.BOUNDS_INFLATE = 0.28
 
 ---@class DoorTriggerContext
 ---@field playerPosition Vector3|nil
@@ -23,6 +23,16 @@ function Door.InflateBox(box, inflate)
         Vector3(box.min.x - extra, box.min.y - extra, box.min.z - extra),
         Vector3(box.max.x + extra, box.max.y + extra, box.max.z + extra)
     )
+end
+
+-- 触发体积的唯一真相：模型世界盒再外扩。开火和编辑器橙色框都走这里。
+---@param worldBox BoundingBox|nil
+---@return BoundingBox|nil
+function Door.WorldTriggerBox(worldBox)
+    if not worldBox then
+        return nil
+    end
+    return Door.InflateBox(worldBox, Door.BOUNDS_INFLATE)
 end
 
 ---@param context DoorTriggerContext
@@ -53,7 +63,7 @@ function Door.ShouldFire(object, context)
     return Door.IsEntered({
         playerPosition = context.playerPosition,
         playerSettled = true,
-        worldBox = Door.InflateBox(context.worldBox, Door.BOUNDS_INFLATE),
+        worldBox = Door.WorldTriggerBox(context.worldBox),
     })
 end
 

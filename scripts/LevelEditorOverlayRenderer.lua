@@ -787,6 +787,19 @@ function OverlayRenderer:DrawSelection(root, minPoint, maxPoint, pivotPosition)
     self:DrawWorldSelection(world, pivotPosition or root.worldPosition, root.worldRotation)
 end
 
+function OverlayRenderer:DrawWorldBox(box, pivotPosition)
+    if not box then
+        self:Clear()
+        return
+    end
+    local corners = BuildBoundsCorners(box.min, box.max)
+    local center = pivotPosition
+    if not center then
+        center = (box.min + box.max) * 0.5
+    end
+    self:DrawWorldSelection(corners, center, Quaternion())
+end
+
 function OverlayRenderer:Stop()
     self.scene = nil
     self.gizmoGeometry = nil
