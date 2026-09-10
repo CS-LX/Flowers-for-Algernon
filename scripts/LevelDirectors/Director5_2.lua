@@ -8,7 +8,10 @@ local Director5_2 = LevelDirector.Extend()
 local SPAWN_NODE_KEY = "part_part_20:node_part_part_20_15"
 local DROP_TRIGGER_KEY = "part_part_20:node_part_part_20_9"
 local DROP_NODE_KEY = "part_part_20:node_part_part_20_9"
-local FINISH_NODE_KEY = "part_part_20:finish_node"
+local FINISH_NODE_KEYS = {
+    ["part_part_20:finish_node"] = true,
+    ["part_part_20:finish_node_2"] = true,
+}
 local ENTER_DOOR_ID = "still_enterdoor_1"
 local DROP_DURATION = 0.65
 local DOOR_CLOSE_DURATION = 3.0
@@ -76,7 +79,8 @@ end
 function Director5_2:OnPlayerArrived(nodeKey)
     if self.stage == "playable" and nodeKey == DROP_TRIGGER_KEY then
         self:BeginAlgernonDrop()
-    elseif self.stage == "playable_after_drop" and nodeKey == FINISH_NODE_KEY then
+    elseif self.stage == "playable_after_drop" and FINISH_NODE_KEYS[nodeKey] then
+        -- finish_node or finish_node_2
         self:FinishLevel()
     end
 end
