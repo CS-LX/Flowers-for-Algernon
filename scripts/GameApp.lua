@@ -160,6 +160,9 @@ function GameApp:Start()
     PlayerTelemetry.Load(function()
         if self.state == STATE_LEVEL_SELECT then
             self:RefreshMenuTape()
+            if self.menuHud then
+                self.menuHud:SetMenuHintVisible(PlayerTelemetry.ShouldShowMenuHint())
+            end
         else
             LevelCatalog.BuildMenuTape(PlayerTelemetry.GetCleared())
         end
@@ -254,6 +257,9 @@ end
 function GameApp:ResetProgress()
     PlayerTelemetry.ResetProgress()
     self:RefreshMenuTape(LevelCatalog.FirstPlayable())
+    if self.menuHud then
+        self.menuHud:SetMenuHintVisible(true)
+    end
 end
 
 function GameApp:QuitGame()
@@ -270,6 +276,10 @@ function GameApp:EnsureMenuHud()
         if self.menuPrism and self.menuPrism.SetInputLocked then
             self.menuPrism:SetInputLocked(open)
         end
+        if open then
+            PlayerTelemetry.MarkMenuHintSeen()
+            self.menuHud:SetMenuHintVisible(false)
+        end
     end
     self.menuHud.onUnlockAll = function()
         self:UnlockAllLevels()
@@ -284,6 +294,7 @@ function GameApp:EnsureMenuHud()
         self:QuitGame()
     end
     self.menuHud:Show()
+    self.menuHud:SetMenuHintVisible(PlayerTelemetry.ShouldShowMenuHint())
     if self.menuPrism then
         local front = self.menuPrism:FrontLevel()
         self.menuHud:SetFogColor(self:FogColorFor(front))

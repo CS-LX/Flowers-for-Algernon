@@ -10,6 +10,8 @@ local data = {
     cleared = {},
     finishedGame = false,
     paths = {},
+    -- true：选关页仍显示左上角菜单提示。打开过菜单后为 false。
+    showMenuHint = true,
 }
 
 local currentLevelId = nil
@@ -56,12 +58,14 @@ local function NormalizePayload(payload)
         cleared = {},
         finishedGame = false,
         paths = {},
+        showMenuHint = true,
     }
     if type(payload) ~= "table" then
         return nextData
     end
     nextData.cleared = CopyStringSet(payload.cleared)
     nextData.finishedGame = payload.finishedGame == true
+    nextData.showMenuHint = payload.showMenuHint ~= false
     if type(payload.paths) == "table" then
         for levelId, path in pairs(payload.paths) do
             if type(levelId) == "string" and levelId ~= "" then
@@ -83,6 +87,7 @@ local function Snapshot()
     return {
         cleared = CopyStringSet(data.cleared),
         finishedGame = data.finishedGame == true,
+        showMenuHint = data.showMenuHint ~= false,
         paths = paths,
     }
 end
@@ -182,8 +187,9 @@ function PlayerTelemetry.Load(onLoaded)
             local payload = values and values[CLOUD_KEY]
             data = NormalizePayload(payload)
             print(string.format(
-                "PlayerTelemetry: loaded finished=%s",
-                tostring(data.finishedGame)
+                "PlayerTelemetry: loaded finished=%s showMenuHint=%s",
+                tostring(data.finishedGame),
+                tostring(data.showMenuHint)
             ))
             FinishLoad()
         end,
@@ -281,6 +287,7 @@ function PlayerTelemetry.ResetProgress()
     data.cleared = {}
     data.finishedGame = false
     data.paths = {}
+    data.showMenuHint = true
     MarkDirty()
     print("PlayerTelemetry: reset progress")
     PlayerTelemetry.Save("reset")
@@ -321,6 +328,21 @@ end
 
 function PlayerTelemetry.HasFinishedGame()
     return data.finishedGame == true
+end
+
+function PlayerTelemetry.ShouldShowMenuHint()
+    return data.showMenuHint ~= false
+end
+
+function PlayerTelemetry.MarkMenuHintSeen()
+    if data.showMenuHint == false then
+        return false
+    end
+    data.showMenuHint = false
+    MarkDirty()
+    print("PlayerTelemetry: menu hint seen")
+    PlayerTelemetry.Save("menu-hint")
+    return true
 end
 
 function PlayerTelemetry.GetPath(levelId)

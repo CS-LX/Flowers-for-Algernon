@@ -16,6 +16,13 @@ local Sfx = require "Sfx"
 ---@field panel Widget|nil
 ---@field panelHost Widget|nil
 ---@field hexButton MenuHexButton|nil
+---@field hintLabel Widget|nil
+---@field showMenuHint boolean
+---@field hintAmount number
+---@field hintFrom number
+---@field hintTo number
+---@field hintElapsed number
+---@field hintDuration number
 ---@field bgmRow MenuVolumeRow|nil
 ---@field sfxRow MenuVolumeRow|nil
 ---@field items MenuTextItem[]
@@ -44,6 +51,7 @@ local LINE_COLOR = { 255, 255, 255, 38 }
 local OPEN_SECONDS = 0.2
 local PANEL_WIDTH = 820
 local BUTTON_FADE = 0.85
+local HINT_FADE = 0.35
 
 local function EnsureUI()
     UI.Init({
@@ -98,6 +106,14 @@ function MenuHud.New()
     self.panelHost = nil
     ---@type MenuHexButton|nil
     self.hexButton = nil
+    ---@type Widget|nil
+    self.hintLabel = nil
+    self.showMenuHint = false
+    self.hintAmount = 0.0
+    self.hintFrom = 0.0
+    self.hintTo = 0.0
+    self.hintElapsed = 0.0
+    self.hintDuration = 0.0
     ---@type MenuVolumeRow|nil
     self.bgmRow = nil
     ---@type MenuVolumeRow|nil
@@ -143,6 +159,7 @@ function MenuHud:SetToggleArmed(armed)
     if self.hexButton then
         self.hexButton:SetClickArmed(self.toggleArmed)
     end
+    self:ApplyHintVisible()
 end
 
 function MenuHud:ApplyHoverColor()
@@ -164,6 +181,44 @@ end
 function MenuHud:SetFogColor(color)
     self.hoverColor = MenuHoverTint.FromFog(color)
     self:ApplyHoverColor()
+end
+
+function MenuHud:ApplyHintVisual()
+    if not self.hintLabel then
+        return
+    end
+    local t = EaseOutCubic(self.hintAmount)
+    self.hintLabel:SetStyle({ opacity = t })
+    self.hintLabel:SetVisible(t > 0.001)
+end
+
+function MenuHud:TweenHintTo(target, instant)
+    local to = Clamp01(target)
+    if instant then
+        self.hintAmount = to
+        self.hintTo = to
+        self.hintDuration = 0.0
+        self:ApplyHintVisual()
+        return
+    end
+    if math.abs(self.hintTo - to) < 0.001 and self.hintDuration <= 0.0 then
+        return
+    end
+    self.hintFrom = self.hintAmount
+    self.hintTo = to
+    self.hintElapsed = 0.0
+    self.hintDuration = HINT_FADE
+    self:ApplyHintVisual()
+end
+
+function MenuHud:ApplyHintVisible()
+    local show = self.showMenuHint == true and not self.open and self.toggleArmed
+    self:TweenHintTo(show and 1.0 or 0.0, false)
+end
+
+function MenuHud:SetMenuHintVisible(visible)
+    self.showMenuHint = visible == true
+    self:ApplyHintVisible()
 end
 
 function MenuHud:SyncVolumes()
@@ -284,6 +339,16 @@ function MenuHud:Build()
             self:Toggle()
         end,
     }
+    self.hintLabel = UI.Label {
+        text = "←点击此处可打开菜单，调整音量",
+        fontSize = 20,
+        fontColor = { 255, 248, 236, 220 },
+        fontWeight = "normal",
+        pointerEvents = "none",
+        opacity = 0.0,
+        visible = false,
+        marginLeft = 12,
+    }
     self.confirm = MenuConfirmDialog.Build({
         hoverColor = self.hoverColor,
         onCancel = function()
@@ -323,13 +388,15 @@ function MenuHud:Build()
                 position = "absolute",
                 left = 0,
                 top = 0,
-                width = 140,
                 height = 140,
                 paddingTop = 24,
                 paddingLeft = 24,
+                flexDirection = "row",
+                alignItems = "center",
                 pointerEvents = "box-none",
                 children = {
                     self.hexButton,
+                    self.hintLabel,
                 },
             },
             self.confirm.root,
@@ -381,6 +448,7 @@ function MenuHud:SetOpen(open, instant)
     if self.onOpenChanged then
         self.onOpenChanged(self.open)
     end
+    self:ApplyHintVisible()
     print("MenuHud: " .. (self.open and "open" or "close"))
 end
 
@@ -477,6 +545,7 @@ function MenuHud:BeginEnterFade()
         self.hexButton:SetIconAlpha(0.0)
         self.hexButton:FadeTo(1.0, BUTTON_FADE)
     end
+    self:ApplyHintVisible()
     print("MenuHud: hex button fade in")
 end
 
@@ -497,6 +566,7 @@ function MenuHud:BeginExitFade()
     if self.hexButton then
         self.hexButton:FadeTo(0.0, BUTTON_FADE)
     end
+    self:ApplyHintVisible()
     print("MenuHud: hex button fade out")
 end
 
@@ -506,6 +576,8 @@ function MenuHud:Hide()
     self.confirmKind = nil
     self.openAmount = 0.0
     self.openDuration = 0.0
+    self.hintAmount = 0.0
+    self.hintDuration = 0.0
     if self.root then
         UI.SetRoot(nil, true)
     end
@@ -514,6 +586,7 @@ function MenuHud:Hide()
     self.panel = nil
     self.panelHost = nil
     self.hexButton = nil
+    self.hintLabel = nil
     self.bgmRow = nil
     self.sfxRow = nil
     self.items = {}
@@ -544,6 +617,17 @@ function MenuHud:Update(timeStep)
         local finished = MenuConfirmDialog.Update(self.confirm, timeStep)
         if finished and not self.confirm.open then
             self:FinishConfirm()
+        end
+    end
+    if self.hintDuration > 0.0 then
+        self.hintElapsed = self.hintElapsed + timeStep
+        local hintT = Clamp01(self.hintElapsed / self.hintDuration)
+        self.hintAmount = self.hintFrom + (self.hintTo - self.hintFrom) * hintT
+        self:ApplyHintVisual()
+        if hintT >= 1.0 then
+            self.hintAmount = self.hintTo
+            self.hintDuration = 0.0
+            self:ApplyHintVisual()
         end
     end
     if self.openDuration <= 0.0 then
