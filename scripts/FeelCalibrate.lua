@@ -548,20 +548,15 @@ function FeelCalibrate:BuildUI()
         left = 0,
         right = 0,
         top = 0,
+        width = "100%",
         paddingTop = 56,
         text = "拖动旋转中间的物体，试出最佳手感",
-        fontSize = 22,
-        fontColor = HINT_COLOR,
+        fontSize = 32,
+        fontColor = WHITE,
         fontWeight = "bold",
         textAlign = "center",
         pointerEvents = "none",
         opacity = 0.0,
-        textShadow = {
-            offsetX = 0,
-            offsetY = 2,
-            blur = 8,
-            color = { 0, 0, 0, 180 },
-        },
     }
     self.root = UI.Panel {
         width = "100%",
