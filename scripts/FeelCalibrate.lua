@@ -159,6 +159,23 @@ local function StubPathRuntime()
     }
 end
 
+local function MakeVeilBand(height, fromAlpha)
+    return UI.Panel {
+        position = "absolute",
+        left = 0,
+        right = 0,
+        bottom = 0,
+        height = height,
+        pointerEvents = "none",
+        backgroundGradient = {
+            type = "linear",
+            direction = "to-top",
+            from = { 0, 0, 0, fromAlpha },
+            to = { 0, 0, 0, 0 },
+        },
+    }
+end
+
 function FeelCalibrate.New()
     local self = setmetatable({}, FeelCalibrate)
     ---@type Scene|nil
@@ -203,7 +220,8 @@ function FeelCalibrate.New()
     self.fogReveal = nil
     self.waitingSettle = false
     self.settleCount = 0
-    self.uiOpacity = 1.0
+    self.delayReveal = false
+    self.uiOpacity = 0.0
     self.inputLocked = true
     ---@type fun()|nil
     self.onFinished = nil
@@ -456,7 +474,8 @@ function FeelCalibrate:BuildUI()
         alignItems = "stretch",
         justifyContent = "center",
         gap = 18,
-        opacity = 1.0,
+        opacity = 0.0,
+        pointerEvents = "none",
         children = {
             UI.Panel {
                 width = "100%",
@@ -506,6 +525,7 @@ function FeelCalibrate:BuildUI()
             self.confirmItem,
         },
     }
+    -- 单层 2-stop alpha 渐变在 8-bit 上会有肉眼断层；叠几层短 ramp 让衰减更接近 ease-out。
     self.veil = UI.Panel {
         position = "absolute",
         left = 0,
@@ -513,11 +533,12 @@ function FeelCalibrate:BuildUI()
         bottom = 0,
         height = "36%",
         pointerEvents = "none",
-        backgroundGradient = {
-            type = "linear",
-            direction = "to-top",
-            from = { 0, 0, 0, 210 },
-            to = { 0, 0, 0, 0 },
+        opacity = 0.0,
+        children = {
+            MakeVeilBand("100%", 50),
+            MakeVeilBand("70%", 70),
+            MakeVeilBand("45%", 90),
+            MakeVeilBand("22%", 110),
         },
     }
     self.root = UI.Panel {
@@ -541,6 +562,30 @@ function FeelCalibrate:BuildUI()
         },
     }
     UI.SetRoot(self.root, true)
+    self:ApplyUiOpacity()
+end
+
+function FeelCalibrate:ApplyUiOpacity()
+    local opacity = self.uiOpacity
+    local interactive = (not self.inputLocked) and opacity > 0.05
+    if self.uiPanel then
+        self.uiPanel:SetStyle({ opacity = opacity })
+        self.uiPanel:SetProp("pointerEvents", interactive and "auto" or "none")
+    end
+    if self.veil then
+        self.veil:SetStyle({ opacity = opacity })
+    end
+end
+
+function FeelCalibrate:AllowFogReveal()
+    if not self.delayReveal then
+        return
+    end
+    self.delayReveal = false
+    if self.waitingSettle and self.settleCount >= SETTLE_NEEDED then
+        self.waitingSettle = false
+        self:StartFogReveal()
+    end
 end
 
 function FeelCalibrate:StartFogReveal()
@@ -585,7 +630,7 @@ function FeelCalibrate:UpdateFog(timeStep)
         else
             self.settleCount = 0
         end
-        if self.settleCount >= SETTLE_NEEDED then
+        if self.settleCount >= SETTLE_NEEDED and not self.delayReveal then
             self.waitingSettle = false
             self:StartFogReveal()
         end
@@ -612,14 +657,10 @@ function FeelCalibrate:UpdateFog(timeStep)
     end
     if reveal.conceal then
         self.uiOpacity = 1.0 - mix
-        if self.uiPanel then
-            self.uiPanel:SetStyle({ opacity = self.uiOpacity })
-            self.uiPanel:SetProp("pointerEvents", self.uiOpacity > 0.05 and "auto" or "none")
-        end
-        if self.veil then
-            self.veil:SetStyle({ opacity = self.uiOpacity })
-        end
+    else
+        self.uiOpacity = mix
     end
+    self:ApplyUiOpacity()
     if t >= 1.0 then
         self.fogReveal = nil
         if reveal.conceal then
@@ -634,6 +675,8 @@ function FeelCalibrate:UpdateFog(timeStep)
         end
         LookApplier.ApplyAtmosphere(self.scene, CHAPTER1_ATMOSPHERE)
         self.inputLocked = false
+        self.uiOpacity = 1.0
+        self:ApplyUiOpacity()
         print("FeelCalibrate: fog reveal finished")
     end
 end
@@ -646,6 +689,7 @@ function FeelCalibrate:BeginConfirm()
         return
     end
     ControlSettings.SetCalibrated(true, true)
+    Sfx.PlayModalClick()
     print("FeelCalibrate: confirm")
     self:BeginFogConceal()
 end

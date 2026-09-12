@@ -117,6 +117,24 @@ function BootHint:Finish()
     end
 end
 
+function BootHint:ReleaseCover()
+    local cover = self.panel
+    if not cover then
+        return nil, 1.0
+    end
+    local opacity = self.opacity
+    cover.props.onClick = nil
+    cover:SetProp("pointerEvents", "auto")
+    self.panel = nil
+    self.root = nil
+    self.phase = "done"
+    if UI.GetRoot() == cover then
+        UI.SetRoot(nil, false)
+    end
+    print("BootHint: cover released")
+    return cover, opacity
+end
+
 function BootHint:Update(timeStep)
     if self.phase == "done" then
         return

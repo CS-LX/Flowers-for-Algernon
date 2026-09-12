@@ -89,6 +89,11 @@ function GameApp.New()
     self.menuHud = nil
     ---@type table|nil
     self.bootHint = nil
+    ---@type Widget|nil
+    self.bootOverlay = nil
+    self.bootOverlayClock = 0.0
+    self.bootOverlayDuration = 0.6
+    self.bootOverlayStart = 1.0
     ---@type table|nil
     self.feelCalibrate = nil
     self.feelFromMenu = false
@@ -198,17 +203,94 @@ function GameApp:ShowBootHint()
 end
 
 function GameApp:OnBootHintFinished()
+    local cover = nil
+    local coverOpacity = 1.0
     if self.bootHint then
-        self.bootHint:Hide()
+        cover, coverOpacity = self.bootHint:ReleaseCover()
         self.bootHint = nil
     end
     if ControlSettings.HasCalibrated() then
         self.wantMenuRise = true
         self:ShowLevelSelect()
+        self:AttachBootOverlay(cover, coverOpacity)
         print("GameApp: boot done, skip feel calibrate")
         return
     end
     self:ShowFeelCalibrate(false)
+    self:AttachBootOverlay(cover, coverOpacity)
+end
+
+function GameApp:FinishBootOverlay()
+    local overlay = self.bootOverlay
+    self.bootOverlay = nil
+    self.bootOverlayClock = 0.0
+    if not overlay then
+        return
+    end
+    if overlay.parent then
+        overlay.parent:RemoveChild(overlay)
+    end
+    overlay:Destroy()
+    print("GameApp: boot overlay removed")
+end
+
+function GameApp:AttachBootOverlay(cover, startOpacity)
+    self:FinishBootOverlay()
+    if self.feelCalibrate then
+        self.feelCalibrate:AllowFogReveal()
+    end
+    if not cover then
+        return
+    end
+    local host = UI.GetRoot()
+    if not host then
+        cover:Destroy()
+        return
+    end
+    local opacity = startOpacity or 1.0
+    if opacity < 0.0 then
+        opacity = 0.0
+    elseif opacity > 1.0 then
+        opacity = 1.0
+    end
+    cover.props.onClick = nil
+    cover:SetStyle({
+        position = "absolute",
+        left = 0,
+        top = 0,
+        right = 0,
+        bottom = 0,
+        opacity = opacity,
+        zIndex = 1000,
+        pointerEvents = "auto",
+    })
+    host:AddChild(cover)
+    self.bootOverlay = cover
+    self.bootOverlayClock = 0.0
+    self.bootOverlayDuration = 0.6
+    self.bootOverlayStart = opacity
+    print("GameApp: boot overlay attached")
+end
+
+function GameApp:UpdateBootOverlay(timeStep)
+    local overlay = self.bootOverlay
+    if not overlay then
+        return
+    end
+    local duration = self.bootOverlayDuration
+    if duration <= 0.0 then
+        self:FinishBootOverlay()
+        return
+    end
+    local clock = self.bootOverlayClock + timeStep
+    self.bootOverlayClock = clock
+    local t = clock / duration
+    if t >= 1.0 then
+        self:FinishBootOverlay()
+        return
+    end
+    local startOpacity = self.bootOverlayStart or 1.0
+    overlay:SetStyle({ opacity = startOpacity * (1.0 - t) })
 end
 
 function GameApp:EnterFeelCalibrate()
@@ -243,6 +325,9 @@ function GameApp:ShowFeelCalibrate(fromMenu)
     end
     self.feelCalibrate.onFinished = function()
         self:OnFeelCalibrateFinished()
+    end
+    if not self.feelFromMenu then
+        self.feelCalibrate.delayReveal = true
     end
     self.feelCalibrate:Start()
     print("GameApp: feel calibrate fromMenu=" .. tostring(self.feelFromMenu))
@@ -845,6 +930,7 @@ function GameApp:Update(timeStep)
     PlayerTelemetry.Update(timeStep)
     AudioSettings.Update(timeStep)
     ControlSettings.Update(timeStep)
+    self:UpdateBootOverlay(timeStep)
     if self.state == STATE_BOOT then
         if self.bootHint then
             self.bootHint:Update(timeStep)
@@ -950,6 +1036,7 @@ function GameApp:Stop()
         self.bootHint:Hide()
         self.bootHint = nil
     end
+    self:FinishBootOverlay()
     if self.feelCalibrate then
         self.feelCalibrate:Stop()
         self.feelCalibrate = nil
