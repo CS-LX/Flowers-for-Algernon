@@ -4,6 +4,7 @@
 
 local PartDefinition = require "PartDefinition"
 local PointerInput = require "PointerInput"
+local ControlSettings = require "ControlSettings"
 
 local PreviewRotatorController = {}
 PreviewRotatorController.__index = PreviewRotatorController
@@ -443,6 +444,9 @@ function PreviewRotatorController:GetPendingDragScore()
     if dx * dx + dy * dy < DRAG_DEADZONE_PIXELS * DRAG_DEADZONE_PIXELS then
         return 0.0
     end
+    if ControlSettings.IsPanRotate() then
+        return math.abs(dx)
+    end
     local pivotPosition = self.partRenderer:GetPivotWorldPosition(self.activePart.id)
     if not pivotPosition or not self.dragStartVector then
         return 0.0
@@ -478,6 +482,14 @@ function PreviewRotatorController:SampleTargetYaw()
     if not pivotPosition then
         return nil
     end
+    if ControlSettings.IsPanRotate() then
+        local mouse = GetPointerPosition()
+        if not self.dragStartMouse then
+            return self.baseYawDegrees
+        end
+        local dx = mouse.x - self.dragStartMouse.x
+        return self.baseYawDegrees - dx * ControlSettings.PanDegreesPerPixel()
+    end
     local hit = IntersectYawPlane(GetScreenRay(self.camera), pivotPosition)
     if not hit then
         return nil
@@ -488,7 +500,7 @@ function PreviewRotatorController:SampleTargetYaw()
         return nil
     end
     -- 靠近轴心时平面角变化极快，压低灵敏度，避免塔跟着鼠标乱跳。
-    return self.baseYawDegrees + delta * HandleRadiusWeight(handle)
+    return self.baseYawDegrees + delta * HandleRadiusWeight(handle) * ControlSettings.RotateSensitivity()
 end
 
 function PreviewRotatorController:ApplyVisualYaw(yawDegrees)

@@ -17,6 +17,9 @@ local MenuClusterBackdrop = require "MenuClusterBackdrop"
 local MenuHud = require "MenuHud"
 local PlayerTelemetry = require "PlayerTelemetry"
 local AudioSettings = require "AudioSettings"
+local ControlSettings = require "ControlSettings"
+local BootHint = require "BootHint"
+local FeelCalibrate = require "FeelCalibrate"
 local Sfx = require "Sfx"
 local UI = require("urhox-libs/UI")
 
@@ -53,6 +56,8 @@ end
 local GameApp = {}
 GameApp.__index = GameApp
 
+local STATE_BOOT = "boot"
+local STATE_FEEL = "feel"
 local STATE_LEVEL_SELECT = "levelselect"
 local STATE_PLAYING = "playing"
 local STATE_CREDITS = "credits"
@@ -65,7 +70,7 @@ local MENU_CAMERA_VIEW_MASK = 2
 
 function GameApp.New()
     local self = setmetatable({}, GameApp)
-    self.state = STATE_LEVEL_SELECT
+    self.state = STATE_BOOT
     self.edgeLength = VoxelRenderer.DEFAULT_EDGE
     self.voxelHeight = VoxelRenderer.DEFAULT_HEIGHT
     ---@type Scene|nil
@@ -82,6 +87,11 @@ function GameApp.New()
     self.menuClusters = nil
     ---@type MenuHud|nil
     self.menuHud = nil
+    ---@type table|nil
+    self.bootHint = nil
+    ---@type table|nil
+    self.feelCalibrate = nil
+    self.feelFromMenu = false
     ---@type PlayHud|nil
     self.playHud = nil
     ---@type table|nil
@@ -93,6 +103,8 @@ function GameApp.New()
     ---@type LevelDefinition|nil
     self.pendingEnter = nil
     self.clusterHold = 0.0
+    self.pendingFeel = false
+    self.wantMenuRise = false
     ---@type LevelDefinition|nil
     self.lastDefinition = nil
     self.creditsCanSkip = false
@@ -167,8 +179,84 @@ function GameApp:Start()
             LevelCatalog.BuildMenuTape(PlayerTelemetry.GetCleared())
         end
     end)
-    self:ShowLevelSelect()
-    print("GameApp: started in levelselect, chapters=" .. tostring(#LevelCatalog.GetAll()))
+    ControlSettings.Load()
+    self:ShowBootHint()
+    print("GameApp: started boot hint")
+end
+
+function GameApp:ShowBootHint()
+    self:HideMenuHud()
+    self.state = STATE_BOOT
+    if self.bootHint then
+        self.bootHint:Hide()
+    end
+    self.bootHint = BootHint.New()
+    self.bootHint.onFinished = function()
+        self:OnBootHintFinished()
+    end
+    self.bootHint:Show()
+end
+
+function GameApp:OnBootHintFinished()
+    if self.bootHint then
+        self.bootHint:Hide()
+        self.bootHint = nil
+    end
+    if ControlSettings.HasCalibrated() then
+        self.wantMenuRise = true
+        self:ShowLevelSelect()
+        print("GameApp: boot done, skip feel calibrate")
+        return
+    end
+    self:ShowFeelCalibrate(false)
+end
+
+function GameApp:EnterFeelCalibrate()
+    if self.state ~= STATE_LEVEL_SELECT then
+        return false
+    end
+    if self.menuHud then
+        self.menuHud:BeginExitFade()
+    end
+    if self.menuPrism then
+        self.pendingFeel = true
+        print("GameApp: begin menu exit to feel calibrate")
+        return self.menuPrism:BeginExitDrop(self.menuPrism:FrontLevel())
+    end
+    return self:ShowFeelCalibrate(true)
+end
+
+function GameApp:ShowFeelCalibrate(fromMenu)
+    self.feelFromMenu = fromMenu == true
+    self.pendingFeel = false
+    self:HideMenuHud()
+    self:DestroyMenuPrism()
+    self:DestroyMenuClusters()
+    if self.feelCalibrate then
+        self.feelCalibrate:Stop()
+        self.feelCalibrate = nil
+    end
+    self.state = STATE_FEEL
+    self.feelCalibrate = FeelCalibrate.New()
+    self.feelCalibrate.onFogCoverFinished = function()
+        self:OnFeelCalibrateFinished()
+    end
+    self.feelCalibrate.onFinished = function()
+        self:OnFeelCalibrateFinished()
+    end
+    self.feelCalibrate:Start()
+    print("GameApp: feel calibrate fromMenu=" .. tostring(self.feelFromMenu))
+    return true
+end
+
+function GameApp:OnFeelCalibrateFinished()
+    if self.feelCalibrate then
+        self.feelCalibrate:Stop()
+        self.feelCalibrate = nil
+    end
+    self.wantMenuRise = true
+    self:ShowLevelSelect("手感已保存")
+    print("GameApp: feel calibrate finished")
 end
 
 function GameApp:EnsureMenuPrism()
@@ -180,6 +268,10 @@ function GameApp:EnsureMenuPrism()
         self:EnterEditor(definition)
     end
     self.menuPrism.onExitReady = function(definition)
+        if self.pendingFeel then
+            self:ShowFeelCalibrate(true)
+            return
+        end
         self.pendingEnter = definition
     end
     self.menuPrism.onFogColorChanged = function(color)
@@ -290,6 +382,9 @@ function GameApp:EnsureMenuHud()
     self.menuHud.onCredits = function()
         self:PlayMenuCredits()
     end
+    self.menuHud.onFeel = function()
+        self:EnterFeelCalibrate()
+    end
     self.menuHud.onQuit = function()
         self:QuitGame()
     end
@@ -342,8 +437,12 @@ function GameApp:ShowLevelSelect(status, returnDefinition)
     if self.menuHud then
         self.menuHud:BeginEnterFade()
     end
+    local shouldRise = self.wantMenuRise == true or returnDefinition ~= nil
+    self.wantMenuRise = false
     if returnDefinition and self.menuPrism then
         self.menuPrism:FocusLevel(returnDefinition, self:FogColorFor(returnDefinition))
+    end
+    if shouldRise and self.menuPrism then
         self.menuPrism:BeginEnterRise()
     elseif self.menuClusters and self.menuPrism then
         local front = self.menuPrism:FrontLevel()
@@ -745,6 +844,19 @@ end
 function GameApp:Update(timeStep)
     PlayerTelemetry.Update(timeStep)
     AudioSettings.Update(timeStep)
+    ControlSettings.Update(timeStep)
+    if self.state == STATE_BOOT then
+        if self.bootHint then
+            self.bootHint:Update(timeStep)
+        end
+        return
+    end
+    if self.state == STATE_FEEL then
+        if self.feelCalibrate then
+            self.feelCalibrate:Update(timeStep)
+        end
+        return
+    end
     if self.state == STATE_LEVEL_SELECT then
         if self.menuHud then
             self.menuHud:Update(timeStep)
@@ -834,6 +946,14 @@ end
 
 function GameApp:Stop()
     PlayerTelemetry.AbandonLevel()
+    if self.bootHint then
+        self.bootHint:Hide()
+        self.bootHint = nil
+    end
+    if self.feelCalibrate then
+        self.feelCalibrate:Stop()
+        self.feelCalibrate = nil
+    end
     self:DisposeSession()
     self:StopEditor()
     if self.playHud then

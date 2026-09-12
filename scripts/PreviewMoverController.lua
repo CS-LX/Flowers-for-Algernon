@@ -4,6 +4,7 @@
 
 local PartDefinition = require "PartDefinition"
 local PointerInput = require "PointerInput"
+local ControlSettings = require "ControlSettings"
 
 local PreviewMoverController = {}
 PreviewMoverController.__index = PreviewMoverController
@@ -262,7 +263,7 @@ function PreviewMoverController:SampleTargetPosition()
     end
     if axes.layer and self.dragStartMouse then
         local mouse = GetPointerPosition()
-        layer = layer + (self.dragStartMouse.y - mouse.y) * LAYER_SENSITIVITY
+        layer = layer + (self.dragStartMouse.y - mouse.y) * ControlSettings.LayerPixelsToStep()
     end
     hexQ, hexR, layer = self:ConstrainGrid(part, hexQ, hexR, layer)
     return self:GridToWorld(hexQ, hexR, layer)

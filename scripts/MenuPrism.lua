@@ -11,6 +11,7 @@ local StillObject = require "StillObject"
 local StillObjectRuntime = require "StillObjectRuntime"
 local StillModelCatalog = require "StillModelCatalog"
 local BgmTracks = require "BgmTracks"
+local ControlSettings = require "ControlSettings"
 
 ---@class MenuPrism
 ---@field scene Scene
@@ -1477,7 +1478,7 @@ function MenuPrism:SampleTargetYaw()
         return nil
     end
     local dx = PointerInput.Get().position.x - startMouse.x
-    return self.yawDegrees - dx * DRAG_DEGREES_PER_PIXEL
+    return self.yawDegrees - dx * ControlSettings.PanDegreesPerPixel()
 end
 
 function MenuPrism:BeginPending(mouse)
