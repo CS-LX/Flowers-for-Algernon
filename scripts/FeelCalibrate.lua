@@ -212,6 +212,8 @@ function FeelCalibrate.New()
     self.modeTweenDuration = 0.0
     ---@type Widget|nil
     self.hintLabel = nil
+    ---@type Widget|nil
+    self.guideLabel = nil
     ---@type MenuVolumeRow|nil
     self.sliderRow = nil
     ---@type MenuTextItem|nil
@@ -541,12 +543,33 @@ function FeelCalibrate:BuildUI()
             MakeVeilBand("22%", 110),
         },
     }
+    self.guideLabel = UI.Label {
+        position = "absolute",
+        left = 0,
+        right = 0,
+        top = 0,
+        paddingTop = 56,
+        text = "拖动旋转中间的物体，试出最佳手感",
+        fontSize = 22,
+        fontColor = HINT_COLOR,
+        fontWeight = "bold",
+        textAlign = "center",
+        pointerEvents = "none",
+        opacity = 0.0,
+        textShadow = {
+            offsetX = 0,
+            offsetY = 2,
+            blur = 8,
+            color = { 0, 0, 0, 180 },
+        },
+    }
     self.root = UI.Panel {
         width = "100%",
         height = "100%",
         pointerEvents = "box-none",
         children = {
             self.veil,
+            self.guideLabel,
             UI.Panel {
                 width = "100%",
                 height = "100%",
@@ -574,6 +597,9 @@ function FeelCalibrate:ApplyUiOpacity()
     end
     if self.veil then
         self.veil:SetStyle({ opacity = opacity })
+    end
+    if self.guideLabel then
+        self.guideLabel:SetStyle({ opacity = opacity })
     end
 end
 
@@ -742,6 +768,7 @@ function FeelCalibrate:Stop()
     self.root = nil
     self.uiPanel = nil
     self.veil = nil
+    self.guideLabel = nil
     self.sliderRow = nil
     self.confirmItem = nil
     if self.rotatorController then
