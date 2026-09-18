@@ -9,9 +9,7 @@ uniform vec3 light_axis = vec3(0.35, 1.0, 0.25);
 varying vec3 world_n;
 
 void vertex() {
-    // Original: transpose(mat3(MODEL_MATRIX)) * NORMAL
-    // Not cross-platform: HLSL has no float3x3(float4x4).
-    world_n = (transpose(MODEL_MATRIX) * vec4(NORMAL, 0.0)).xyz;
+    world_n = MODEL_NORMAL_MATRIX * NORMAL;
 }
 
 void fragment() {

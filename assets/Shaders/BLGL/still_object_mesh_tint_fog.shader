@@ -35,9 +35,7 @@ vec3 hsv_to_rgb(vec3 c) {
 }
 
 void vertex() {
-    // Original: mat3(MODEL_MATRIX) * NORMAL
-    // Not cross-platform: HLSL has no float3x3(float4x4).
-    world_n = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
+    world_n = MODEL_NORMAL_MATRIX * NORMAL;
     world_p = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 

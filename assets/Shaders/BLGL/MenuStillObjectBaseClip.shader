@@ -11,9 +11,7 @@ uniform sampler2D mask_rt : hint_default_black, filter_nearest, repeat_disable;
 varying vec3 world_n;
 
 void vertex() {
-    // Original: transpose(mat3(MODEL_MATRIX)) * NORMAL
-    // Not cross-platform: HLSL has no float3x3(float4x4).
-    world_n = (transpose(MODEL_MATRIX) * vec4(NORMAL, 0.0)).xyz;
+    world_n = MODEL_NORMAL_MATRIX * NORMAL;
 }
 
 void fragment() {

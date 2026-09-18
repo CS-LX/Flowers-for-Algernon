@@ -23,10 +23,8 @@ varying vec3 world_n;
 varying vec3 world_p;
 
 void vertex() {
-    // Original: transpose(mat3(MODEL_MATRIX)) * NORMAL
-    // Not cross-platform: HLSL has no float3x3(float4x4).
-    world_n = (transpose(MODEL_MATRIX) * vec4(NORMAL, 0.0)).xyz;
-    world_p = (transpose(MODEL_MATRIX) * vec4(VERTEX, 1.0)).xyz;
+    world_n = MODEL_NORMAL_MATRIX * NORMAL;
+    world_p = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
 void fragment() {

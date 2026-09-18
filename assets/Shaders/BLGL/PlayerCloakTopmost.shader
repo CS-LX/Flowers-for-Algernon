@@ -39,9 +39,7 @@ void vertex() {
     VERTEX = cloak_pivot + vec3(p.x, p.y * c - p.z * s, p.y * s + p.z * c);
     vec3 localN = vec3(NORMAL.x, NORMAL.y * c - NORMAL.z * s, NORMAL.y * s + NORMAL.z * c);
     NORMAL = localN;
-    // Original: transpose(mat3(MODEL_MATRIX)) * localN
-    // Not cross-platform: HLSL has no float3x3(float4x4).
-    world_n = (transpose(MODEL_MATRIX) * vec4(localN, 0.0)).xyz;
+    world_n = MODEL_NORMAL_MATRIX * NORMAL;
 }
 
 void fragment() {
