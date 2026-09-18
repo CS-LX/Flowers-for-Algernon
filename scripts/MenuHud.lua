@@ -42,6 +42,7 @@ local Sfx = require "Sfx"
 ---@field onResetProgress fun()|nil
 ---@field onCredits fun()|nil
 ---@field onQuit fun()|nil
+---@field onFeel fun()|nil
 local MenuHud = {}
 MenuHud.__index = MenuHud
 

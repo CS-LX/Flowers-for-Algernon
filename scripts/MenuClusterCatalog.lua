@@ -17,7 +17,7 @@ local CITY_LOOK = {
     ["slots.wall.gradeHaze"] = "0.22",
 }
 
-local CITY_FOG = { heightA = 0.80, heightB = 0.00, color = "#348AA3" }
+local CITY_FOG = { heightA = -1.04, heightB = -1.67, color = "#348AA3" }
 
 -- 颜色/高度雾对齐 1-1 Path look，但不读 level-1-1.json。
 local CHAPTER1_VOXEL_LOOK = {
@@ -131,12 +131,12 @@ local DAISY_LOOK = {
     ["slots.wall.gradeHaze"] = "0.00",
 }
 
-local DAISY_FOG = { heightA = 0.80, heightB = 0.00, color = "#000000" }
+local DAISY_FOG = { heightA = -1.25, heightB = -1.70, color = "#000000" }
 local CHAPTER1_FOG = { heightA = -1.25, heightB = -1.55, color = "#C0B499" }
-local LAB_FOG = { heightA = 0.80, heightB = 0.00, color = "#102121" }
-local LAB_CAMERA_FOG = { heightA = -0.22, heightB = -1.08, color = "#102121" }
-local LAB_DESK_FOG = { heightA = 0.20, heightB = 0.02, color = "#102121" }
-local LAB_MONITOR_FOG = { heightA = 0.00, heightB = 0.00, color = "#102121" }
+local LAB_FOG = { heightA = -0.80, heightB = -1.34, color = "#102121" }
+local LAB_CAMERA_FOG = LAB_FOG
+local LAB_DESK_FOG = LAB_FOG
+local LAB_MONITOR_FOG = LAB_FOG
 
 -- 实验室簇：左边摄像机朝中心拍，右边桌子上放监视器。槽色走 sidecar。
 local LAB_LOOK = {}
