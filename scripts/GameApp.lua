@@ -168,6 +168,12 @@ function GameApp:Start()
         end
         self:BackToLevelSelect()
     end)
+    self.playHud.onSkip = function()
+        local director = self.session and self.session.director
+        if director then
+            director:SkipStoryModals()
+        end
+    end
     AudioSettings.Load(function()
         if self.menuHud then
             self.menuHud:SyncVolumes()

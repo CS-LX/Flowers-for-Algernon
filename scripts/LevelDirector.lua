@@ -666,6 +666,15 @@ function LevelDirector:PlayStory(lines, options)
     return started
 end
 
+function LevelDirector:SkipStoryModals()
+    if not self.storyPlayer then
+        return false
+    end
+    local skipped = self.storyPlayer:SkipModalRun()
+    self:SyncStoryInputLock()
+    return skipped
+end
+
 function LevelDirector:StopStory()
     if self.storyPlayer and self.storyPlayer:IsPlaying() then
         self.storyPlayer:Skip()

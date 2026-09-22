@@ -230,6 +230,38 @@ function StoryPlayer:Skip()
     return true
 end
 
+-- 跳过当前连续 modal，停在下一条非 modal（演出/banner）或整段结束。
+function StoryPlayer:SkipModalRun()
+    if not self.playing then
+        return false
+    end
+    local line = self.lines[self.index]
+    if not line or line.mode ~= "modal" then
+        return false
+    end
+    if self.view and self.view.CancelExit then
+        self.view:CancelExit()
+    end
+    local nextIndex = self.index + 1
+    while nextIndex <= #self.lines and self.lines[nextIndex].mode == "modal" do
+        nextIndex = nextIndex + 1
+    end
+    print(string.format(
+        "StoryPlayer: skip modal run from=%d to=%d total=%d",
+        self.index,
+        nextIndex,
+        #self.lines
+    ))
+    if nextIndex > #self.lines then
+        self:Finish()
+        return true
+    end
+    self.exiting = false
+    self.index = nextIndex
+    self:ShowCurrent(true)
+    return true
+end
+
 function StoryPlayer:Finish()
     local complete = self.onComplete
     self:Stop(true)

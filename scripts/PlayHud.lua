@@ -1,22 +1,27 @@
--- 关卡内 HUD：剧情层 + 退出按钮。
--- 退出按钮和对话 Mark 共用 HexMarkDraw；Esc 仍由 GameApp 处理，按钮走同一回调。
+-- 关卡内 HUD：剧情层 + 退出按钮 + modal 跳过。
+-- 退出/跳过和对话 Mark 共用 HexMarkDraw；Esc 仍由 GameApp 处理，按钮走同一回调。
 
 local UI = require("urhox-libs/UI")
 local StoryView = require "StoryView"
 local LevelExitButton = require "LevelExitButton"
+local StorySkipButton = require "StorySkipButton"
 
 ---@class PlayHud
 ---@field onExit fun()|nil
+---@field onSkip fun()|nil
 ---@field root Widget|nil
 ---@field storyView table|nil
 ---@field storyHost Widget|nil
 ---@field exitButton LevelExitButton|nil
+---@field skipButton StorySkipButton|nil
 ---@field hiding boolean
+---@field skipVisible boolean
 ---@field creditsRoll table|nil
 local PlayHud = {}
 PlayHud.__index = PlayHud
 
 local EXIT_FADE = LevelExitButton.FADE_DURATION
+local SKIP_FADE = StorySkipButton.FADE_DURATION
 
 local function EnsureUI()
     UI.Init({
@@ -38,6 +43,8 @@ end
 function PlayHud.New(onExit)
     local self = setmetatable({}, PlayHud)
     self.onExit = onExit
+    ---@type fun()|nil
+    self.onSkip = nil
     ---@type Widget|nil
     self.root = nil
     ---@type table|nil
@@ -48,7 +55,12 @@ function PlayHud.New(onExit)
     self.exitButton = nil
     ---@type Widget|nil
     self.exitHost = nil
+    ---@type StorySkipButton|nil
+    self.skipButton = nil
+    ---@type Widget|nil
+    self.skipHost = nil
     self.hiding = false
+    self.skipVisible = false
     ---@type table|nil
     self.creditsRoll = nil
     return self
@@ -61,6 +73,44 @@ function PlayHud:RequestExit()
     if self.onExit then
         self.onExit()
     end
+end
+
+function PlayHud:RequestSkip()
+    if self.hiding or not self.skipVisible then
+        return
+    end
+    if self.onSkip then
+        self.onSkip()
+    end
+    self:SyncSkipButton()
+end
+
+function PlayHud:SetSkipVisible(visible)
+    local show = visible == true
+    if self.skipVisible == show then
+        return
+    end
+    self.skipVisible = show
+    if not self.skipButton then
+        return
+    end
+    if show then
+        self.skipButton:SetClickArmed(true)
+        self.skipButton:FadeTo(1.0, SKIP_FADE)
+        print("PlayHud: story skip shown")
+    else
+        self.skipButton:SetClickArmed(false)
+        self.skipButton:FadeTo(0.0, SKIP_FADE)
+        print("PlayHud: story skip hidden")
+    end
+end
+
+function PlayHud:SyncSkipButton()
+    local show = not self.hiding
+        and self.creditsRoll == nil
+        and self.storyView ~= nil
+        and self.storyView.mode == "modal"
+    self:SetSkipVisible(show)
 end
 
 function PlayHud:Show(definition)
@@ -88,6 +138,27 @@ function PlayHud:Show(definition)
             self.exitButton,
         },
     }
+    self.skipButton = StorySkipButton {
+        onSkip = function()
+            self:RequestSkip()
+        end,
+    }
+    self.skipButton:SetIconAlpha(0.0)
+    self.skipButton:SetClickArmed(false)
+    self.skipVisible = false
+    self.skipHost = UI.Panel {
+        position = "absolute",
+        right = 0,
+        top = 0,
+        width = 140,
+        height = 140,
+        paddingTop = 24,
+        paddingRight = 24,
+        pointerEvents = "box-none",
+        children = {
+            self.skipButton,
+        },
+    }
     self.root = UI.Panel {
         width = "100%",
         height = "100%",
@@ -95,6 +166,7 @@ function PlayHud:Show(definition)
         children = {
             self.storyHost,
             self.exitHost,
+            self.skipHost,
         },
     }
     UI.SetRoot(self.root, true)
@@ -108,6 +180,7 @@ function PlayHud:BeginExitFade()
     self.hiding = true
     self.exitButton:SetClickArmed(false)
     self.exitButton:FadeTo(0.0, EXIT_FADE)
+    self:SetSkipVisible(false)
     if self.storyView then
         self.storyView:Hide()
     end
@@ -126,6 +199,7 @@ function PlayHud:Update(timeStep)
     if self.creditsRoll then
         self.creditsRoll:Update(timeStep)
     end
+    self:SyncSkipButton()
 end
 
 function PlayHud:ShowCredits(onComplete, onFadeOut, canSkip)
@@ -134,6 +208,7 @@ function PlayHud:ShowCredits(onComplete, onFadeOut, canSkip)
         self:Show(nil)
     end
     self.hiding = true
+    self:SetSkipVisible(false)
     if self.storyView then
         self.storyView:Hide()
     end
@@ -191,6 +266,9 @@ function PlayHud:Hide()
     self.storyHost = nil
     self.exitButton = nil
     self.exitHost = nil
+    self.skipButton = nil
+    self.skipHost = nil
+    self.skipVisible = false
     if self.creditsRoll then
         self.creditsRoll:Hide()
         self.creditsRoll = nil
