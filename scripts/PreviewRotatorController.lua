@@ -87,6 +87,10 @@ local function HandleRadiusWeight(vector)
     return radius / MIN_HANDLE_RADIUS
 end
 
+local function LogGesture(tag, fields)
+    print("Preview Rotator: " .. tag .. " " .. table.concat(fields, " "))
+end
+
 local function ApproachAngle(current, target, follow, timeStep)
     local remaining = ShortestDelta(current, target)
     local step = remaining * math.min(1.0, follow * timeStep)
@@ -128,6 +132,7 @@ function PreviewRotatorController.New(levelDocument, partRenderer, pathRuntime, 
     self.slipStartYawDegrees = 0.0
     self.slowSnapAttempt = false
     self.failedSnapAttempt = false
+    self.gestureLog = nil
     ---@type fun(payload: table)|nil
     self.onFault = nil
     self.authoredStates = {}
@@ -217,6 +222,101 @@ end
 
 function PreviewRotatorController:IsFaultAttemptActive()
     return self.stallAttempt or self.slipScheduled or self.slipActive or self.slowSnapAttempt
+end
+
+function PreviewRotatorController:BeginGestureLog(part, mouse)
+    local width = math.max(1, graphics:GetWidth())
+    local height = math.max(1, graphics:GetHeight())
+    local dpr = 1.0
+    if graphics.GetDPR then
+        dpr = graphics:GetDPR()
+    end
+    self.gestureLog = {
+        partId = part.id,
+        mode = ControlSettings.RotateMode(),
+        sensitivity = ControlSettings.Sensitivity(),
+        dpr = dpr,
+        width = width,
+        height = height,
+        startX = mouse.x,
+        startY = mouse.y,
+        maxPixels = 0.0,
+        maxDx = 0.0,
+        maxDy = 0.0,
+        missFrames = 0,
+        sampleFrames = 0,
+        weightMin = 1.0,
+        peakAngle = 0.0,
+    }
+    LogGesture("gesture begin", {
+        "part=" .. part.id,
+        "mode=" .. ControlSettings.RotateMode(),
+        string.format("sens=%.2f", ControlSettings.Sensitivity()),
+        string.format("dpr=%.2f", dpr),
+        string.format("screen=%dx%d", width, height),
+        string.format("start=(%.0f,%.0f)", mouse.x, mouse.y),
+    })
+end
+
+function PreviewRotatorController:NoteGestureSample(target)
+    local log = self.gestureLog
+    if not log or not self.dragStartMouse then
+        return
+    end
+    local mouse = GetPointerPosition()
+    local dx = mouse.x - self.dragStartMouse.x
+    local dy = mouse.y - self.dragStartMouse.y
+    local pixels = math.sqrt(dx * dx + dy * dy)
+    if pixels > log.maxPixels then
+        log.maxPixels = pixels
+        log.maxDx = dx
+        log.maxDy = dy
+    end
+    if not target then
+        log.missFrames = log.missFrames + 1
+        return
+    end
+    log.sampleFrames = log.sampleFrames + 1
+    local angle = math.abs(ShortestDelta(self.baseYawDegrees, target))
+    if angle > log.peakAngle then
+        log.peakAngle = angle
+    end
+    if not ControlSettings.IsPanRotate() and self.dragStartVector then
+        local pivotPosition = self.partRenderer:GetPivotWorldPosition(log.partId)
+        local hit = pivotPosition and IntersectYawPlane(GetScreenRay(self.camera), pivotPosition)
+        if hit then
+            local weight = HandleRadiusWeight(hit - pivotPosition)
+            if weight < log.weightMin then
+                log.weightMin = weight
+            end
+        end
+    end
+end
+
+function PreviewRotatorController:EndGestureLog(result)
+    local log = self.gestureLog
+    self.gestureLog = nil
+    if not log then
+        return
+    end
+    LogGesture("gesture end", {
+        "part=" .. log.partId,
+        "result=" .. result,
+        "mode=" .. log.mode,
+        string.format("sens=%.2f", log.sensitivity),
+        string.format("dpr=%.2f", log.dpr),
+        string.format("screen=%dx%d", log.width, log.height),
+        string.format("pixels=%.1f", log.maxPixels),
+        string.format("dx=%.1f", log.maxDx),
+        string.format("dy=%.1f", log.maxDy),
+        string.format("peak=%.1f", log.peakAngle),
+        "samples=" .. tostring(log.sampleFrames),
+        "miss=" .. tostring(log.missFrames),
+        string.format("weightMin=%.2f", log.weightMin),
+        "stall=" .. tostring(self.stallAttempt),
+        "slip=" .. tostring(self.slipScheduled or self.slipActive),
+        "deadzone=" .. tostring(log.maxPixels < DRAG_DEADZONE_PIXELS),
+    })
 end
 
 function PreviewRotatorController:FinishAttempt()
@@ -395,6 +495,7 @@ function PreviewRotatorController:BeginPending(part, ray, mouse)
     self.dragCommitted = false
     self.pendingClickConsumed = false
     self:FinishAttempt()
+    self:BeginGestureLog(part, mouse)
     return true
 end
 
@@ -413,6 +514,7 @@ function PreviewRotatorController:PromotePendingToDrag()
 end
 
 function PreviewRotatorController:CancelPendingAsClick()
+    self:EndGestureLog("click")
     self.pendingClickConsumed = true
     self.phase = PHASE_IDLE
     self.activePart = nil
@@ -422,6 +524,7 @@ function PreviewRotatorController:CancelPendingAsClick()
 end
 
 function PreviewRotatorController:CancelPendingQuietly()
+    self:EndGestureLog("cancel")
     self.pendingClickConsumed = false
     self.phase = PHASE_IDLE
     self.activePart = nil
@@ -534,6 +637,7 @@ function PreviewRotatorController:UpdateDrag(timeStep)
         return
     end
     local target = self:SampleTargetYaw()
+    self:NoteGestureSample(target)
     if target and not self.stallAttempt then
         self.targetYawDegrees = target
     end
@@ -564,6 +668,7 @@ function PreviewRotatorController:UpdateSlip(timeStep)
         self.dragCommitted = false
         self:FinishAttempt()
         print("Preview Rotator: slip recovery finished")
+        self:EndGestureLog("slip")
     end
 end
 
@@ -595,6 +700,7 @@ function PreviewRotatorController:UpdateSnap(timeStep)
     if math.abs(remaining) <= SNAP_EPSILON then
         self:ApplyVisualYaw(self.snapYawDegrees)
         if self.failedSnapAttempt then
+            self:EndGestureLog("stall")
             self:SetPlayerLocked(false)
             self.phase = PHASE_IDLE
             self.activePart = nil
@@ -605,9 +711,13 @@ function PreviewRotatorController:UpdateSnap(timeStep)
         end
         local committed = self:CommitSnap(part)
         if not committed then
+            self:EndGestureLog("rejected")
             self:ApplyVisualYaw(self.baseYawDegrees)
             self:SetPlayerLocked(false)
             print("Preview Rotator: snap cleanup after rejected commit")
+        else
+            local moved = math.abs(ShortestDelta(self.baseYawDegrees, self.snapYawDegrees)) > SNAP_EPSILON
+            self:EndGestureLog(moved and "commit" or "snap-back")
         end
         self.phase = PHASE_IDLE
         self.activePart = nil
